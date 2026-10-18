@@ -1,0 +1,30 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Talha Studio</title><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#0b0b0b">
+<style>
+:root{--g:#c9a84c;--bg:#0b0b0b;--f:#f4f1ea}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--f);font-family:Georgia,serif;overflow:hidden;overscroll-behavior:none}
+#c{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
+#intro{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:12px;padding:0 0 12vh;background:linear-gradient(transparent 40%,#000d);transition:opacity .8s;z-index:5;text-align:center}
+#intro.hide{opacity:0;pointer-events:none}
+h1{letter-spacing:.35em;font-weight:400;margin:0;font-size:1.6rem}
+button{font:inherit;color:var(--f);background:#000a;border:1px solid var(--g);padding:12px 22px;border-radius:2px;letter-spacing:.2em;cursor:pointer}
+button.p{background:var(--g);color:#000}
+#hud{position:fixed;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom));display:none;justify-content:space-between;padding:0 14px;z-index:3;pointer-events:none}
+#hud>*{pointer-events:auto}.pad{display:grid;grid-template-columns:repeat(3,48px);gap:6px}.pad button{padding:0;height:48px}
+#top{position:fixed;top:calc(10px + env(safe-area-inset-top));left:12px;right:12px;display:none;justify-content:space-between;z-index:3}
+#hint{position:fixed;top:70px;left:0;right:0;text-align:center;font-size:.8rem;opacity:.8;z-index:3;display:none}
+#modal,#cartp{position:fixed;inset:0;z-index:9;background:#000e;overflow:auto;padding:18px}
+.card{max-width:520px;margin:0 auto}.card img{width:100%;border-radius:2px;background:#222;aspect-ratio:3/4;object-fit:cover}
+select,input{font:inherit;padding:10px;background:#111;color:var(--f);border:1px solid #444;margin:4px 6px 4px 0}
+.row{display:flex;justify-content:space-between;gap:8px;margin:8px 0;align-items:center}.note{opacity:.6;font-size:.8rem}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="intro"><h1>TALHA STUDIO</h1><div class="note">Premium Pakistani clothing</div><button id="enter" class="p">ENTER STORE</button><button id="skip">SKIP INTRO</button></div>
+<div id="top"><button id="home">HOME</button><button id="cartb">CART (<span id="cc">0</span>)</button></div>
+<div id="hint">Drag to look · drag up/down to walk · tap a garment <button id="hh" style="padding:2px 8px">hide</button></div>
+<div id="hud"><div class="pad"><span></span><button data-a="f">▲</button><span></span><button data-a="l">◀</button><button data-a="b">▼</button><button data-a="r">▶</button></div></div>
+<div id="modal" hidden></div><div id="cartp" hidden></div>
+<script type="module" src="/src/main.js"></script>
+<script>if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js')</script>
+</body></html>

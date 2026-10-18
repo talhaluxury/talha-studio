@@ -1,0 +1,4 @@
+{"name":"talha-studio","private":true,"version":"0.1.0","type":"module",
+"scripts":{"dev":"vite --host","build":"vite build","preview":"vite preview --host"},
+"dependencies":{"firebase":"^10.14.1","three":"^0.169.0"},
+"devDependencies":{"vite":"^5.4.10","@capacitor/core":"^6.1.2","@capacitor/cli":"^6.1.2","@capacitor/android":"^6.1.2"}}

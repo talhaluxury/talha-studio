@@ -1,0 +1,12 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function isAdmin() { return request.auth != null && request.auth.token.admin == true; }
+    match /products/{id}   { allow read: if true; allow write: if isAdmin(); }
+    match /categories/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /config/{id}     { allow read: if true; allow write: if isAdmin(); }
+    match /carts/{uid}     { allow read, write: if request.auth != null && request.auth.uid == uid; }
+    // Orders must be created by a trusted Cloud Function (price/stock validation). Clients can only read their own.
+    match /orders/{id}     { allow read: if request.auth != null && (resource.data.uid == request.auth.uid || isAdmin()); allow write: if false; }
+  }
+}
