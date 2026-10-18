@@ -1,30 +1,98 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Talha Studio</title><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#0b0b0b">
-<style>
-:root{--g:#c9a84c;--bg:#0b0b0b;--f:#f4f1ea}
-*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--f);font-family:Georgia,serif;overflow:hidden;overscroll-behavior:none}
-#c{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
-#intro{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:12px;padding:0 0 12vh;background:linear-gradient(transparent 40%,#000d);transition:opacity .8s;z-index:5;text-align:center}
-#intro.hide{opacity:0;pointer-events:none}
-h1{letter-spacing:.35em;font-weight:400;margin:0;font-size:1.6rem}
-button{font:inherit;color:var(--f);background:#000a;border:1px solid var(--g);padding:12px 22px;border-radius:2px;letter-spacing:.2em;cursor:pointer}
-button.p{background:var(--g);color:#000}
-#hud{position:fixed;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom));display:none;justify-content:space-between;padding:0 14px;z-index:3;pointer-events:none}
-#hud>*{pointer-events:auto}.pad{display:grid;grid-template-columns:repeat(3,48px);gap:6px}.pad button{padding:0;height:48px}
-#top{position:fixed;top:calc(10px + env(safe-area-inset-top));left:12px;right:12px;display:none;justify-content:space-between;z-index:3}
-#hint{position:fixed;top:70px;left:0;right:0;text-align:center;font-size:.8rem;opacity:.8;z-index:3;display:none}
-#modal,#cartp{position:fixed;inset:0;z-index:9;background:#000e;overflow:auto;padding:18px}
-.card{max-width:520px;margin:0 auto}.card img{width:100%;border-radius:2px;background:#222;aspect-ratio:3/4;object-fit:cover}
-select,input{font:inherit;padding:10px;background:#111;color:var(--f);border:1px solid #444;margin:4px 6px 4px 0}
-.row{display:flex;justify-content:space-between;gap:8px;margin:8px 0;align-items:center}.note{opacity:.6;font-size:.8rem}
-</style></head><body>
-<canvas id="c"></canvas>
-<div id="intro"><h1>TALHA STUDIO</h1><div class="note">Premium Pakistani clothing</div><button id="enter" class="p">ENTER STORE</button><button id="skip">SKIP INTRO</button></div>
-<div id="top"><button id="home">HOME</button><button id="cartb">CART (<span id="cc">0</span>)</button></div>
-<div id="hint">Drag to look · drag up/down to walk · tap a garment <button id="hh" style="padding:2px 8px">hide</button></div>
-<div id="hud"><div class="pad"><span></span><button data-a="f">▲</button><span></span><button data-a="l">◀</button><button data-a="b">▼</button><button data-a="r">▶</button></div></div>
-<div id="modal" hidden></div><div id="cartp" hidden></div>
-<script type="module" src="/src/main.js"></script>
-<script>if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js')</script>
-</body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#101010" />
+  <title>Talha Studio | 3D Clothing Boutique</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <button id="menuBtn" class="icon-btn" aria-label="Open menu">☰</button>
+      <a class="brand" href="#"><span class="brand-mark">TS</span><span><b>TALHA STUDIO</b><small>PREMIUM CLOTHING</small></span></a>
+      <div class="top-actions">
+        <button id="searchBtn" class="icon-btn" aria-label="Search">⌕</button>
+        <button id="cartBtn" class="icon-btn cart-button" aria-label="Cart">♧ <span id="cartCount">0</span></button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">THE DIGITAL FLAGSHIP STORE</p>
+          <h1>Discover your<br><em>signature style.</em></h1>
+          <p>Explore a boutique-inspired collection in an interactive 3D showroom.</p>
+          <a class="primary-btn" href="#showroom">ENTER SHOWROOM <span>↗</span></a>
+        </div>
+        <div class="hero-image" role="img" aria-label="Luxury clothing boutique interior">
+          <div class="hero-shade"></div>
+          <div class="hero-caption"><span>01 / NEW COLLECTION</span><b>Made to be noticed.</b></div>
+        </div>
+      </section>
+
+      <section class="category-strip" aria-label="Categories">
+        <button class="category active" data-category="All"><span>✦</span> All collection</button>
+        <button class="category" data-category="Men"><span>◈</span> Men</button>
+        <button class="category" data-category="Women"><span>❋</span> Women</button>
+        <button class="category" data-category="Stitched"><span>✂</span> Stitched</button>
+        <button class="category" data-category="Unstitched"><span>▤</span> Unstitched</button>
+      </section>
+
+      <section id="showroom" class="showroom-section">
+        <div class="section-heading">
+          <div><p class="eyebrow">STEP INSIDE</p><h2>Virtual showroom</h2></div>
+          <div class="showroom-controls"><span class="live-dot"></span><span>Interactive 3D view</span><button id="resetView" class="small-btn">Reset view ↺</button></div>
+        </div>
+        <div class="showroom-layout">
+          <div class="scene-wrap">
+            <div id="scene" aria-label="Interactive 3D showroom"></div>
+            <div class="scene-hint">DRAG TO LOOK AROUND · SCROLL TO ZOOM</div>
+            <div class="scene-loading" id="sceneLoading">Preparing your showroom…</div>
+            <div class="scene-tools"><button id="zoomIn" aria-label="Zoom in">＋</button><button id="zoomOut" aria-label="Zoom out">−</button></div>
+          </div>
+          <aside class="product-panel">
+            <p class="eyebrow">FEATURED PIECE</p>
+            <div id="productPreview" class="product-preview"><div class="mini-garment"></div></div>
+            <div class="product-meta"><span id="productCategory">MEN · STITCHED</span><span class="stock">IN STOCK</span></div>
+            <h3 id="productName">Midnight Classic Suit</h3>
+            <p id="productDescription" class="muted">A refined deep-navy look with a clean, timeless silhouette.</p>
+            <div class="price-row"><strong id="productPrice">PKR 8,500</strong><span class="muted">Taxes included</span></div>
+            <div class="swatches" id="swatches" aria-label="Choose color">
+              <button class="swatch selected" data-color="#172b49" style="--swatch:#172b49" aria-label="Navy"></button>
+              <button class="swatch" data-color="#171717" style="--swatch:#171717" aria-label="Black"></button>
+              <button class="swatch" data-color="#9b8061" style="--swatch:#9b8061" aria-label="Sand"></button>
+              <button class="swatch" data-color="#53674e" style="--swatch:#53674e" aria-label="Olive"></button>
+            </div>
+            <button id="addToCart" class="primary-btn full">ADD TO BAG <span>＋</span></button>
+            <button id="detailsBtn" class="text-btn">View product details →</button>
+            <p class="panel-note">Demo storefront: connect Firebase and a real checkout before accepting orders.</p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="collection-section">
+        <div class="section-heading"><div><p class="eyebrow">CURATED FOR YOU</p><h2>Shop the collection</h2></div><span class="muted" id="resultCount">4 pieces</span></div>
+        <div id="productGrid" class="product-grid"></div>
+      </section>
+    </main>
+
+    <footer><a class="brand footer-brand" href="#"><span class="brand-mark">TS</span><span><b>TALHA STUDIO</b><small>PREMIUM CLOTHING</small></span></a><p>Thoughtfully selected. Confidently worn.</p><small>© <span id="year"></span> Talha Studio. All rights reserved.</small></footer>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <dialog id="cartDialog" class="modal">
+    <form method="dialog" class="modal-head"><div><p class="eyebrow">YOUR SELECTION</p><h2>Shopping bag</h2></div><button class="icon-btn" aria-label="Close">×</button></form>
+    <div id="cartItems" class="cart-items"></div>
+    <div class="cart-total"><span>Total</span><strong id="cartTotal">PKR 0</strong></div>
+    <button id="checkoutBtn" class="primary-btn full">CONTINUE TO CHECKOUT ↗</button>
+    <p class="panel-note">Checkout is a demo placeholder; no payment is processed.</p>
+  </dialog>
+  <dialog id="detailsDialog" class="modal">
+    <form method="dialog" class="modal-head"><div><p class="eyebrow">PRODUCT DETAILS</p><h2 id="detailTitle">Midnight Classic Suit</h2></div><button class="icon-btn" aria-label="Close">×</button></form>
+    <p id="detailText" class="muted"></p><p class="panel-note">Product information and stock are sample data. Edit products in <code>app.js</code>.</p>
+  </dialog>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

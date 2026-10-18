@@ -1,18 +1,41 @@
-# Talha Studio, 3D virtual clothing store
+# Talha Studio — 3D Boutique Starter
 
-**Status: starter scaffold. Not yet built or tested** (no network was available to install dependencies when this was generated). Run the workflows and fix any errors first.
+A from-scratch responsive storefront prototype with a Three.js interactive showroom, sample product catalog, category filtering, color swatches, cart dialog and demo checkout notice.
 
-## Implemented
-Cinematic entrance + ENTER/SKIP, 3D showroom (Three.js) with 4 sections, drag-to-look/walk, on-screen buttons, wall/rack collision, tap garments to open product details, cart with quantities/totals (localStorage), Firestore product loading with demo fallback, PWA manifest + service worker, Firestore rules, web + Android workflows.
+## Run it
 
-## Not implemented yet
-Auth, checkout/orders (needs Cloud Function), admin dashboard, Storage uploads, 3D garment models, mini-map, search, order tracking, payment gateways, tests. Garments are placeholder boxes, not real product models.
+This uses ES modules, so open it through a local web server rather than directly as `file://`.
 
-## Run
-`npm install && cp .env.example .env && npm run dev`
+### Option A — Python
+From this folder:
+```bash
+python -m http.server 8080
+```
+Then open `http://localhost:8080`.
 
-## Firebase
-Create a project, enable Firestore, add a web app, put values in `.env` (locally) and in GitHub secrets `VITE_FB_API_KEY, VITE_FB_AUTH_DOMAIN, VITE_FB_PROJECT_ID, VITE_FB_STORAGE_BUCKET, VITE_FB_APP_ID`. Deploy `firestore.rules`. Product docs: `name, section(men|women|unstitched|sale), price, salePrice, sizes[], colors[], stock, images[], description, fabric, active`.
+### Option B — VS Code
+Use the Live Server extension and open `index.html`.
 
-## GitHub
-Create repo, push this folder to `main`. Settings > Pages > Source: GitHub Actions. Actions tab > "Web (PWA)" deploys the site; "Android APK/AAB" produces `talha-studio-apk` / `-aab` artifacts (debug-signed; release signing needs your own keystore stored as secrets). Actions and Pages are free within GitHub's free-tier limits; Firebase has its own free tier.
+### Android phone
+Upload this folder to a static host such as Netlify, or use a local development server app that serves the folder. Internet is needed for the Three.js CDN, Google Fonts and the hero photo.
+
+## Optional GLB model
+
+1. Create `public/models/`.
+2. Put your model there as `suit.glb`.
+3. `app.js` already points to `./public/models/suit.glb`.
+4. The model loads as an additional showcase object if the file is present. Adjust `loadedModel.scale` and `loadedModel.position` to fit it.
+
+The project still shows procedural rack and mannequin garments when the GLB is missing. Note: GLB models vary in scale and origin, so one downloaded model may need positioning adjustments.
+
+## What's included
+- `index.html` — storefront markup and dialogs
+- `style.css` — responsive boutique styling
+- `app.js` — Three.js scene and demo interactions
+
+## Important
+- Product information and prices are sample data.
+- Cart state is in-memory and resets on refresh.
+- Checkout does not take payment or submit orders.
+- Firebase, authentication, real stock, admin dashboard, order management and payment gateway are not connected in this starter.
+- This is a functional starting point, not a finished production store.

@@ -1,0 +1,59 @@
+name: Build Talha Studio Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - "android/**"
+      - "capacitor.config.*"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/build-android-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Android project exists
+        shell: bash
+        run: |
+          if [ ! -d "android" ]; then
+            echo "::error::No android/ project found. This starter is a web app. First wrap it as an Android app (recommended: Capacitor) and commit the generated android/ folder."
+            exit 1
+          fi
+          if [ ! -f "android/gradlew" ]; then
+            echo "::error::android/gradlew is missing. Generate and commit the Gradle wrapper before building."
+            exit 1
+          fi
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android/gradlew
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: talha-studio-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
