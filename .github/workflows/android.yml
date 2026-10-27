@@ -9,7 +9,6 @@ jobs:
     env:
       GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}   # optional; hides the Google button when empty
       API_BASE_URL: ${{ vars.API_BASE_URL }}   # repo Variable: https://your-api-host/v1/ (used for debug AND release builds)
-      HAS_KEYSTORE: ${{ secrets.TS_KEYSTORE_BASE64 != '' }}
     defaults: { run: { working-directory: android } }
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +18,13 @@ jobs:
         with: { gradle-version: "8.9" }   # no wrapper committed yet; run `gradle wrapper` locally to add one
       - name: Firebase config (optional, enables push)
         env: { GSJ: "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" }
-        run: if [ -n "$GSJ" ]; then echo "$GSJ" | base64 -d > app/google-services.json; echo "google-services.json written"; else echo "no Firebase config: push disabled in this build"; fi
+        run: |
+          if [ -n "$GSJ" ]; then
+            echo "$GSJ" | base64 -d > app/google-services.json
+            echo "google-services.json written"
+          else
+            echo "no Firebase config - push disabled in this build"
+          fi
       - name: Unit tests
         run: gradle :app:testDebugUnitTest -PversionCode=${{ github.run_number }}
       - name: Android lint (report only)
@@ -29,8 +34,12 @@ jobs:
         run: gradle :app:assembleDebug -PversionCode=${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with: { name: talha-studio-debug-apk, path: android/app/build/outputs/apk/debug/*.apk }
+      - id: ks
+        env: { K: "${{ secrets.TS_KEYSTORE_BASE64 }}" }
+        run: |
+          if [ -n "$K" ]; then echo "has=true" >> "$GITHUB_OUTPUT"; else echo "has=false" >> "$GITHUB_OUTPUT"; fi
       - name: Build signed release AAB (only if signing secrets exist)
-        if: ${{ env.HAS_KEYSTORE == 'true' }}
+        if: ${{ steps.ks.outputs.has == 'true' }}
         env:
           KEYSTORE_B64: ${{ secrets.TS_KEYSTORE_BASE64 }}
           TS_KEYSTORE_PASSWORD: ${{ secrets.TS_KEYSTORE_PASSWORD }}
@@ -40,5 +49,5 @@ jobs:
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
           TS_KEYSTORE_PATH="$RUNNER_TEMP/release.jks" gradle :app:bundleRelease -PversionCode=${{ github.run_number }}
       - uses: actions/upload-artifact@v4
-        if: ${{ env.HAS_KEYSTORE == 'true' }}
+        if: ${{ steps.ks.outputs.has == 'true' }}
         with: { name: talha-studio-release-aab, path: android/app/build/outputs/bundle/release/*.aab }

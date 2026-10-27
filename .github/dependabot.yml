@@ -1,6 +1,29 @@
 version: 2
 updates:
-  - { package-ecosystem: npm, directory: /backend, schedule: { interval: weekly }, open-pull-requests-limit: 5 }
-  - { package-ecosystem: gradle, directory: /android, schedule: { interval: weekly }, open-pull-requests-limit: 5 }
-  - { package-ecosystem: gradle, directory: /admin-android, schedule: { interval: weekly }, open-pull-requests-limit: 5 }
-  - { package-ecosystem: github-actions, directory: /, schedule: { interval: weekly } }
+  - package-ecosystem: npm
+    directory: /backend
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: gradle
+    directory: /android
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.jetbrains.kotlin*"
+      - dependency-name: "androidx.navigation*"
+  - package-ecosystem: gradle
+    directory: /admin-android
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.jetbrains.kotlin*"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }

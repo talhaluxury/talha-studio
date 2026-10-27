@@ -8,7 +8,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ADMIN_API_BASE: ${{ vars.ADMIN_API_BASE }}          # Settings > Secrets and variables > Actions > Variables (HTTPS URL ending in /v1)
-      HAS_KEYSTORE: ${{ secrets.TS_KEYSTORE_BASE64 != '' }}
     defaults: { run: { working-directory: admin-android } }
     steps:
       - uses: actions/checkout@v4
@@ -23,8 +22,12 @@ jobs:
         run: gradle :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with: { name: talha-admin-debug-apk, path: admin-android/app/build/outputs/apk/debug/*.apk }
+      - id: ks
+        env: { K: "${{ secrets.TS_KEYSTORE_BASE64 }}" }
+        run: |
+          if [ -n "$K" ]; then echo "has=true" >> "$GITHUB_OUTPUT"; else echo "has=false" >> "$GITHUB_OUTPUT"; fi
       - name: Build signed release APK (only if signing secrets exist)
-        if: ${{ env.HAS_KEYSTORE == 'true' }}
+        if: ${{ steps.ks.outputs.has == 'true' }}
         env:
           KEYSTORE_B64: ${{ secrets.TS_KEYSTORE_BASE64 }}
           TS_KEYSTORE_PASSWORD: ${{ secrets.TS_KEYSTORE_PASSWORD }}
@@ -34,5 +37,5 @@ jobs:
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
           TS_KEYSTORE_PATH="$RUNNER_TEMP/release.jks" gradle :app:assembleRelease
       - uses: actions/upload-artifact@v4
-        if: ${{ env.HAS_KEYSTORE == 'true' }}
+        if: ${{ steps.ks.outputs.has == 'true' }}
         with: { name: talha-admin-release-apk, path: admin-android/app/build/outputs/apk/release/*.apk }

@@ -7,7 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       API_BASE: ${{ vars.ADMIN_API_BASE }}                # Variables: https://your-api-host/v1
-      HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
       - name: Point the admin site at your API
@@ -17,8 +16,12 @@ jobs:
           sed -i "s|^export const API_BASE = .*|export const API_BASE = \"$API_BASE\";|" admin/js/config.js
           grep -n "API_BASE" admin/js/config.js
       - run: for f in admin/js/*.js admin/js/views/*.js admin/sw.js; do node --check "$f"; done
+      - id: ks
+        env: { K: "${{ secrets.CLOUDFLARE_API_TOKEN }}" }
+        run: |
+          if [ -n "$K" ]; then echo "has=true" >> "$GITHUB_OUTPUT"; else echo "has=false" >> "$GITHUB_OUTPUT"; fi
       - name: Deploy to Cloudflare Pages (only when credentials exist)
-        if: ${{ env.HAS_CF == 'true' }}
+        if: ${{ steps.ks.outputs.has == 'true' }}
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
