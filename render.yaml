@@ -7,13 +7,14 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     plan: free
+    region: singapore
     healthCheckPath: /healthz
     autoDeploy: true
     envVars:
       - { key: NODE_ENV, value: production }
       - { key: TRUST_PROXY_HOPS, value: "1" }
       - { key: STORAGE_DRIVER, value: s3 }
-      - { key: EMAIL_DRIVER, value: resend }
+      - { key: EMAIL_DRIVER, value: none }
       - { key: STORE_TIMEZONE, value: Asia/Karachi }
       - { key: DATABASE_URL, sync: false }          # Neon connection string (sslmode=require)
       - { key: JWT_ACCESS_SECRET, generateValue: true }
