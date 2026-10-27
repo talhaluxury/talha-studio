@@ -25,7 +25,7 @@ jobs:
       - name: Unit, acceptance and PostgreSQL integration tests
         run: npm test
       - name: Migrations apply cleanly on a fresh database
-        run: npm run migrate
+        run: npx tsx src/migrate.ts   # no .env file in CI; DATABASE_URL comes from env below
         env: { DATABASE_URL: "postgres://postgres:ci@localhost:5432/talha" }
       - run: npm run build
   deploy:
