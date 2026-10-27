@@ -32,7 +32,7 @@ jobs:
         run: gradle :app:lintDebug
       - name: Build debug APK
         run: gradle :app:assembleDebug -PversionCode=${{ github.run_number }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: talha-studio-debug-apk, path: android/app/build/outputs/apk/debug/*.apk }
       - id: ks
         env: { K: "${{ secrets.TS_KEYSTORE_BASE64 }}" }
@@ -48,6 +48,6 @@ jobs:
         run: |
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
           TS_KEYSTORE_PATH="$RUNNER_TEMP/release.jks" gradle :app:bundleRelease -PversionCode=${{ github.run_number }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ steps.ks.outputs.has == 'true' }}
         with: { name: talha-studio-release-aab, path: android/app/build/outputs/bundle/release/*.aab }

@@ -20,7 +20,7 @@ jobs:
         with: { gradle-version: "8.9" }
       - name: Build debug APK
         run: gradle :app:assembleDebug
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: talha-admin-debug-apk, path: admin-android/app/build/outputs/apk/debug/*.apk }
       - id: ks
         env: { K: "${{ secrets.TS_KEYSTORE_BASE64 }}" }
@@ -36,6 +36,6 @@ jobs:
         run: |
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
           TS_KEYSTORE_PATH="$RUNNER_TEMP/release.jks" gradle :app:assembleRelease
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ steps.ks.outputs.has == 'true' }}
         with: { name: talha-admin-release-apk, path: admin-android/app/build/outputs/apk/release/*.apk }

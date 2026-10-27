@@ -27,5 +27,5 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy admin --project-name=${{ vars.CF_PAGES_PROJECT }} --branch=main
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: talha-admin-site, path: admin }
