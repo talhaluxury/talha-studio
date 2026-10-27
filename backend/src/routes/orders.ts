@@ -67,18 +67,18 @@ export function orderRoutes(app: FastifyInstance, d: { orders: OrderStore; stora
     if (!o) throw notFound("Order not found"); return toApiOrder(o, storage);
   });
   app.post<{ Params: { id: string } }>("/me/orders/:id/cancel", pre, async (req) => {
-    const id = idParam.parse(req.params.id); const before = await orders.getForUser(req.user!.id, id);
+    const id = idParam.parse(req.params.id); const before = await orders.getForUser(req.user!.id, id); const prevStatus = before?.status;   // snapshot before update
     try {
       const o = await orders.customerCancel(req.user!.id, id); if (!o || !before) throw notFound("Order not found");
-      await fire(events.statusChanged(o, before.status), req); return toApiOrder(o, storage);
+      await fire(events.statusChanged(o, prevStatus!), req); return toApiOrder(o, storage);
     } catch (e) { throw mapOrderError(e); }
   });
   app.post<{ Params: { id: string } }>("/me/orders/:id/return", pre, async (req) => {
     const id = idParam.parse(req.params.id); const { reason } = z.object({ reason: z.string().trim().min(5).max(500) }).parse(req.body);
-    const before = await orders.getForUser(req.user!.id, id);
+    const before = await orders.getForUser(req.user!.id, id); const prevStatus = before?.status;   // snapshot before update
     try {
       const o = await orders.requestReturn(req.user!.id, id, reason, cfg.RETURN_WINDOW_DAYS); if (!o || !before) throw notFound("Order not found");
-      await fire(events.statusChanged(o, before.status), req); return toApiOrder(o, storage);
+      await fire(events.statusChanged(o, prevStatus!), req); return toApiOrder(o, storage);
     } catch (e) { throw mapOrderError(e); }
   });
 }

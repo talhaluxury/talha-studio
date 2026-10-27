@@ -57,10 +57,11 @@ export function adminOrderRoutes(app: FastifyInstance, d: {
     const b = z.object({ status, note: z.string().trim().max(300).nullish().transform((v) => v || null),
       trackingUrl: z.string().trim().url().max(300).refine((u) => u.startsWith("https://"), "Tracking link must start with https://").nullish().transform((v) => v || null) }).parse(req.body);
     const before = await orders.adminGet(id); if (!before) throw notFound("Order not found");
+    const prevStatus = before.status;   // snapshot: in-memory store mutates the same object
     try {
       const o = await orders.adminSetStatus(id, b.status as never, b.note, b.trackingUrl, req.user!.id); if (!o) throw notFound("Order not found");
-      await store.logActivity({ adminId: req.user!.id, action: "order.status", entity: "order", entityId: id, meta: { from: before.status, to: o.status }, ip: req.ip });
-      await events.statusChanged(o, before.status).catch((err) => req.log.error({ err: String(err) }, "order event failed"));
+      await store.logActivity({ adminId: req.user!.id, action: "order.status", entity: "order", entityId: id, meta: { from: prevStatus, to: o.status }, ip: req.ip });
+      await events.statusChanged(o, prevStatus).catch((err) => req.log.error({ err: String(err) }, "order event failed"));
       return withNext(o);
     } catch (e) { throw mapOrderError(e); }
   });
