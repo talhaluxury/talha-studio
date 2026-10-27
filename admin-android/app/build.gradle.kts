@@ -24,7 +24,7 @@ val syncAdminWeb = tasks.register<Copy>("syncAdminWeb") {
             filter { line -> if (line.trimStart().startsWith("export const API_BASE")) "export const API_BASE = \"$adminApiBase\";" else line }
         }
     }
-    into(layout.buildDirectory.dir("generated/adminAssets/assets"))
+    into(layout.buildDirectory.dir("generated/adminAssets"))
 }
 
 android {
