@@ -13,7 +13,8 @@ export const notFound = (m = "Not found") => new AppError(404, "NOT_FOUND", m);
 export const conflict = (m: string) => new AppError(409, "CONFLICT", m);
 
 export function installErrorHandler(app: FastifyInstance) {
-  app.setErrorHandler((err, req, reply) => {
+  app.setErrorHandler((rawErr, req, reply) => {
+    const err = rawErr as Error;   // Fastify 5 types the error as unknown
     if (err instanceof ZodError) {
       const fields: Record<string, string> = {};
       for (const i of err.issues) fields[i.path.join(".") || "_"] = i.message;

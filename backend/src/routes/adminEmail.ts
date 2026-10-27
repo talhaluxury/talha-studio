@@ -40,7 +40,7 @@ export function adminEmailRoutes(app: FastifyInstance, d: {
   app.get("/admin/settings", owner, async () => ({ settings: await settings.load(), email: await status() }));
   app.put("/admin/settings", owner, async (req) => {
     const b = settingsBody.parse(req.body);
-    await settings.save(b);
+    await settings.save({ ...(await settings.load()), ...b });   // body covers email settings only; keep shipping/announcement/pages
     await store.logActivity({ adminId: req.user!.id, action: "settings.update", meta: { ownerEmailSet: !!b.ownerEmail }, ip: req.ip });
     return { settings: await settings.load(), email: await status() };
   });

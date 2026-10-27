@@ -1,7 +1,7 @@
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
-import Fastify from "fastify";
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
 import { OAuth2Client } from "google-auth-library";
 import type { Config } from "./config.js";
 import { installErrorHandler } from "./errors.js";
@@ -54,11 +54,13 @@ export async function buildApp(cfg: Config, deps: Deps) {
   const events = deps.events ?? composeEvents(deps.email, deps.push);       // order emails + push are the default side effects of order events
   const images = deps.images ?? sharpProcessor;
   const google = deps.google ?? googleVerifier(cfg.GOOGLE_WEB_CLIENT_ID);
-  const app = Fastify({
+  const serverOptions: FastifyServerOptions = {
     logger: cfg.NODE_ENV === "test" ? false : { level: "info", redact: ["req.headers.authorization", "req.headers.cookie"] },
     trustProxy: cfg.TRUST_PROXY_HOPS,   // number of reverse proxies in front; a spoofed X-Forwarded-For beyond that is ignored (matters for rate limits)
     bodyLimit: 256 * 1024,
-  });
+  };
+  // Typed options + explicit type keep TypeScript from picking the HTTP/2 overload of Fastify().
+  const app = Fastify(serverOptions) as unknown as FastifyInstance;
   installErrorHandler(app);
   // Authenticated and account responses must never be cached by browsers or proxies.
   app.addHook("onSend", async (req, reply) => { if (/^\/v1\/(me|admin|auth|orders|cart)/.test(req.url)) reply.header("cache-control", "no-store"); });
