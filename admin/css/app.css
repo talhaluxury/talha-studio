@@ -12,7 +12,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 500; margin: 0; letter-sp
 h1 { font-size: 1.9rem; } h2 { font-size: 1.25rem; }
 button, input, select, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.muted { color: var(--gray); } .sr { position: absolute; left: -9999px; }
+.muted { color: var(--gray); } .sr { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 /* shell */

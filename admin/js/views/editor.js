@@ -97,10 +97,10 @@ export async function renderEditor(view, idArg) {
           h("button", { class: "btn ghost sm", type: "button", disabled: i === 0, "aria-label": "Move earlier", onclick: () => move(i, -1) }, "Up"),
           h("button", { class: "btn ghost sm", type: "button", disabled: i === p.images.length - 1, "aria-label": "Move later", onclick: () => move(i, 1) }, "Down"),
           h("button", { class: "btn danger sm", type: "button", "aria-label": "Delete photo", onclick: () => del(im) }, "Delete")) : null))));
-    const picker = h("input", { type: "file", id: "pick", accept: "image/*", multiple: true, class: "sr", onchange: (e) => { const files = [...e.target.files]; errors.length = 0; addFiles(files); } });
+    const picker = h("input", { type: "file", id: "pick", accept: "image/*", class: "sr", onchange: (e) => { const files = [...e.target.files]; errors.length = 0; if (!files.length) { toast("No photo was received from the picker. Try again.", "error"); return; } toast(`Selected ${files.length} photo...`); addFiles(files); } });
     const queue = h("div", { "aria-live": "polite" });
     put(clear(imageCard), h("h2", {}, `Photos (${p.images.length}/10)`),
-      h("p", { class: "hint" }, "JPG, PNG or WebP, up to 8 MB each. Photos are resized and compressed automatically. The first photo is the main one."),
+      h("p", { class: "hint" }, "JPG, PNG or WebP, up to 8 MB each. Photos are resized and compressed automatically. The first photo is the main one. Add them one at a time. (uploader v6)"),
       write ? h("div", { class: "drop" }, picker, h("label", { class: "btn gold", for: "pick" }, "Choose photos")) : null, queue, p.images.length ? grid : h("p", { class: "muted" }, "No photos yet."));
 
     async function addFiles(files) {

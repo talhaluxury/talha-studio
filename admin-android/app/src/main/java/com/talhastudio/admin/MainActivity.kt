@@ -22,7 +22,15 @@ class MainActivity : ComponentActivity() {
     private var chooser: ValueCallback<Array<Uri>>? = null
 
     private val picker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
-        chooser?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(r.resultCode, r.data))
+        var uris = WebChromeClient.FileChooserParams.parseResult(r.resultCode, r.data)
+        if (uris == null && r.resultCode == RESULT_OK) {
+            // Some gallery apps return the picked photo in a shape parseResult misses; read it ourselves.
+            val list = mutableListOf<Uri>()
+            r.data?.clipData?.let { c -> for (i in 0 until c.itemCount) list += c.getItemAt(i).uri }
+            if (list.isEmpty()) r.data?.data?.let { list += it }
+            if (list.isNotEmpty()) uris = list.toTypedArray()
+        }
+        chooser?.onReceiveValue(uris)
         chooser = null
     }
 
