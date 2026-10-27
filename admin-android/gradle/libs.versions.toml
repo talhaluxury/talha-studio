@@ -2,7 +2,7 @@
 agp = "8.5.2"
 kotlin = "2.0.20"
 activity = "1.9.2"
-webkit = "1.11.0"
+webkit = "1.18.0"
 coreKtx = "1.13.1"
 
 [libraries]
