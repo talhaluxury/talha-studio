@@ -2,7 +2,7 @@ import { api, session, uploadImage } from "../api.js";
 import { clear, confirmDialog, h, money, showFieldErrors, toast, put } from "../ui.js";
 
 const MAX_BYTES = 8 * 1024 * 1024;
-const TYPES = ["image/jpeg", "image/png", "image/webp"];
+const EXT = /\.(jpe?g|png|webp)$/i;   // Android pickers often give an empty/odd file.type, so check the name too. The server validates by decoding anyway.
 
 export async function renderEditor(view, idArg) {
   const isNew = idArg === "new";
@@ -97,24 +97,30 @@ export async function renderEditor(view, idArg) {
           h("button", { class: "btn ghost sm", type: "button", disabled: i === 0, "aria-label": "Move earlier", onclick: () => move(i, -1) }, "Up"),
           h("button", { class: "btn ghost sm", type: "button", disabled: i === p.images.length - 1, "aria-label": "Move later", onclick: () => move(i, 1) }, "Down"),
           h("button", { class: "btn danger sm", type: "button", "aria-label": "Delete photo", onclick: () => del(im) }, "Delete")) : null))));
-    const picker = h("input", { type: "file", id: "pick", accept: TYPES.join(","), multiple: true, class: "sr", onchange: (e) => { addFiles([...e.target.files]); e.target.value = ""; } });
+    const picker = h("input", { type: "file", id: "pick", accept: "image/*", multiple: true, class: "sr", onchange: (e) => { const files = [...e.target.files]; errors.length = 0; addFiles(files); } });
     const queue = h("div", { "aria-live": "polite" });
     put(clear(imageCard), h("h2", {}, `Photos (${p.images.length}/10)`),
       h("p", { class: "hint" }, "JPG, PNG or WebP, up to 8 MB each. Photos are resized and compressed automatically. The first photo is the main one."),
       write ? h("div", { class: "drop" }, picker, h("label", { class: "btn gold", for: "pick" }, "Choose photos")) : null, queue, p.images.length ? grid : h("p", { class: "muted" }, "No photos yet."));
 
     async function addFiles(files) {
+      if (!files.length) return;
       for (const file of files) {
-        if (!TYPES.includes(file.type)) { toast(`${file.name}: only JPG, PNG or WebP images are allowed.`, "error"); continue; }
-        if (file.size > MAX_BYTES) { toast(`${file.name} is larger than 8 MB.`, "error"); continue; }
-        if (p.images.length >= 10) { toast("A product can have at most 10 photos.", "error"); break; }
-        const bar = h("i", {}); const row = h("div", {}, h("span", { class: "hint" }, file.name), h("div", { class: "prog" }, bar)); queue.append(row);
-        try { await uploadImage(p.id, file, (pc) => { bar.style.width = pc + "%"; }); p = await api(`/admin/products/${p.id}`); }
-        catch (ex) { toast(`${file.name}: ${ex.message}`, "error"); }
+        const label = file.name || "photo";
+        const okType = /^image\/(jpeg|jpg|png|webp)$/i.test(file.type) || (!/^image\//i.test(file.type) && EXT.test(file.name || "")) || (file.type === "" && !file.name);
+        if (!okType) { fail(label, "only JPG, PNG or WebP photos are allowed (HEIC/other formats are not supported)."); continue; }
+        if (file.size > MAX_BYTES) { fail(label, "is larger than 8 MB."); continue; }
+        if (p.images.length >= 10) { fail(label, "not added: a product can have at most 10 photos."); break; }
+        const bar = h("i", {}); const row = h("div", {}, h("span", { class: "hint" }, `Uploading ${label}...`), h("div", { class: "prog" }, bar)); queue.append(row);
+        try { await uploadImage(p.id, file, (pc) => { bar.style.width = pc + "%"; }); p = await api(`/admin/products/${p.id}`); toast("Photo added"); }
+        catch (ex) { fail(label, ex.message); }
         row.remove();
       }
       drawImages(); drawActions?.();
+      if (errors.length) { const box = h("div", { class: "card uperr", role: "alert" }, h("b", {}, "Some photos were not added:"), ...errors.map((m) => h("div", { class: "hint" }, m))); imageCard.append(box); }
     }
+    const errors = [];
+    function fail(name, msg) { const m = `${name}: ${msg}`; errors.push(m); toast(m, "error"); }
     async function move(i, d) {
       const ids = p.images.map((x) => x.id); [ids[i], ids[i + d]] = [ids[i + d], ids[i]];
       try { p = await api(`/admin/products/${p.id}/images/order`, { method: "PATCH", body: { imageIds: ids } }); drawImages(); } catch (ex) { toast(ex.message, "error"); }
