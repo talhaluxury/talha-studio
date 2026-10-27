@@ -56,7 +56,8 @@ export async function buildApp(cfg: Config, deps: Deps) {
   const google = deps.google ?? googleVerifier(cfg.GOOGLE_WEB_CLIENT_ID);
   const serverOptions: FastifyServerOptions = {
     logger: cfg.NODE_ENV === "test" ? false : { level: "info", redact: ["req.headers.authorization", "req.headers.cookie"] },
-    trustProxy: cfg.TRUST_PROXY_HOPS,   // number of reverse proxies in front; a spoofed X-Forwarded-For beyond that is ignored (matters for rate limits)
+    // Trust only the first N reverse proxies in front (Render = 1); a spoofed X-Forwarded-For beyond that is ignored (matters for rate limits).
+    trustProxy: (_address: string, hop: number) => hop < cfg.TRUST_PROXY_HOPS,
     bodyLimit: 256 * 1024,
   };
   // Typed options + explicit type keep TypeScript from picking the HTTP/2 overload of Fastify().
