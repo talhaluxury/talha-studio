@@ -1,5 +1,7 @@
 package com.talhastudio.app.data
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import com.talhastudio.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
