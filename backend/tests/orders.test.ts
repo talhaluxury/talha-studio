@@ -42,6 +42,7 @@ const call = (method: any, url: string, token?: string, payload?: unknown, heade
   app.inject({ method, url, payload: payload as object, headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers } });
 
 async function product(sku: string, price: number, salePrice: number | null, stock: number) {
+  sku = `SKU-${sku}`;   // API requires 2+ char SKUs
   const cat = (await catalog.listCategories(false))[0] ?? (await catalog.createCategory({ name: "Women", slug: "women", parentId: null, sortOrder: 0, isActive: true }));
   const p = (await call("POST", "/v1/admin/products", admin, { sku, name: `Item ${sku}`, categoryId: cat.id, price, salePrice, variants: [{ sku: `${sku}-M`, size: "M", color: "Black", stock }] })).json();
   await catalog.addImage(p.id, { storageKey: `products/${p.id}/a.webp`, thumbKey: `products/${p.id}/a-t.webp`, width: 1, height: 1 });
