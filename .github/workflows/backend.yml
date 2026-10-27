@@ -1,0 +1,39 @@
+name: Backend
+on:
+  push: { branches: [main], paths: ["backend/**", "scripts/**", ".github/workflows/backend.yml"] }
+  pull_request: { paths: ["backend/**", "scripts/**"] }
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: ci, POSTGRES_DB: talha }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL_TEST: postgres://postgres:ci@localhost:5432/talha     # enables tests/pg.integration.test.ts (real SQL, race conditions)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install   # commit package-lock.json, then switch to `npm ci`
+      - run: npm run typecheck
+      - name: Unit, acceptance and PostgreSQL integration tests
+        run: npm test
+      - name: Migrations apply cleanly on a fresh database
+        run: npm run migrate
+        env: { DATABASE_URL: "postgres://postgres:ci@localhost:5432/talha" }
+      - run: npm run build
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env: { HOOK: "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" }
+    steps:
+      - name: Trigger deploy (only when a deploy hook secret exists)
+        run: |
+          if [ -n "$HOOK" ]; then curl -fsS -X POST "$HOOK" >/dev/null && echo "deploy triggered"; else echo "RENDER_DEPLOY_HOOK_URL not set: skipping (Render may still auto-deploy from the branch)"; fi

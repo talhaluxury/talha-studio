@@ -1,0 +1,22 @@
+name: Security
+on:
+  push: { branches: [main] }
+  pull_request:
+  schedule: [{ cron: "17 5 * * 1" }]     # weekly: new advisories appear even when the code does not change
+  workflow_dispatch:
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/check-secrets.sh
+  audit:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --package-lock-only --ignore-scripts
+      - name: Fail on high/critical advisories in production dependencies
+        run: npm audit --omit=dev --audit-level=high

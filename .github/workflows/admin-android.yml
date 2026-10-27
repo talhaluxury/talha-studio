@@ -1,0 +1,38 @@
+name: Admin Android app
+on:
+  push: { branches: [main], paths: ["admin/**", "admin-android/**", ".github/workflows/admin-android.yml"] }
+  pull_request: { paths: ["admin/**", "admin-android/**"] }
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ADMIN_API_BASE: ${{ vars.ADMIN_API_BASE }}          # Settings > Secrets and variables > Actions > Variables (HTTPS URL ending in /v1)
+      HAS_KEYSTORE: ${{ secrets.TS_KEYSTORE_BASE64 != '' }}
+    defaults: { run: { working-directory: admin-android } }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax-check admin web modules
+        working-directory: .
+        run: for f in admin/js/*.js admin/js/views/*.js; do node --check "$f"; done
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: "8.9" }
+      - name: Build debug APK
+        run: gradle :app:assembleDebug
+      - uses: actions/upload-artifact@v4
+        with: { name: talha-admin-debug-apk, path: admin-android/app/build/outputs/apk/debug/*.apk }
+      - name: Build signed release APK (only if signing secrets exist)
+        if: ${{ env.HAS_KEYSTORE == 'true' }}
+        env:
+          KEYSTORE_B64: ${{ secrets.TS_KEYSTORE_BASE64 }}
+          TS_KEYSTORE_PASSWORD: ${{ secrets.TS_KEYSTORE_PASSWORD }}
+          TS_ADMIN_KEY_ALIAS: ${{ secrets.TS_ADMIN_KEY_ALIAS }}
+          TS_KEY_PASSWORD: ${{ secrets.TS_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          TS_KEYSTORE_PATH="$RUNNER_TEMP/release.jks" gradle :app:assembleRelease
+      - uses: actions/upload-artifact@v4
+        if: ${{ env.HAS_KEYSTORE == 'true' }}
+        with: { name: talha-admin-release-apk, path: admin-android/app/build/outputs/apk/release/*.apk }

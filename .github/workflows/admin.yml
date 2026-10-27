@@ -1,0 +1,15 @@
+name: Admin
+on:
+  push: { branches: [main], paths: ["admin/**", ".github/workflows/admin.yml"] }
+  pull_request: { paths: ["admin/**"] }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Syntax-check every module
+        run: for f in admin/js/*.js admin/js/views/*.js admin/sw.js; do node --check "$f"; done
+      - uses: actions/upload-artifact@v4
+        with: { name: talha-admin-site, path: admin }
