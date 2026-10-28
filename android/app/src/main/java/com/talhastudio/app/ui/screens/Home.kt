@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import com.talhastudio.app.data.Session
 import com.talhastudio.app.push.routeFor
 import androidx.compose.material3.*
@@ -38,7 +39,7 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
     val home = rememberLoad("home") { Repo.home() }
     // Show last visit's feed instantly while fresh data loads (or when offline).
     val cachedHome = remember { Repo.cachedHome() }
-    val homeState: Load<HomeData> = when (val s = home.state) { is Load.Ready -> s; else -> cachedHome?.let { Load.Ready(it) } ?: s }
+    val homeState: Load<HomeData> = when (val s = home.state) { is Load.Ready -> s; else -> cachedHome?.let { Load.Ready<HomeData>(it) } ?: s }
     val recent = rememberLoad(shop.recent.toList()) { Repo.byIds(shop.recent.toList()) }
 
     LazyColumn(contentPadding = PaddingValues(bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
