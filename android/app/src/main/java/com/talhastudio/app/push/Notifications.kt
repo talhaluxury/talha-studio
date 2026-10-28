@@ -46,6 +46,14 @@ object PushTokens {
     }
     /** Registers this phone for the signed-in customer (also refreshes last-seen). Safe to call often. */
     suspend fun sync() { if (!available() || !Session.signedIn) return; token()?.let { runCatching { Repo.registerDevice(it) } } }
+    /** Human-readable push diagnosis for the Notifications screen. */
+    suspend fun status(): String {
+        if (!available()) return "Push OFF: this APK was built without Firebase (google-services.json missing or not applied). Install the newest build."
+        if (!Session.signedIn) return "Push: sign in first."
+        val t = token() ?: return "Push OFF: Firebase could not give this phone a token (check Google Play services, internet, and that package ${app?.packageName} is registered in Firebase)."
+        return try { Repo.registerDevice(t); "Push READY: this phone is registered. If nothing shows in the status bar, check phone settings (Autostart, battery, app notifications)." }
+        catch (e: Exception) { "Push token OK but server registration failed: ${e.message}" }
+    }
     /** Called on sign-out/delete: stop pushes for this account and discard the token. */
     suspend fun unregister() {
         if (!available()) return

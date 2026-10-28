@@ -71,6 +71,11 @@ fun NotificationsScreen(shop: ShopViewModel, onBack: () -> Unit, onNavigate: (St
         LazyColumn(Modifier.padding(pad), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { EnableNotificationsCard() }
             item {
+                var pushStatus by remember { mutableStateOf("Checking push...") }
+                LaunchedEffect(Unit) { pushStatus = PushTokens.status() }
+                Text(pushStatus, style = MaterialTheme.typography.labelSmall, color = TS.Gray)
+            }
+            item {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).padding(horizontal = 16.dp, vertical = 8.dp)) {
                     val p = prefs
                     PrefRow("Order updates", "Confirmed, shipped, delivered, cancelled", p?.orderUpdates ?: true, p != null) { setPref(o = it) }
