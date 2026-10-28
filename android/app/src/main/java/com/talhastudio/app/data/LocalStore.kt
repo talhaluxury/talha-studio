@@ -11,6 +11,12 @@ class LocalStore(ctx: Context) {
     fun onboarded() = sp.getBoolean("onboarded", false)
     fun setOnboarded() = sp.edit().putBoolean("onboarded", true).apply()
 
+    fun askedNotifications() = sp.getBoolean("asked_notif", false)
+    fun setAskedNotifications() = sp.edit().putBoolean("asked_notif", true).apply()
+    /** Last home feed, so the shop shows instantly on open while fresh data loads. */
+    fun homeJson(): String? = sp.getString("home_json", null)
+    fun saveHomeJson(s: String) = sp.edit().putString("home_json", s).apply()
+
     fun wishlist(): List<String> = readIds("wishlist")
     fun saveWishlist(ids: List<String>) = sp.edit().putString("wishlist", JSONArray(ids).toString()).apply()
     fun recent(): List<String> = readIds("recent")

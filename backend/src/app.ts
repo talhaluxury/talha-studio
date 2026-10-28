@@ -75,7 +75,7 @@ export async function buildApp(cfg: Config, deps: Deps) {
     app.get<{ Params: { "*": string } }>("/media/*", async (req, reply) => {
       let path: string; try { path = storage.resolvePath(req.params["*"]); } catch { return reply.status(404).send(); }
       if (!(await storage.exists(req.params["*"]))) return reply.status(404).send();
-      return reply.header("content-type", "image/webp").header("cache-control", "public, max-age=3600").header("cross-origin-resource-policy", "cross-origin").send(createReadStream(path));
+      return reply.header("content-type", "image/webp").header("cache-control", "public, max-age=31536000, immutable").header("cross-origin-resource-policy", "cross-origin").send(createReadStream(path));
     });
   }
 

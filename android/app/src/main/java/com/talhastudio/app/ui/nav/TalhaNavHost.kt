@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
@@ -52,6 +53,15 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
     val shop: ShopViewModel = viewModel()
     val ctx = LocalContext.current
     val local = remember { LocalStore(ctx.applicationContext) }
+
+    // Android 13+: ask once for permission to show notifications on the phone (the Notifications screen can ask again).
+    val askNotif = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
+    val route = nav.currentBackStackEntryAsState().value?.destination?.route
+    LaunchedEffect(route) {
+        if (route == Routes.Main && android.os.Build.VERSION.SDK_INT >= 33 && !com.talhastudio.app.push.notificationsAllowed(ctx) && !local.askedNotifications()) {
+            local.setAskedNotifications(); askNotif.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     // A notification tapped while the app is already open arrives here.
     val activity = ctx as? ComponentActivity

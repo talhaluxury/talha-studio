@@ -41,7 +41,7 @@ export class FcmSender implements PushSender {
     const payload = { message: {
       token, notification: { title: m.title, body: m.body },
       data: { kind: m.kind, ...(m.deepLink ? { deepLink: m.deepLink } : {}), ...(m.notificationId ? { notificationId: m.notificationId } : {}) },
-      android: { priority: m.kind === "order" ? "HIGH" : "NORMAL", notification: { channel_id: m.kind === "order" ? "orders" : "promotions" } },
+      android: { priority: "HIGH", notification: { channel_id: m.kind === "order" ? "orders" : "promotions_hi" } },
     } };
     for (let attempt = 0; attempt < 2; attempt++) {
       const access = await this.accessToken(attempt > 0);

@@ -174,8 +174,16 @@ object Repo {
     const val PAGE_SIZE = 20
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
 
+    private var cache: LocalStore? = null
+    fun initCache(ctx: android.content.Context) { cache = LocalStore(ctx.applicationContext) }
+    /** Last home feed from the previous visit (null on first ever launch). */
+    fun cachedHome(): HomeData? = runCatching { cache?.homeJson()?.let { parseHome(JSONObject(it)) } }.getOrNull()
     suspend fun home(): HomeData {
         val o = Http.request("GET", "/home")
+        runCatching { cache?.saveHomeJson(o.toString()) }
+        return parseHome(o)
+    }
+    private fun parseHome(o: JSONObject): HomeData {
         return HomeData(parseCategories(o.optJSONArray("categories")),
             o.optJSONArray("collections").mapObjects { c -> HomeCollection(c.getString("slug"), c.getString("title"), c.optJSONArray("products").mapObjects { parseProduct(it) }) },
             o.optJSONArray("banners").mapObjects { parseBanner(it) }, o.str("announcement"))

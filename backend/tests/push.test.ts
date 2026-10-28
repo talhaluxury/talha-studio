@@ -215,7 +215,7 @@ describe("FCM HTTP v1 sender (no network: fetch is injected)", () => {
     let first = true; const { f, calls } = fake(() => (first ? ((first = false), { status: 401, body: { error: { status: "UNAUTHENTICATED", message: "expired" } } }) : { status: 200 }));
     await new FcmSender(sa, f).send("t".repeat(30), { ...msg, kind: "promo" });
     expect(calls.filter((c) => c.url.includes("oauth2"))).toHaveLength(2);
-    expect(JSON.parse(String(calls.at(-1)!.init.body)).message.android.notification.channel_id).toBe("promotions");
+    expect(JSON.parse(String(calls.at(-1)!.init.body)).message.android.notification.channel_id).toBe("promotions_hi");
   });
   it("classifies errors: dead token vs temporary vs request problems", async () => {
     const run = async (status: number, error: object) => { try { await new FcmSender(sa, fake(() => ({ status, body: { error } })).f).send("x".repeat(30), msg); return null; } catch (e) { return e as PushError; } };

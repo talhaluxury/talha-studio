@@ -22,12 +22,13 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
 object Channels {
-    const val ORDERS = "orders"; const val PROMOTIONS = "promotions"
+    const val ORDERS = "orders"; const val PROMOTIONS = "promotions_hi"   // "promotions" was low-key (no pop-up); a channel's importance cannot change, so it got a new id
     fun create(ctx: Context) {
         if (Build.VERSION.SDK_INT < 26) return
         val nm = ctx.getSystemService(NotificationManager::class.java)
+        nm.deleteNotificationChannel("promotions")
         nm.createNotificationChannel(NotificationChannel(ORDERS, "Order updates", NotificationManager.IMPORTANCE_HIGH).apply { description = "Order confirmed, shipped, delivered or cancelled" })
-        nm.createNotificationChannel(NotificationChannel(PROMOTIONS, "Offers and news", NotificationManager.IMPORTANCE_DEFAULT).apply { description = "New collections and special offers" })
+        nm.createNotificationChannel(NotificationChannel(PROMOTIONS, "Offers and news", NotificationManager.IMPORTANCE_HIGH).apply { description = "New collections and special offers" })
     }
 }
 
@@ -62,6 +63,6 @@ fun showNotification(ctx: Context, title: String, body: String, deepLink: String
     val n = NotificationCompat.Builder(ctx, if (kind == "order") Channels.ORDERS else Channels.PROMOTIONS)
         .setSmallIcon(R.drawable.ic_stat_talha).setColor(0xFFB99A62.toInt()).setContentTitle(title).setContentText(body)
         .setStyle(NotificationCompat.BigTextStyle().bigText(body)).setAutoCancel(true).setContentIntent(pi)
-        .setPriority(if (kind == "order") NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT).build()
+        .setPriority(NotificationCompat.PRIORITY_HIGH).build()
     runCatching { NotificationManagerCompat.from(ctx).notify(id, n) }
 }

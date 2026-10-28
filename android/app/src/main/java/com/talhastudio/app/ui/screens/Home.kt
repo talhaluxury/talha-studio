@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.talhastudio.app.R
 import com.talhastudio.app.ShopViewModel
+import com.talhastudio.app.data.HomeData
 import com.talhastudio.app.data.Product
 import com.talhastudio.app.data.Repo
 import com.talhastudio.app.ui.components.*
@@ -35,6 +36,9 @@ import com.talhastudio.app.ui.theme.TS
 fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (category: String?) -> Unit, onNotifications: () -> Unit, onSupport: () -> Unit, onOpenPage: (String) -> Unit) {
     LaunchedEffect(Session.user?.id) { shop.refreshUnread() }
     val home = rememberLoad("home") { Repo.home() }
+    // Show last visit's feed instantly while fresh data loads (or when offline).
+    val cachedHome = remember { Repo.cachedHome() }
+    val homeState: Load<HomeData> = when (val s = home.state) { is Load.Ready -> s; else -> cachedHome?.let { Load.Ready(it) } ?: s }
     val recent = rememberLoad(shop.recent.toList()) { Repo.byIds(shop.recent.toList()) }
 
     LazyColumn(contentPadding = PaddingValues(bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
@@ -58,18 +62,18 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                 }
             }
         }
-        (home.state as? Load.Ready)?.data?.announcement?.let { text ->
+        (homeState as? Load.Ready)?.data?.announcement?.let { text ->
             item(key = "announcement") {
                 Text(text, style = MaterialTheme.typography.labelLarge, color = TS.Black, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(TS.Gold.copy(alpha = 0.35f)).padding(horizontal = 14.dp, vertical = 10.dp))
             }
         }
         item(key = "banners") { // Admin-managed banners; before any exist (or while loading) the Talha Studio brand banner is shown
-            val banners = (home.state as? Load.Ready)?.data?.banners.orEmpty()
+            val banners = (homeState as? Load.Ready)?.data?.banners.orEmpty()
             if (banners.isEmpty()) BrandBanner { onBrowse(null) }
             else BannerCarousel(banners) { link -> routeFor(link)?.takeIf { it.startsWith("product/") }?.let { onOpenProduct(it.removePrefix("product/")) } ?: onBrowse(null) }
         }
-        when (val s = home.state) {
+        when (val s = homeState) {
             is Load.Loading -> item { Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) { repeat(4) { SkeletonBox(Modifier.size(64.dp)) } }
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) { repeat(2) { SkeletonBox(Modifier.weight(1f).aspectRatio(0.7f)) } } } }
