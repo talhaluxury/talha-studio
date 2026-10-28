@@ -16,6 +16,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Session.init(applicationContext); PushTokens.init(applicationContext); Channels.create(applicationContext); com.talhastudio.app.data.Repo.initCache(applicationContext)
+        com.talhastudio.app.push.InboxSync.schedule(applicationContext)
         normalizeDeepLink(intent)
         enableEdgeToEdge()
         val fromLink = intent?.data != null
