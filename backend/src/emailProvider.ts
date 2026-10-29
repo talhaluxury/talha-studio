@@ -41,7 +41,7 @@ export class ResendProvider implements EmailProvider {
 export class BrevoProvider implements EmailProvider {
   name = "brevo"; configured = true;
   constructor(private apiKey: string, private fetchImpl: typeof fetch = fetch) {}
-  private static addr(v: string) { const m = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(v); return m ? { name: m[1].trim() || undefined, email: m[2].trim() } : { email: v.trim() }; }
+  private static addr(v: string) { const m = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(v); return m ? { name: (m[1] ?? "").trim() || undefined, email: (m[2] ?? "").trim() } : { email: v.trim() }; }
   async send(m: OutgoingEmail): Promise<SendResult> {
     let res: Response;
     try {
