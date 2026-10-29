@@ -12,9 +12,10 @@ const schema = z.object({
   MAX_COD_ORDER_PKR: z.coerce.number().int().min(1000).default(200000),   // abuse/fraud guard for Cash on Delivery
   RETURN_WINDOW_DAYS: z.coerce.number().int().min(0).default(7),
   STORE_TIMEZONE: z.string().default("Asia/Karachi"),
-  EMAIL_DRIVER: z.enum(["none", "resend", "smtp"]).default("none"),
+  EMAIL_DRIVER: z.enum(["none", "resend", "smtp", "brevo"]).default("none"),
   EMAIL_FROM: z.string().default(""),
   RESEND_API_KEY: z.string().default(""),
+  BREVO_API_KEY: z.string().default(""),               // Brevo HTTPS API key (works on Render free: no SMTP port needed; sender = a verified single sender address)
   RESEND_WEBHOOK_SECRET: z.string().default(""),
   SMTP_HOST: z.string().default(""), SMTP_PORT: z.coerce.number().default(587), SMTP_USER: z.string().default(""), SMTP_PASS: z.string().default(""),
   CRON_SECRET: z.string().default(""),                 // lets an external pinger wake the API and flush the email queue
@@ -61,6 +62,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     catch { throw new Error("Invalid environment:\nFCM_SERVICE_ACCOUNT_JSON must be the full service-account JSON (project_id, client_email, private_key)"); }
   }
   if (d.EMAIL_DRIVER === "resend" && !(d.RESEND_API_KEY && d.EMAIL_FROM)) throw new Error("Invalid environment:\nEMAIL_DRIVER=resend requires RESEND_API_KEY and EMAIL_FROM");
+  if (d.EMAIL_DRIVER === "brevo" && !(d.BREVO_API_KEY && d.EMAIL_FROM)) throw new Error("Invalid environment:\nEMAIL_DRIVER=brevo requires BREVO_API_KEY and EMAIL_FROM");
   if (d.EMAIL_DRIVER === "smtp" && !(d.SMTP_HOST && d.EMAIL_FROM)) throw new Error("Invalid environment:\nEMAIL_DRIVER=smtp requires SMTP_HOST and EMAIL_FROM");
   if (r.data.STORAGE_DRIVER === "s3" && !(r.data.S3_BUCKET && r.data.S3_ACCESS_KEY_ID && r.data.S3_SECRET_ACCESS_KEY && r.data.PUBLIC_MEDIA_BASE_URL)) {
     throw new Error("Invalid environment:\nSTORAGE_DRIVER=s3 requires S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, PUBLIC_MEDIA_BASE_URL");

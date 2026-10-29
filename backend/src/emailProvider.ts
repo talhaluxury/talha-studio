@@ -37,6 +37,28 @@ export class ResendProvider implements EmailProvider {
   }
 }
 
+/** Brevo over HTTPS (port 443, so it works on Render's free plan where SMTP ports are blocked). The sender must be verified in Brevo. */
+export class BrevoProvider implements EmailProvider {
+  name = "brevo"; configured = true;
+  constructor(private apiKey: string, private fetchImpl: typeof fetch = fetch) {}
+  private static addr(v: string) { const m = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(v); return m ? { name: m[1].trim() || undefined, email: m[2].trim() } : { email: v.trim() }; }
+  async send(m: OutgoingEmail): Promise<SendResult> {
+    let res: Response;
+    try {
+      res = await this.fetchImpl("https://api.brevo.com/v3/smtp/email", {
+        method: "POST", signal: AbortSignal.timeout(20_000),
+        headers: { "api-key": this.apiKey, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ sender: BrevoProvider.addr(m.from), to: [{ email: m.to }], subject: m.subject, htmlContent: m.html, textContent: m.text,
+          ...(m.replyTo ? { replyTo: BrevoProvider.addr(m.replyTo) } : {}), headers: { "X-Entity-Ref-ID": m.idempotencyKey } }),
+      });
+    } catch (e) { throw new EmailError(`Could not reach Brevo: ${(e as Error).message}`, false); }
+    const body = (await res.json().catch(() => null)) as { messageId?: string; message?: string; code?: string } | null;
+    if (res.ok) return { messageId: body?.messageId ?? null };
+    const msg = `Brevo ${res.status}: ${body?.message ?? body?.code ?? "request failed"}`;
+    throw new EmailError(msg, res.status >= 400 && res.status < 500 && ![408, 409, 429].includes(res.status));
+  }
+}
+
 export class SmtpProvider implements EmailProvider {
   name = "smtp"; configured = true;
   constructor(private o: { host: string; port: number; user: string; pass: string }) {}
@@ -64,6 +86,7 @@ export class MemoryEmailProvider implements EmailProvider {
 
 export function createEmailProvider(cfg: Config): EmailProvider {
   if (cfg.EMAIL_DRIVER === "resend") return new ResendProvider(cfg.RESEND_API_KEY);
+  if (cfg.EMAIL_DRIVER === "brevo") return new BrevoProvider(cfg.BREVO_API_KEY);
   if (cfg.EMAIL_DRIVER === "smtp") return new SmtpProvider({ host: cfg.SMTP_HOST, port: cfg.SMTP_PORT, user: cfg.SMTP_USER, pass: cfg.SMTP_PASS });
   return new NullProvider();
 }

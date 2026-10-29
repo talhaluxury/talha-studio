@@ -21,7 +21,15 @@ Rough capacity: each order sends about 2 emails at placement plus 1 to 2 later (
 5. Optional: `ADMIN_PUBLIC_URL` (adds "Open order in admin" to the owner email), `PUBLIC_LOGO_URL` (https logo for the email header).
 6. Open the admin panel > **Email & settings**: enter the **owner email**, support details and optional estimated delivery, press **Save**, then **Send test email**.
 
-## Option B: any SMTP server
+## Option A2: Brevo (works on Render free, no domain needed)
+Render's free plan blocks SMTP ports (25/465/587), so Gmail SMTP times out there. Brevo is used over HTTPS instead (free: 300 emails/day).
+1. Create a Brevo account. Settings > **Senders, Domains & Dedicated IPs** > Senders > add your address (e.g. a Gmail) and confirm the email they send.
+2. Settings > **SMTP & API** > API keys > Generate. Copy the key (starts with `xkeysib-`).
+3. On Render set: `EMAIL_DRIVER=brevo`, `BREVO_API_KEY=...`, `EMAIL_FROM="Talha Studio <your-verified-sender@gmail.com>"`. Remove the old `SMTP_*` variables.
+4. Admin > Email & settings > Send test email.
+Mails sent from a free Gmail address can land in spam; a custom domain with Resend/Brevo is better long-term.
+
+## Option B: any SMTP server (not on Render free)
 `EMAIL_DRIVER=smtp`, `SMTP_HOST`, `SMTP_PORT` (587 STARTTLS or 465 TLS), `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`. SMTP gives no delivery webhook and no provider-side idempotency, so a crash at the wrong instant could rarely cause one duplicate. Prefer Resend.
 
 ## Keeping a sleeping free host responsive

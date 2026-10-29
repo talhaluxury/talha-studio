@@ -19,12 +19,19 @@ jobs:
       - name: Firebase config (optional, enables push)
         env: { GSJ: "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" }
         run: |
-          if [ -n "$GSJ" ]; then
-            echo "$GSJ" | base64 -d > app/google-services.json
-            echo "google-services.json written"
-          else
-            echo "no Firebase config - push disabled in this build"
+          if [ -z "$GSJ" ]; then
+            echo "::warning title=PUSH OFF::Secret GOOGLE_SERVICES_JSON_BASE64 is EMPTY or missing (must be a Repository secret under Settings > Secrets and variables > Actions > Secrets)"
+            exit 0
           fi
+          echo "$GSJ" | base64 -d > app/google-services.json || { echo "::error title=BAD SECRET::GOOGLE_SERVICES_JSON_BASE64 is not valid base64"; exit 1; }
+          python3 - <<'PY'
+          import json
+          j = json.load(open("app/google-services.json"))
+          pk = [c["client_info"]["android_client_info"]["package_name"] for c in j.get("client", [])]
+          print("google-services.json OK. project:", j["project_info"]["project_id"], "packages:", pk)
+          need = "com.talhastudio.app.debug"
+          if need not in pk: print("::warning title=DEBUG PACKAGE MISSING::" + need + " is not in google-services.json, debug APK push will fail. Add that Android app in Firebase and re-download the file.")
+          PY
       - name: Unit tests
         run: gradle :app:testDebugUnitTest -PversionCode=${{ github.run_number }}
       - name: Android lint (report only)
