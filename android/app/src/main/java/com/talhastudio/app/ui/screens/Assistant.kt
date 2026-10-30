@@ -84,7 +84,7 @@ fun AssistantOverlay(visible: Boolean, onAction: (AssistantAction) -> Unit) {
 
         Box(
             Modifier.offset { IntOffset(pos.x.roundToInt(), pos.y.roundToInt()) }.size(OrbSize)
-                .graphicsLayer { cameraDistance = 14f * density; rotationY = tilt; scaleX = pulse; scaleY = pulse }
+                .graphicsLayer { cameraDistance = 14f * density.density; rotationY = tilt; scaleX = pulse; scaleY = pulse }
                 .shadow(20.dp, CircleShape, ambientColor = TS.Gold, spotColor = TS.Gold).clip(CircleShape)
                 .pointerInput(Unit) { detectTapGestures(onTap = { open = true }) }
                 .pointerInput(maxX, maxY) {

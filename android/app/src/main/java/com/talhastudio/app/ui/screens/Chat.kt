@@ -27,7 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Image as ImageIcon
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -319,7 +319,7 @@ private fun Composer(value: String, onChange: (String) -> Unit, sending: Boolean
     Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.Bottom) {
         Row(Modifier.weight(1f).shadow(10.dp, pill, ambientColor = Color.Black).clip(pill).background(CardBg).border(0.8.dp, CardLine, pill).padding(start = 4.dp, end = 14.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onPhoto, enabled = !sending) { Icon(ImageIcon, "Send a picture", tint = TS.Gold) }
+            IconButton(onPhoto, enabled = !sending) { Icon(Icons.Outlined.Image, "Send a picture", tint = TS.Gold) }
             BasicTextField(value, onChange, Modifier.weight(1f).padding(vertical = 14.dp), textStyle = TextStyle(color = TS.Ivory, fontSize = 16.sp), cursorBrush = SolidColor(TS.Gold),
                 maxLines = 5, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 decorationBox = { inner -> Box { if (value.isEmpty()) Text("Message", color = TS.Ivory.copy(0.4f), fontSize = 16.sp); inner() } })

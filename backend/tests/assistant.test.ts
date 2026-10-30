@@ -63,7 +63,7 @@ describe("assistant", () => {
   const make = async (l: LLM) => {
     const store = new MemoryStore(); const catalog = new MemoryCatalog(); const orders = new MemoryOrders(catalog, store);
     const cat = await catalog.createCategory({ name: "Men", slug: "men", parentId: null, sortOrder: 0, isActive: true });
-    const p = await catalog.createProduct({ sku: "S1", name: "Black Waistcoat", description: "d", categoryId: cat.id, price: 8000, salePrice: null, fabric: null, isFeatured: false, variants: [{ sku: "S1-M", size: "M", color: "Black", stock: 4 }] } as any);
+    const p = await catalog.createProduct({ sku: "S1", name: "Black Waistcoat", description: "d", categoryId: cat.id, price: 8000, salePrice: null, fabric: null, isPublished: true, isFeatured: false, variants: [{ sku: "S1-M", size: "M", color: "Black", stock: 4 }] } as any);
     return { svc: new AssistantService({ cfg, llm: l, catalog, orders }), p };
   };
   it("turns valid [[tags]] into actions, drops unknown product ids and strips tags from the text", async () => {

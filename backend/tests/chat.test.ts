@@ -79,7 +79,7 @@ describe("customer <-> store chat", () => {
     await post(`/v1/admin/chat/${id}/read`, staff); expect((await get("/v1/admin/chat", staff)).json().unreadTotal).toBe(0);
   });
   it("customers only ever see their own conversation and cannot use the admin routes", async () => {
-    const a = await phoneSignUp("03001111111", "A"); const b = await phoneSignUp("03002222222", "B");
+    const a = await phoneSignUp("03001111111", "Amir Ali"); const b = await phoneSignUp("03002222222", "Bilal Baig");
     await post("/v1/me/chat", a.token, { body: "private" });
     expect((await get("/v1/me/chat", b.token)).json().items).toHaveLength(0);
     expect((await get("/v1/admin/chat", a.token)).statusCode).toBe(401);          // customer token has the wrong audience
