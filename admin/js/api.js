@@ -38,7 +38,8 @@ export async function api(path, { method = "GET", body, auth = true } = {}) {
 
 /** Multipart upload with progress (fetch cannot report upload progress). */
 export const uploadImage = (productId, file, onProgress) => uploadTo(`/admin/products/${productId}/images`, file, onProgress);
-export function uploadTo(path, file, onProgress = () => {}) {
+/** `fields` are plain text parts sent BEFORE the file (the server reads them together with it, e.g. a status caption). */
+export function uploadTo(path, file, onProgress = () => {}, fields = {}) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_BASE}${path}`);
@@ -52,7 +53,7 @@ export function uploadTo(path, file, onProgress = () => {}) {
       if (xhr.status === 401) expired();
       xhr.status >= 200 && xhr.status < 300 ? resolve(data) : reject(new ApiError(xhr.status, data));
     };
-    const fd = new FormData(); fd.append("file", file);
+    const fd = new FormData(); for (const [k, v] of Object.entries(fields)) fd.append(k, v); fd.append("file", file);
     xhr.send(fd);
   });
 }

@@ -36,6 +36,15 @@ export class PushService implements OrderEvents {
     } catch (e) { this.d.log?.error({ err: String(e), order: o.orderNumber }, "order notification failed"); }
   }
 
+  /** A store reply in the customer chat: phone push only (the chat itself is the inbox). Best effort, never throws. */
+  async chatReply(customerId: string, preview: string, deepLink: string) {
+    try {
+      if (!this.configured) return;
+      const tokens = await this.d.store.tokensForUser(customerId);
+      if (tokens.length) await this.sendTo(tokens, { title: "Talha Studio", body: preview.slice(0, 120), deepLink, kind: "promo" });
+    } catch (e) { this.d.log?.error({ err: String(e) }, "chat push failed"); }
+  }
+
   /** Sends to many tokens (bounded concurrency) and deletes tokens FCM reports as dead. Returns counts. */
   async sendTo(tokens: string[], m: PushMessage): Promise<{ sent: number; failed: number }> {
     const dead: string[] = []; let sent = 0, failed = 0; const queue = [...new Set(tokens)];

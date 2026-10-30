@@ -15,8 +15,8 @@ const addr = z.object({
 });
 const norm = (a: z.infer<typeof addr>) => ({ ...a, label: a.label ?? null, line2: a.line2 ?? null, province: a.province ?? null, postalCode: a.postalCode ?? null });
 
-export function meRoutes(app: FastifyInstance, d: { store: Store; auth: ReturnType<typeof import("../plugins/auth.js").makeAuth> }) {
-  const { store, auth } = d;
+export function meRoutes(app: FastifyInstance, d: { store: Store; auth: ReturnType<typeof import("../plugins/auth.js").makeAuth>; onDelete?: (userId: string) => Promise<void> }) {
+  const { store, auth, onDelete } = d;
   const pre = { preHandler: auth.customer };
 
   app.get("/me", pre, async (req) => ({ user: publicUser(req.user!) }));
@@ -35,6 +35,7 @@ export function meRoutes(app: FastifyInstance, d: { store: Store; auth: ReturnTy
       if (!(await verifyPassword(u.passwordHash, password))) throw unauthorized("Incorrect password");
     }
     await store.revokeAllRefreshTokens(u.id);
+    await onDelete?.(u.id).catch(() => {});          // e.g. remove the chat history and its pictures
     await store.anonymiseUser(u.id);
     return reply.status(204).send();
   };

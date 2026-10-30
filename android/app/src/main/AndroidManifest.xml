@@ -27,6 +27,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="talhastudio" android:host="order" />
                 <data android:scheme="talhastudio" android:host="product" />
+                <data android:scheme="talhastudio" android:host="chat" />
             </intent-filter>
         </activity>
         <service android:name=".push.TalhaMessagingService" android:exported="false">

@@ -17,6 +17,13 @@ class LocalStore(ctx: Context) {
     fun homeJson(): String? = sp.getString("home_json", null)
     fun saveHomeJson(s: String) = sp.edit().putString("home_json", s).apply()
 
+    /** Last onboarding slides from the server, so the pictures show instantly on the next first-run (e.g. after reinstall + offline). */
+    fun onboardingJson(): String? = sp.getString("onboarding_json", null)
+    fun saveOnboardingJson(s: String) = sp.edit().putString("onboarding_json", s).apply()
+    /** Status pictures this phone has already watched (drives the gold ring / dot). Only the latest 80 ids are kept. */
+    fun seenStatuses(): Set<String> = readIds("seen_status").toSet()
+    fun addSeenStatus(id: String) = sp.edit().putString("seen_status", JSONArray((readIds("seen_status") + id).distinct().takeLast(80)).toString()).apply()
+
     fun wishlist(): List<String> = readIds("wishlist")
     fun saveWishlist(ids: List<String>) = sp.edit().putString("wishlist", JSONArray(ids).toString()).apply()
     fun recent(): List<String> = readIds("recent")

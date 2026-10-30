@@ -6,6 +6,7 @@ import {
 } from "../security.js";
 import { STAFF_ROLES, type Store, type User } from "../store.js";
 import { FailureThrottle } from "../throttle.js";
+import { normalizePhone, phoneEmail } from "../phone.js";
 
 export interface GoogleVerifier {
   verify(idToken: string): Promise<{ sub: string; email: string; emailVerified: boolean; name: string }>;
@@ -15,13 +16,16 @@ const email = z.string().trim().toLowerCase().email().max(254);
 const password = z.string().min(8, "At least 8 characters").max(128);
 const phone = z.string().trim().regex(/^\+?[0-9 \-]{7,16}$/, "Invalid phone").optional();
 
+export { normalizePhone, phoneEmail };
+const phoneInput = z.string().trim().max(24).transform((v, ctx) => { const n = normalizePhone(v); if (!n) ctx.addIssue({ code: "custom", message: "Enter a valid mobile number" }); return n ?? ""; });
+
 export const publicUser = (u: User) => ({ id: u.id, email: u.email, fullName: u.fullName, phone: u.phone, role: u.role });
 
 // Real dummy hash so login timing is similar whether or not the email exists.
 const DUMMY_P = hashPassword("not-a-real-password-for-timing");
 
-export function authRoutes(app: FastifyInstance, d: { store: Store; secret: string; google: GoogleVerifier }) {
-  const { store, secret, google } = d;
+export function authRoutes(app: FastifyInstance, d: { store: Store; secret: string; google: GoogleVerifier; whatsapp?: { welcome(u: { id: string; fullName: string; phone: string | null }): Promise<void> } }) {
+  const { store, secret, google, whatsapp } = d;
   const strict = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } };
   const loginLock = new FailureThrottle(8, 15 * 60_000); const adminLock = new FailureThrottle(5, 15 * 60_000);
 
@@ -50,6 +54,25 @@ export function authRoutes(app: FastifyInstance, d: { store: Store; secret: stri
     loginLock.reset(b.email);
     // Staff must use the separate admin login; keeps customer and admin access distinct.
     if (STAFF_ROLES.includes(user.role)) throw forbidden("Use the admin panel to sign in");
+    return issueCustomerTokens(user);
+  });
+
+  // Sign in / sign up with a mobile number + password (used by the in-app chat). The number is NOT verified by SMS yet.
+  app.post("/auth/phone/register", strict, async (req, reply) => {
+    const b = z.object({ fullName: z.string().trim().min(2).max(100), phone: phoneInput, password: z.string().min(6, "At least 6 characters").max(128) }).parse(req.body);
+    if (await store.findUserByEmail(phoneEmail(b.phone))) throw conflict("This number already has an account. Please sign in.");
+    const user = await store.createUser({ email: phoneEmail(b.phone), passwordHash: await hashPassword(b.password), googleSub: null, fullName: b.fullName, phone: `+${b.phone}`, role: "customer" });
+    void whatsapp?.welcome(user);                      // WhatsApp welcome, best effort: never delays or fails the sign-up
+    return reply.status(201).send(await issueCustomerTokens(user));
+  });
+
+  app.post("/auth/phone/login", strict, async (req) => {
+    const b = z.object({ phone: phoneInput, password: z.string().min(1).max(128) }).parse(req.body);
+    const key = phoneEmail(b.phone); loginLock.check(key);
+    const user = await store.findUserByEmail(key);
+    const ok = await verifyPassword(user?.passwordHash ?? (await DUMMY_P), b.password);
+    if (!user || !ok || !user.isActive || user.deletedAt) { loginLock.fail(key); throw unauthorized("Incorrect number or password"); }
+    loginLock.reset(key);
     return issueCustomerTokens(user);
   });
 

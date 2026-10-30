@@ -12,13 +12,17 @@ import { renderCampaigns } from "./views/campaigns.js";
 import { renderBanners, renderCoupons } from "./views/promos.js";
 import { renderStoreSettings } from "./views/storeSettings.js";
 import { renderActivity, renderCustomers } from "./views/people.js";
+import { chatUnread, renderChatInbox, renderChatThread } from "./views/chat.js";
+import { renderStatus } from "./views/status.js";
+import { renderWhatsapp } from "./views/whatsapp.js";
+import { renderWelcome } from "./views/welcome.js";
 
 const root = document.getElementById("app");
-const NAV = [["#/dashboard", "Dashboard"], ["#/orders", "Orders"], ["#/products", "Products"], ["#/categories", "Categories"]];
+const NAV = [["#/dashboard", "Dashboard"], ["#/orders", "Orders"], ["#/chat", "Chat"], ["#/products", "Products"], ["#/categories", "Categories"]];
 /** Menu by role: staff fulfil orders; admins also run promotions; the owner also sees settings and the audit trail. */
 const navFor = (role) => {
   if (role !== "admin" && role !== "owner") return NAV;
-  const more = [["#/banners", "Banners"], ["#/coupons", "Coupons"], ["#/customers", "Customers"], ["#/campaigns", "Notifications"]];
+  const more = [["#/banners", "Banners"], ["#/status", "Status"], ["#/whatsapp", "WhatsApp"], ["#/welcome", "Welcome screens"], ["#/coupons", "Coupons"], ["#/customers", "Customers"], ["#/campaigns", "Notifications"]];
   return role === "owner" ? [...NAV, ...more, ["#/store", "Store settings"], ["#/email", "Email & settings"], ["#/activity", "Activity log"]] : [...NAV, ...more, ["#/email", "Email log"]];
 };
 
@@ -49,6 +53,7 @@ async function route() {
   const view = h("div", {});
   const active = `#/${section}`;
   put(clear(root), shell(active, view));
+  chatUnread().then((n) => { if (n && mine === token) document.querySelectorAll('.nav a[href="#/chat"]').forEach((a) => a.append(h("span", { class: "navbadge" }, n > 99 ? "99+" : String(n)))); });
   document.title = `${section[0].toUpperCase() + section.slice(1)} · Talha Studio Admin`;
   try {
     if (section === "dashboard") await renderDashboard(view);
@@ -57,6 +62,11 @@ async function route() {
     else if (section === "orders" && arg) await renderOrderDetail(view, arg);
     else if (section === "orders") await renderOrders(view);
     else if (section === "campaigns") await renderCampaigns(view);
+    else if (section === "chat" && arg) await renderChatThread(view, arg);
+    else if (section === "chat") await renderChatInbox(view);
+    else if (section === "status") await renderStatus(view);
+    else if (section === "whatsapp") await renderWhatsapp(view);
+    else if (section === "welcome") await renderWelcome(view);
     else if (section === "banners") await renderBanners(view);
     else if (section === "coupons") await renderCoupons(view);
     else if (section === "store") await renderStoreSettings(view);

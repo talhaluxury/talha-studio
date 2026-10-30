@@ -74,6 +74,10 @@ fun parseBanner(o: JSONObject) = Banner(o.getString("id"), o.getString("title"),
 fun parseStoreInfo(o: JSONObject) = StoreInfo(o.getString("name"), o.str("supportEmail"), o.str("supportPhone"), o.str("address"), o.str("estimatedDelivery"), o.getJSONObject("shipping").let { it.getInt("flat") to it.getInt("freeOver") }, o.optInt("returnWindowDays", 7),
     o.optJSONArray("pages").mapObjects { it.getString("slug") to it.getString("title") })
 fun parsePage(o: JSONObject) = PageDoc(o.getString("slug"), o.getString("title"), o.getString("body"), o.optJSONArray("contact")?.let { a -> (0 until a.length()).map(a::getString) } ?: emptyList())
+fun parseSlides(o: JSONObject) = o.optJSONArray("slides").mapObjects { Slide(it.getString("id"), it.getString("title"), it.optString("body", ""), it.str("imageUrl")) }
+fun parseChatMessage(o: JSONObject) = ChatMessage(o.getLong("seq"), o.getString("id"), o.getString("sender") == "store", o.optString("body", ""), o.str("imageUrl"), o.getString("createdAt"), o.optBoolean("read", false))
+fun parseStatus(o: JSONObject) = StatusItem(o.getString("id"), o.getString("imageUrl"), o.str("caption"), o.getString("createdAt"))
+fun parseAssistant(o: JSONObject) = AssistantReply(o.optString("reply", ""), o.optJSONArray("actions").mapObjects { AssistantAction(it.getString("type"), it.str("id"), it.getString("label")) })
 fun parseCategories(a: JSONArray?) = a.mapObjects { Category(it.getString("id"), it.getString("slug"), it.getString("name")) }
 
 /** Login state. Tokens live in app-private storage (backups are disabled in the manifest). */
@@ -145,6 +149,33 @@ object Http {
             throw ApiException(true, "Can't reach the store. Check your connection and try again.")
         } finally { c.disconnect() }
     }
+    /** Uploads one picture as multipart/form-data (field "file"), refreshing the session once on 401 like request(). */
+    suspend fun upload(path: String, bytes: ByteArray, mime: String = "image/jpeg", filename: String = "photo.jpg"): JSONObject {
+        suspend fun once(token: String?): JSONObject = withContext(Dispatchers.IO) {
+            val boundary = "----ts" + java.util.UUID.randomUUID().toString().replace("-", "")
+            val c = (URL(BuildConfig.API_BASE_URL.trimEnd('/') + path).openConnection() as HttpURLConnection)
+            try {
+                c.requestMethod = "POST"; c.connectTimeout = 20_000; c.readTimeout = 90_000; c.doOutput = true; c.setChunkedStreamingMode(0)
+                c.setRequestProperty("Accept", "application/json"); c.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+                if (token != null) c.setRequestProperty("Authorization", "Bearer $token")
+                c.outputStream.use { o ->
+                    o.write("--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"$filename\"\r\nContent-Type: $mime\r\n\r\n".toByteArray())
+                    o.write(bytes); o.write("\r\n--$boundary--\r\n".toByteArray())
+                }
+                val code = c.responseCode
+                val text = (if (code < 400) c.inputStream else c.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
+                if (code >= 400) throw parseError(code, text)
+                JSONObject(text.ifBlank { "{}" })
+            } catch (e: IOException) { throw ApiException(true, "Can't reach the store. Check your connection and try again.") }
+            finally { c.disconnect() }
+        }
+        val used = Session.access
+        return try { once(used) } catch (e: ApiException) {
+            if (e.status != 401 || Session.refresh == null) throw e
+            refreshTokens(used); once(Session.access)
+        }
+    }
+
     /** For extra request headers (order creation needs Idempotency-Key). */
     suspend fun post(path: String, body: JSONObject, idempotencyKey: String): JSONObject = withContext(Dispatchers.IO) {
         suspend fun once(token: String?): JSONObject = withContext(Dispatchers.IO) {
@@ -222,6 +253,10 @@ object Repo {
     suspend fun register(name: String, email: String, password: String, phone: String?) =
         Http.request("POST", "/auth/register", JSONObject().put("fullName", name).put("email", email).put("password", password).apply { if (!phone.isNullOrBlank()) put("phone", phone) }).session()
     suspend fun login(email: String, password: String) = Http.request("POST", "/auth/login", JSONObject().put("email", email).put("password", password)).session()
+    /** Mobile-number accounts (used by the chat). The number is not verified by SMS. */
+    suspend fun phoneRegister(name: String, phone: String, password: String) =
+        Http.request("POST", "/auth/phone/register", JSONObject().put("fullName", name).put("phone", phone).put("password", password)).session()
+    suspend fun phoneLogin(phone: String, password: String) = Http.request("POST", "/auth/phone/login", JSONObject().put("phone", phone).put("password", password)).session()
     suspend fun googleLogin(idToken: String) = Http.request("POST", "/auth/google", JSONObject().put("idToken", idToken)).session()
     suspend fun logout() {
         com.talhastudio.app.push.PushTokens.unregister()      // while still signed in, so the server stops pushing to this phone
@@ -276,4 +311,31 @@ object Repo {
     suspend fun page(slug: String) = parsePage(Http.request("GET", "/pages/$slug"))
     /** Everything the store holds about the signed-in customer, as pretty JSON text (GDPR-style export). */
     suspend fun exportMyData(): String = Http.request("GET", "/me/export", auth = true).toString(2)
+
+    // ---- onboarding, chat and status ----
+    /** Slides from the previous successful fetch (empty before the first one). */
+    fun cachedOnboarding(): List<Slide> = runCatching { cache?.onboardingJson()?.let { parseSlides(JSONObject(it)) } }.getOrNull().orEmpty()
+    suspend fun onboarding(): List<Slide> {
+        val o = Http.request("GET", "/onboarding")
+        runCatching { cache?.saveOnboardingJson(o.toString()) }
+        return parseSlides(o)
+    }
+    /** afterSeq = null loads the latest messages; otherwise only newer ones (used for polling). */
+    suspend fun chat(afterSeq: Long?): List<ChatMessage> =
+        Http.request("GET", "/me/chat" + (afterSeq?.let { "?after=$it" } ?: ""), auth = true).optJSONArray("items").mapObjects { parseChatMessage(it) }
+    suspend fun sendChat(text: String) = parseChatMessage(Http.request("POST", "/me/chat", JSONObject().put("body", text), auth = true))
+    suspend fun sendChatImage(bytes: ByteArray) = parseChatMessage(Http.upload("/me/chat/image", bytes))
+    suspend fun chatMarkRead() { Http.request("POST", "/me/chat/read", JSONObject(), auth = true) }
+    suspend fun chatUnread() = Http.request("GET", "/me/chat/unread", auth = true).optInt("unread", 0)
+    suspend fun statuses(): List<StatusItem> = Http.request("GET", "/me/status", auth = true).optJSONArray("items").mapObjects { parseStatus(it) }
+    suspend fun viewStatus(id: String) { Http.request("POST", "/me/status/$id/view", JSONObject(), auth = true) }
+
+    // ---- AI assistant ----
+    /** False when the server has no API key: the floating assistant is then not shown at all. */
+    suspend fun assistantEnabled(): Boolean = runCatching { Http.request("GET", "/assistant/enabled").optBoolean("enabled", false) }.getOrDefault(false)
+    /** [turns] = (role "user"|"assistant", text), oldest first, ending with the customer's question. */
+    suspend fun assistant(turns: List<Pair<String, String>>): AssistantReply {
+        val arr = JSONArray(); turns.forEach { arr.put(JSONObject().put("role", it.first).put("content", it.second.take(1000))) }
+        return parseAssistant(Http.request("POST", "/assistant", JSONObject().put("messages", arr), auth = Session.signedIn))
+    }
 }

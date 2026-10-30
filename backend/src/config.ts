@@ -23,6 +23,13 @@ const schema = z.object({
   PUBLIC_LOGO_URL: z.string().default(""),             // optional absolute https URL of the logo for emails
   STORE_NAME: z.string().default("Talha Studio"),
   FCM_SERVICE_ACCOUNT_JSON: z.string().default(""),     // full Firebase service-account JSON (host secret). Empty = push disabled, in-app inbox still works
+  WHATSAPP_DRIVER: z.enum(["none", "cloud"]).default("none"),   // cloud = WhatsApp Business Cloud API (Meta)
+  WHATSAPP_TOKEN: z.string().default(""), WHATSAPP_PHONE_NUMBER_ID: z.string().default(""),
+  WHATSAPP_LANG: z.string().default("en"),                        // language code the two templates were approved in
+  WHATSAPP_TPL_WELCOME: z.string().default("welcome_customer"), WHATSAPP_TPL_ORDER: z.string().default("order_confirmation"),
+  ANTHROPIC_API_KEY: z.string().default(""),                      // empty = the in-app AI assistant is switched off
+  ASSISTANT_MODEL: z.string().default("claude-haiku-5-5"),
+  ASSISTANT_DAILY_LIMIT: z.coerce.number().int().min(1).max(1000).default(60),   // assistant questions per customer (or IP) per day: protects your API bill
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),   // how many reverse proxies sit in front (Render = 1; Cloudflare + Render = 2)
   MAX_OPEN_ORDERS_PER_USER: z.coerce.number().int().min(1).max(50).default(5),
   ALLOW_LOCAL_STORAGE: z.enum(["0", "1"]).default("0"),

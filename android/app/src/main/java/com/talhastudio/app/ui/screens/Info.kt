@@ -88,7 +88,7 @@ fun SettingsScreen(onBack: () -> Unit, onNotifications: () -> Unit, onOpenPage: 
     Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = { TopAppBar(title = { Text("Settings") }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } }) }) { pad ->
         Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
             if (user != null) {
-                Text("Account", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)); Text("${user.fullName} · ${user.email}", color = TS.Gray, style = MaterialTheme.typography.bodyMedium)
+                Text("Account", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)); Text("${user.fullName} · ${user.contactLine}", color = TS.Gray, style = MaterialTheme.typography.bodyMedium)
                 LinkRow("Notifications", onNotifications)
                 LinkRow(if (exporting) "Preparing your data..." else "Download my data") { if (!exporting) { exporting = true; scope.launch {
                     try { exported = Repo.exportMyData() } catch (e: ApiException) { snack.showSnackbar(e.message ?: "Could not prepare your data") } finally { exporting = false } } } }

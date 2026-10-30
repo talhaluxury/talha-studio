@@ -37,7 +37,7 @@ fun validateCheckout(f: CheckoutForm): Map<String, String> = buildMap {
 fun CheckoutScreen(shop: ShopViewModel, onBack: () -> Unit, onPlaced: (orderId: String) -> Unit) {
     val user = Session.user
     val saved = rememberLoad("addresses") { runCatching { Repo.addresses() }.getOrDefault(emptyList()) }
-    var form by remember { mutableStateOf(CheckoutForm(user?.fullName.orEmpty(), user?.email.orEmpty(), user?.phone.orEmpty(), "", "", "", "", "", "")) }
+    var form by remember { mutableStateOf(CheckoutForm(user?.fullName.orEmpty(), user?.email.orEmpty().takeUnless { it.endsWith(".invalid") }.orEmpty(), user?.phone.orEmpty(), "", "", "", "", "", "")) }
     var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var saveAddress by remember { mutableStateOf(true) }
     var busy by remember { mutableStateOf(false) }
@@ -93,6 +93,7 @@ fun CheckoutScreen(shop: ShopViewModel, onBack: () -> Unit, onPlaced: (orderId: 
                 }
                 Text("Payment: Cash on Delivery. Pay the courier when your order arrives.", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
                 Text("Returns accepted within 7 days of delivery for unused items.", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
+                Text("We will confirm your order on WhatsApp on the phone number above.", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
             }
             failure?.let { Text(it, color = TS.Danger, style = MaterialTheme.typography.bodyMedium) }
             TsButton(if (busy) "Placing order..." else "Place Order" + (ready?.let { " · " + pkr(it.total) } ?: ""), enabled = canOrder, style = TsButtonStyle.Black, onClick = {

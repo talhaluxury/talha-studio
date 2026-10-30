@@ -16,6 +16,8 @@ import { MemoryStorage } from "../src/storage.js";
 import { MemoryPushStore } from "../src/memoryPush.js";
 import { PushService } from "../src/pushService.js";
 import { MemoryBanners } from "../src/memoryBanners.js";
+import { MemoryChat } from "../src/memoryChat.js";
+import { MemorySlides, MemoryStatus } from "../src/memoryContent.js";
 import { MemoryCoupons } from "../src/memoryCoupons.js";
 import { NullSender } from "../src/pushSender.js";
 import { verifySvix } from "../src/webhooks.js";
@@ -45,7 +47,7 @@ function setup(p: MemoryEmailProvider | NullProvider = new MemoryEmailProvider()
   provider = p as MemoryEmailProvider;
   svc = new EmailService({ cfg: c, provider: p, emails, settings, orders, now: () => clock });
   const pushStore = new MemoryPushStore(store);
-  return buildApp(c, { store, catalog, orders, storage: new MemoryStorage(), images, emails, settings, email: svc, push: new PushService({ store: pushStore, sender: new NullSender() }), pushStore, coupons: new MemoryCoupons(), banners: new MemoryBanners() });
+  return buildApp(c, { store, catalog, orders, storage: new MemoryStorage(), images, emails, settings, email: svc, push: new PushService({ store: pushStore, sender: new NullSender() }), pushStore, coupons: new MemoryCoupons(), banners: new MemoryBanners(), chat: new MemoryChat(), slides: new MemorySlides(), status: new MemoryStatus() });
 }
 beforeEach(async () => {
   app = await setup();

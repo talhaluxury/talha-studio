@@ -33,8 +33,16 @@ import { adminEmailRoutes } from "./routes/adminEmail.js";
 import type { OrderEvents } from "./events.js";
 import { orderRoutes } from "./routes/orders.js";
 import { adminOrderRoutes } from "./routes/adminOrders.js";
+import type { ChatStore } from "./chatStore.js";
+import type { SlideStore, StatusStore } from "./contentStore.js";
+import { chatRoutes } from "./routes/chat.js";
+import type { AssistantService } from "./assistant.js";
+import type { WhatsAppService } from "./whatsapp.js";
+import { assistantRoutes } from "./routes/assistant.js";
+import { whatsappRoutes } from "./routes/whatsapp.js";
+import { contentRoutes } from "./routes/content.js";
 
-export interface Deps { coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
+export interface Deps { whatsapp?: WhatsAppService; assistant?: AssistantService; chat: ChatStore; slides: SlideStore; status: StatusStore; coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
 
 export function googleVerifier(clientId: string): GoogleVerifier {
   const client = new OAuth2Client(clientId);
@@ -51,7 +59,7 @@ export function googleVerifier(clientId: string): GoogleVerifier {
 
 export async function buildApp(cfg: Config, deps: Deps) {
   const { store, catalog, storage, orders } = deps;
-  const events = deps.events ?? composeEvents(deps.email, deps.push);       // order emails + push are the default side effects of order events
+  const events = deps.events ?? composeEvents(deps.email, deps.push, ...(deps.whatsapp ? [deps.whatsapp] : []));       // order emails + push are the default side effects of order events
   const images = deps.images ?? sharpProcessor;
   const google = deps.google ?? googleVerifier(cfg.GOOGLE_WEB_CLIENT_ID);
   const serverOptions: FastifyServerOptions = {
@@ -84,8 +92,8 @@ export async function buildApp(cfg: Config, deps: Deps) {
   legalRoutes(app, { settings: deps.settings });          // public policy pages, e.g. https://api.example.com/legal/privacy
   const auth = makeAuth(store, cfg.JWT_ACCESS_SECRET);
   await app.register(async (v1) => {
-    authRoutes(v1, { store, secret: cfg.JWT_ACCESS_SECRET, google });
-    meRoutes(v1, { store, auth });
+    authRoutes(v1, { store, secret: cfg.JWT_ACCESS_SECRET, google, whatsapp: deps.whatsapp });
+    meRoutes(v1, { store, auth, onDelete: async (id) => { for (const k of await deps.chat.deleteForCustomer(id)) await storage.delete(k).catch(() => {}); } });
     adminRoutes(v1, { store, auth });
     catalogRoutes(v1, { catalog, storage, cfg, settings: deps.settings, banners: deps.banners, coupons: deps.coupons });
     orderRoutes(v1, { orders, storage, auth, cfg, settings: deps.settings, events });
@@ -94,6 +102,10 @@ export async function buildApp(cfg: Config, deps: Deps) {
     infoRoutes(v1, { settings: deps.settings, returnWindowDays: cfg.RETURN_WINDOW_DAYS, store, orders, push: deps.pushStore, auth });
     pushRoutes(v1, { store, push: deps.pushStore, svc: deps.push, auth });
     adminEmailRoutes(v1, { cfg, email: deps.email, emails: deps.emails, settings: deps.settings, store, auth });
+    contentRoutes(v1, { slides: deps.slides, status: deps.status, storage, images, store, auth });
+    assistantRoutes(v1, { assistant: deps.assistant, auth });
+    whatsappRoutes(v1, { whatsapp: deps.whatsapp, auth });
+    chatRoutes(v1, { chat: deps.chat, store, storage, images, push: deps.push, auth });
     adminCatalogRoutes(v1, { catalog, storage, images, auth, log: (e) => store.logActivity(e) });
   }, { prefix: "/v1" });
   return app;

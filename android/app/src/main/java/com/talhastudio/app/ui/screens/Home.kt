@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DonutLarge
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.runtime.LaunchedEffect
@@ -34,8 +35,8 @@ import com.talhastudio.app.ui.theme.DisplayFont
 import com.talhastudio.app.ui.theme.TS
 
 @Composable
-fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (category: String?) -> Unit, onNotifications: () -> Unit, onSupport: () -> Unit, onOpenPage: (String) -> Unit) {
-    LaunchedEffect(Session.user?.id) { shop.refreshUnread() }
+fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (category: String?) -> Unit, onNotifications: () -> Unit, onUpdates: () -> Unit, onSupport: () -> Unit, onOpenPage: (String) -> Unit) {
+    LaunchedEffect(Session.user?.id) { shop.refreshUnread(); shop.refreshUpdates() }
     val home = rememberLoad("home") { Repo.home() }
     // Show last visit's feed instantly while fresh data loads (or when offline).
     val cachedHome = remember { Repo.cachedHome() }
@@ -49,6 +50,13 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                     Image(painterResource(R.drawable.talha_logo), "Talha Studio", Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)))
                     Spacer(Modifier.width(10.dp))
                     Text("TALHA STUDIO", fontFamily = DisplayFont, letterSpacing = 3.sp, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    // Updates: daily status pictures + chat with the store (asks for a mobile-number sign-in the first time).
+                    IconButton(onUpdates) {
+                        BadgedBox(badge = {
+                            if (shop.chatUnread > 0) Badge(containerColor = TS.Gold, contentColor = TS.Black) { Text("${shop.chatUnread.coerceAtMost(99)}") }
+                            else if (shop.newStatus) Badge(containerColor = TS.Gold)
+                        }) { Icon(Icons.Outlined.DonutLarge, "Updates and chat") }
+                    }
                     IconButton(onNotifications) {
                         BadgedBox(badge = { if (shop.unread > 0) Badge(containerColor = TS.Danger, contentColor = androidx.compose.ui.graphics.Color.White) { Text("${shop.unread.coerceAtMost(99)}") } }) {
                             Icon(Icons.Outlined.Notifications, "Notifications")

@@ -22,9 +22,10 @@ private val tabs = listOf(
 )
 
 @Composable
-fun MainShell(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onCheckout: () -> Unit, onSignIn: () -> Unit, onOrders: () -> Unit, onAddresses: () -> Unit, onNotifications: () -> Unit, onSupport: () -> Unit, onSettings: () -> Unit, onOpenPage: (String) -> Unit) {
+fun MainShell(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onCheckout: () -> Unit, onSignIn: () -> Unit, onOrders: () -> Unit, onAddresses: () -> Unit, onNotifications: () -> Unit, onUpdates: () -> Unit, onSupport: () -> Unit, onSettings: () -> Unit, onOpenPage: (String) -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var browseCategory by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(shop.requestedTab) { shop.requestedTab?.let { tab = it; shop.requestedTab = null } }
     Scaffold(
         containerColor = androidx.compose.material3.MaterialTheme.colorScheme.background,
         bottomBar = { LiquidBottomBar(tabs, tab, badges = mapOf(3 to shop.cartCount, 2 to shop.wishlist.size), onSelect = { tab = it }) },
@@ -33,7 +34,7 @@ fun MainShell(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onCheckout: 
         Box(Modifier.fillMaxSize().padding(top = pad.calculateTopPadding())) {
             AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
                 when (t) {
-                    0 -> HomeScreen(shop, onOpenProduct, onBrowse = { browseCategory = it; tab = 1 }, onNotifications = onNotifications, onSupport = onSupport, onOpenPage = onOpenPage)
+                    0 -> HomeScreen(shop, onOpenProduct, onBrowse = { browseCategory = it; tab = 1 }, onNotifications = onNotifications, onUpdates = onUpdates, onSupport = onSupport, onOpenPage = onOpenPage)
                     1 -> CategoriesScreen(shop, browseCategory, onOpenProduct)
                     2 -> WishlistScreen(shop, onOpenProduct, goShop = { tab = 0 })
                     3 -> CartScreen(shop, goShop = { tab = 0 }, onCheckout = onCheckout)

@@ -91,3 +91,17 @@ sealed interface PageBlock { data class Heading(val text: String) : PageBlock; d
 fun parsePageBody(text: String): List<PageBlock> = text.split(Regex("\\n{2,}")).flatMap { block ->
     block.trim().lines().filter { it.isNotBlank() }.map { l -> if (l.startsWith("# ")) PageBlock.Heading(l.removePrefix("# ").trim()) else PageBlock.Para(l.trim()) }
 }
+
+/** Onboarding screen managed from the admin panel (picture + heading + one line). */
+data class Slide(val id: String, val title: String, val body: String, val imageUrl: String?)
+/** One chat message. [fromStore] true = sent by Talha Studio. [seq] is the server cursor used for polling. */
+data class ChatMessage(val seq: Long, val id: String, val fromStore: Boolean, val body: String, val imageUrl: String?, val createdAt: String, val read: Boolean)
+/** A daily picture posted by the store (visible for 24 hours). */
+data class StatusItem(val id: String, val imageUrl: String, val caption: String?, val createdAt: String)
+/** Phone sign-ups get a generated, never-deliverable email; show the number instead of it. */
+val User.isPhoneAccount get() = email.endsWith(".invalid")
+val User.contactLine get() = if (isPhoneAccount) phone.orEmpty() else email
+
+/** One-tap shortcut the AI assistant can offer under a reply: type is product | cart | orders | chat. */
+data class AssistantAction(val type: String, val id: String?, val label: String)
+data class AssistantReply(val text: String, val actions: List<AssistantAction>)

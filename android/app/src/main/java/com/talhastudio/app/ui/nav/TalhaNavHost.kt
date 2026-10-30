@@ -42,6 +42,8 @@ object Routes {
     const val Notifications = "notifications"
     const val Support = "support"
     const val Settings = "settings"
+    const val Chat = "chat"
+    const val PhoneAuth = "phone_auth"
     const val Info = "info/{slug}"
     fun info(slug: String) = "info/$slug"
 }
@@ -72,6 +74,7 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
     // After sign-in (or app start while signed in): register this phone for push and refresh the bell.
     LaunchedEffect(Session.user?.id) { if (Session.signedIn) { PushTokens.sync(); shop.refreshUnread() } }
 
+    Box(Modifier.fillMaxSize()) {
     NavHost(nav, startDestination = if (startOnMain) Routes.Main else Routes.Splash) {
         composable(Routes.Splash) {
             SplashScreen(onDone = {
@@ -90,6 +93,7 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
                 onSignIn = { nav.navigate(Routes.auth()) },
                 onOrders = { nav.navigate(Routes.Orders) }, onAddresses = { nav.navigate(Routes.Addresses) },
                 onNotifications = { if (Session.signedIn) nav.navigate(Routes.Notifications) else nav.navigate(Routes.auth()) },
+                onUpdates = { nav.navigate(if (Session.signedIn) Routes.Chat else Routes.PhoneAuth) },
                 onSupport = { nav.navigate(Routes.Support) }, onSettings = { nav.navigate(Routes.Settings) }, onOpenPage = { nav.navigate(Routes.info(it)) })
         }
         composable(Routes.Product, deepLinks = listOf(navDeepLink { uriPattern = "talhastudio://product/{id}" })) { entry ->
@@ -122,10 +126,28 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
             SettingsScreen(onBack = { nav.popBackStack() }, onNotifications = { if (Session.signedIn) nav.navigate(Routes.Notifications) else nav.navigate(Routes.auth()) },
                 onOpenPage = { nav.navigate(Routes.info(it)) }, onSignedOut = { nav.popBackStack(Routes.Main, false) })
         }
+        composable(Routes.PhoneAuth) {
+            PhoneAuthScreen(onBack = { nav.popBackStack() }, onDone = { nav.navigate(Routes.Chat) { popUpTo(Routes.PhoneAuth) { inclusive = true } } })
+        }
+        composable(Routes.Chat, deepLinks = listOf(navDeepLink { uriPattern = "talhastudio://chat" })) {
+            // Signed out (or the session expired while chatting): sign in with a number first, then come back here.
+            if (!Session.signedIn) LaunchedEffect(Unit) { nav.navigate(Routes.PhoneAuth) { popUpTo(Routes.Chat) { inclusive = true } } }
+            else ChatScreen(shop, onBack = { if (!nav.popBackStack()) nav.navigate(Routes.Main) })
+        }
         composable(Routes.Notifications) {
             if (Session.signedIn) NotificationsScreen(shop, onBack = { nav.popBackStack() }, onNavigate = { route -> nav.navigate(route) })
             else SignInRequired(onBack = { nav.popBackStack() }) { nav.navigate(Routes.auth()) }
         }
+    }
+    // The floating AI assistant sits above every normal screen (not on splash, welcome, sign-in, chat or checkout) and can be dragged anywhere.
+    AssistantOverlay(visible = route != null && route !in setOf(Routes.Splash, Routes.Onboarding, Routes.Auth, Routes.PhoneAuth, Routes.Chat, Routes.Checkout)) { a ->
+        when (a.type) {
+            "product" -> a.id?.let { nav.navigate(Routes.product(it)) }
+            "cart" -> { shop.requestedTab = 3; nav.popBackStack(Routes.Main, false) }
+            "orders" -> nav.navigate(if (Session.signedIn) Routes.Orders else Routes.auth())
+            "chat" -> nav.navigate(if (Session.signedIn) Routes.Chat else Routes.PhoneAuth)
+        }
+    }
     }
 }
 

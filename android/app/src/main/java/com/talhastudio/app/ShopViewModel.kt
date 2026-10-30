@@ -33,6 +33,24 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
         private set
     fun refreshUnread() { viewModelScope.launch { unread = if (Session.signedIn) runCatching { Repo.unreadCount() }.getOrDefault(unread) else 0 } }
 
+    /** Unread store replies + "new status" dot for the Updates icon (both 0/false when signed out or offline). */
+    var chatUnread by mutableStateOf(0)
+        private set
+    var newStatus by mutableStateOf(false)
+        private set
+    /** Set by the assistant ("open cart") and consumed by MainShell, because the tabs live inside it. */
+    var requestedTab by mutableStateOf<Int?>(null)
+    private var knownStatusIds: List<String> = emptyList()
+    fun refreshUpdates() { viewModelScope.launch {
+        if (!Session.signedIn) { chatUnread = 0; newStatus = false; return@launch }
+        chatUnread = runCatching { Repo.chatUnread() }.getOrDefault(chatUnread)
+        runCatching { Repo.statuses() }.onSuccess { list -> knownStatusIds = list.map { it.id }; newStatus = knownStatusIds.any { it !in local.seenStatuses() } }
+    } }
+    fun seenStatuses(): Set<String> = local.seenStatuses()
+    fun markStatusSeen(id: String) { local.addSeenStatus(id); newStatus = knownStatusIds.any { it !in local.seenStatuses() } }
+    /** The chat screen marks replies as read; reflect that on the icon right away. */
+    fun clearChatBadge() { chatUnread = 0 }
+
     /** Coupon the customer typed; the server decides whether it is valid (see Quote.couponIssue). */
     var couponCode by mutableStateOf<String?>(null)
         private set

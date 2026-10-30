@@ -22,5 +22,7 @@ export function makeAuth(store: Store, secret: string) {
   const requireRole = (...roles: Role[]) => async (req: FastifyRequest) => {
     if (!req.user || !roles.includes(req.user.role)) throw forbidden();
   };
-  return { customer: authenticate("customer"), admin: authenticate("admin"), requireRole };
+  /** Signed-in customers get req.user; anyone else (or a bad token) simply continues anonymously. */
+  const optionalCustomer = async (req: FastifyRequest, reply: FastifyReply) => { if (req.headers.authorization?.startsWith("Bearer ")) await authenticate("customer")(req, reply).catch(() => {}); };
+  return { optionalCustomer, customer: authenticate("customer"), admin: authenticate("admin"), requireRole };
 }

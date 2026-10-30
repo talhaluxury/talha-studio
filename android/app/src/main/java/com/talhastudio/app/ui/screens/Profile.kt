@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import com.talhastudio.app.data.ApiException
 import com.talhastudio.app.data.Repo
 import com.talhastudio.app.data.Session
+import com.talhastudio.app.data.contactLine
 import com.talhastudio.app.ui.components.TsButton
 import com.talhastudio.app.ui.components.TsButtonStyle
 import com.talhastudio.app.ui.theme.TS
@@ -33,7 +34,7 @@ fun ProfileScreen(onSignIn: () -> Unit, onOrders: () -> Unit, onAddresses: () ->
                     Text("Sign in to place orders, track them and save your addresses.", style = MaterialTheme.typography.bodyMedium, color = TS.Gray)
                     Spacer(Modifier.height(16.dp)); TsButton("Sign In / Create Account", onSignIn)
                 } else {
-                    Text(user.fullName, style = MaterialTheme.typography.titleLarge); Text(user.email, style = MaterialTheme.typography.bodyMedium, color = TS.Gray)
+                    Text(user.fullName, style = MaterialTheme.typography.titleLarge); Text(user.contactLine, style = MaterialTheme.typography.bodyMedium, color = TS.Gray)
                 }
                 Spacer(Modifier.height(12.dp))
             }

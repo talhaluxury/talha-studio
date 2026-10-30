@@ -3,6 +3,8 @@ import { EmailService } from "../src/emailService.js";
 import { NullProvider, type EmailProvider } from "../src/emailProvider.js";
 import { MemoryEmailStore } from "../src/memoryEmail.js";
 import { MemoryBanners } from "../src/memoryBanners.js";
+import { MemoryChat } from "../src/memoryChat.js";
+import { MemorySlides, MemoryStatus } from "../src/memoryContent.js";
 import { MemoryCoupons } from "../src/memoryCoupons.js";
 import { MemoryPushStore } from "../src/memoryPush.js";
 import { MemoryStore } from "../src/memoryStore.js";
@@ -21,5 +23,5 @@ export function emailDeps(orders: OrderStore, cfg: Config, provider: EmailProvid
   if (now) emails.now = now;
   const email = new EmailService({ cfg, provider, emails, settings, orders, now });
   const pushStore = new MemoryPushStore(users); const push = new PushService({ store: pushStore, sender });
-  return { emails, settings, email, push, pushStore, coupons: new MemoryCoupons(), banners: new MemoryBanners() };
+  return { emails, settings, email, push, pushStore, coupons: new MemoryCoupons(), banners: new MemoryBanners(), chat: new MemoryChat(), slides: new MemorySlides(), status: new MemoryStatus() };
 }

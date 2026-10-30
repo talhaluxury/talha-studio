@@ -47,7 +47,7 @@ Orders (Phase 5; **staff+** read/update, export & customers = admin/owner): `GET
 pending → confirmed → processing → shipped → delivered; cancel allowed before shipped; delivered → refund_requested → refunded.
 
 ## Deep links
-`talhastudio://order/<orderId>` · `talhastudio://product/<productId>`
+`talhastudio://order/<orderId>` · `talhastudio://product/<productId>` · `talhastudio://chat` (store replied)
 
 
 ## Phase 8 additions
@@ -56,3 +56,14 @@ pending → confirmed → processing → shipped → delivered; cancel allowed b
 **Pricing rule:** `total = subtotal - discount + shipping`; free delivery is judged on `subtotal - discount`; a cancelled order returns its coupon use.
 **Admin (admin/owner):** `GET/POST /admin/coupons`, `PUT/DELETE /admin/coupons/:id` (code 3-20 of A-Z 0-9 _ -, `percent` 1-100 or `fixed`, `minSubtotal`, `maxUses`, `startsAt`/`endsAt`) · `GET/POST /admin/banners`, `PUT/DELETE /admin/banners/:id`, `POST/DELETE /admin/banners/:id/image` (multipart `file`; `ctaLink` must be `talhastudio://product/<uuid>`).
 **Owner only:** `GET/PUT /admin/store-settings` `{shipping:{flat,freeOver}, announcement:{text,active}, pages:{privacy,terms,returns,shipping,refund,about}}` · `GET /admin/activity-logs?action=<prefix>&page&limit`. `GET /admin/analytics` now includes `topProducts:[{name,qty,revenue}]`.
+
+## Phase 9: welcome screens, chat, status
+**Public:** `GET /onboarding` → `{slides:[{id,title,body,imageUrl}]}` (active only, ordered; `title` may contain `\n`).
+**Auth:** `POST /auth/phone/register {fullName, phone, password(>=6)}` (201, same token body as `/auth/register`; 409 if the number exists) · `POST /auth/phone/login {phone, password}`. Numbers are normalised (0300…, +92300…, 300… are the same). The number is **not SMS-verified**; the account email is a generated `p<digits>@phone.talha.invalid`.
+**Customer (signed in):** `GET /me/chat?after=<seq>&limit` → `{items:[{seq,id,sender:"customer"|"store",body,imageUrl,createdAt,read}]}` (oldest first; no `after` = latest) · `POST /me/chat {body≤2000}` · `POST /me/chat/image` (multipart `file`) · `POST /me/chat/read` · `GET /me/chat/unread` · `GET /me/status` → `{items:[{id,imageUrl,caption,createdAt,expiresAt}]}` · `POST /me/status/:id/view`. Deleting the account deletes the chat and its pictures.
+**Staff (any role):** `GET /admin/chat?page&limit` → `{items:[{customerId,name,phone,unread,last}],unreadTotal}` · `GET /admin/chat/:customerId?after` · `POST /admin/chat/:customerId {body}` (sends a phone push, best effort) · `POST /admin/chat/:customerId/image` · `POST /admin/chat/:customerId/read`.
+**Admin/owner:** `GET/POST /admin/onboarding`, `PUT/DELETE /admin/onboarding/:id`, `POST/DELETE /admin/onboarding/:id/image` · `GET /admin/status` (adds `views`) · `POST /admin/status` (multipart: optional text field `caption` BEFORE `file`; expires after 24 h) · `DELETE /admin/status/:id`.
+
+## Phase 10: WhatsApp and assistant
+`GET /assistant/enabled` → `{enabled}` · `POST /assistant {messages:[{role:"user"|"assistant",content≤1000}]≤12}` (optional bearer; signed-in customers also get their last 3 orders in the context) → `{reply, actions:[{type:"product"|"cart"|"orders"|"chat", id?, label}]}`; 429 `ASSISTANT_LIMIT`, 503 `ASSISTANT_OFF`, 502 `ASSISTANT_FAILED`.
+`GET /admin/whatsapp` (admin/owner) → `{configured, provider, items:[{id,kind,to,status:sending|sent|failed|skipped,error,createdAt}]}`. WhatsApp itself is sent by the server on phone sign-up and on order creation; see docs/WHATSAPP_AND_ASSISTANT.md.
