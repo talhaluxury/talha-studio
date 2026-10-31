@@ -1,4 +1,5 @@
 import type pg from "pg";
+import { normalizePhone } from "./phone.js";
 import type { WhatsAppProvider } from "./whatsapp.js";
 
 /**
@@ -107,6 +108,17 @@ export class BaileysWhatsApp implements WhatsAppProvider {
       this.status = { state: "starting", qr: null, phone: null };
       if (!this.stopped) setTimeout(() => void this.start(), 30_000);
     }
+  }
+
+  /** Link without a QR code (for when the admin is open on the same phone): returns an 8 character code to type in WhatsApp > Linked devices > Link with phone number. */
+  async pair(rawPhone: string): Promise<string> {
+    const digits = normalizePhone(rawPhone);
+    if (!digits) throw new Error("That phone number does not look right");
+    if (this.status.state === "open") throw new Error("WhatsApp is already connected");
+    for (let i = 0; i < 30 && this.status.state !== "qr"; i++) await sleep(500);
+    if (this.status.state !== "qr" || !this.sock) throw new Error("WhatsApp is still starting. Try again in a few seconds.");
+    const code = String(await this.sock.requestPairingCode(digits));
+    return code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code;
   }
 
   /** Unlinks the phone (it disappears from Linked devices) and shows a fresh QR code. */

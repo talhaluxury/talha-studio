@@ -24,7 +24,16 @@ async function broadcastCard(configured) {
 const QR_TEXT = { starting: "Starting WhatsApp, please wait...", connecting: "Connecting...", logged_out: "Logged out. A new QR code will appear in a moment.", qr: "Scan this QR code with the WhatsApp on your phone" };
 function connectCard(view) {
   const body = h("div", {});
-  const card = h("div", { class: "card" }, h("b", {}, "WhatsApp connection"), body);
+  const phone = h("input", { type: "tel", placeholder: "03001234567", "aria-label": "Your WhatsApp number" });
+  const code = h("div", { style: "font-size:28px;letter-spacing:4px;font-weight:700;margin-top:8px" });
+  const getCode = h("button", { class: "btn gold", onclick: async () => {
+    try { const r = await api("/admin/whatsapp/qr/pair", { method: "POST", body: { phone: phone.value } }); code.textContent = r.code; toast("Code ready: type it in WhatsApp"); }
+    catch (e) { toast(e.message, "error"); }
+  } }, "Get code");
+  const pair = h("div", { style: "margin-top:16px" }, h("b", {}, "Admin is open on the same phone?"),
+    h("p", { class: "hint" }, "Enter your WhatsApp number to get a code. Then in WhatsApp: Settings > Linked devices > Link a device > Link with phone number instead, and type the code."),
+    h("div", { class: "row" }, phone, getCode), code);
+  const card = h("div", { class: "card" }, h("b", {}, "WhatsApp connection"), body, pair);
   let timer = null;
   const draw = async () => {
     if (!view.isConnected) { clearInterval(timer); return; }
@@ -44,6 +53,7 @@ function connectCard(view) {
       kids.push(h("p", { class: "muted" }, "QR login is off. Set WHATSAPP_DRIVER=qr on the server."));
     } else kids.push(h("p", { class: "muted" }, QR_TEXT[s.state] ?? "Please wait..."));
     clear(body); put(body, ...kids);
+    pair.style.display = s.state === "open" || s.state === "off" ? "none" : "";
   };
   void draw(); timer = setInterval(draw, 3000);
   return card;

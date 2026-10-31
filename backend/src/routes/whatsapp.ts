@@ -31,6 +31,11 @@ export function whatsappRoutes(app: FastifyInstance, d: Deps) {
 
   // QR login (WHATSAPP_DRIVER=qr): the admin page polls this to show the QR code and the link state.
   app.get("/admin/whatsapp/qr", admin, async () => d.qr?.getStatus() ?? { state: "off", qr: null, phone: null });
+  app.post("/admin/whatsapp/qr/pair", { ...admin, config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (req) => {
+    if (!d.qr) throw conflict("WhatsApp QR login is not switched on (WHATSAPP_DRIVER=qr)");
+    const { phone } = z.object({ phone: z.string().min(8).max(20) }).parse(req.body);
+    try { return { code: await d.qr.pair(phone) }; } catch (e) { throw conflict(String((e as Error).message ?? e)); }
+  });
   app.post("/admin/whatsapp/qr/logout", { ...admin, config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (_req, reply) => {
     if (!d.qr) throw conflict("WhatsApp QR login is not switched on (WHATSAPP_DRIVER=qr)");
     await d.qr.logout(); return reply.status(202).send({ ok: true });
