@@ -35,7 +35,7 @@ export async function usePgAuthState(pool: pg.Pool, b: { BufferJSON: any; initAu
         },
         set: async (data: Record<string, Record<string, unknown>>) => {
           const jobs: Promise<unknown>[] = [];
-          for (const cat of Object.keys(data)) for (const id of Object.keys(data[cat])) { const v = data[cat][id]; jobs.push(v ? write(`${cat}-${id}`, v) : del(`${cat}-${id}`)); }
+          for (const [cat, items] of Object.entries(data)) for (const [id, v] of Object.entries(items ?? {})) jobs.push(v ? write(`${cat}-${id}`, v) : del(`${cat}-${id}`));
           await Promise.all(jobs);
         },
       },
@@ -82,7 +82,7 @@ export class BaileysWhatsApp implements WhatsAppProvider {
         if (sock !== this.sock) return;
         if (u.qr) { this.status = { state: "qr", qr: await QRCode.toDataURL(u.qr, { margin: 1, width: 320 }), phone: null }; }
         if (u.connection === "connecting" && this.status.state !== "qr") this.status = { ...this.status, state: "connecting" };
-        if (u.connection === "open") this.status = { state: "open", qr: null, phone: String(sock.user?.id ?? "").split(":")[0].split("@")[0] || null };
+        if (u.connection === "open") this.status = { state: "open", qr: null, phone: String(sock.user?.id ?? "").split(":")[0]?.split("@")[0] || null };
         if (u.connection === "close") {
           const code = u.lastDisconnect?.error?.output?.statusCode;
           this.status = { state: "starting", qr: null, phone: null };
@@ -99,7 +99,7 @@ export class BaileysWhatsApp implements WhatsAppProvider {
           if (!jid.endsWith("@s.whatsapp.net")) continue;        // groups, broadcasts and unresolved @lid ids are ignored
           const text: string = m.message.conversation ?? m.message.extendedTextMessage?.text ?? "";
           if (!text || !m.key.id) continue;
-          void this.inbound?.(jid.split("@")[0].split(":")[0], text, m.key.id).catch((e) => this.d.log?.error({ err: String(e) }, "whatsapp inbound failed"));
+          void this.inbound?.(jid.split("@")[0]?.split(":")[0] ?? "", text, m.key.id).catch((e) => this.d.log?.error({ err: String(e) }, "whatsapp inbound failed"));
         }
       });
     } catch (e) {

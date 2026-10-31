@@ -24,7 +24,7 @@ export const publicUser = (u: User) => ({ id: u.id, email: u.email, fullName: u.
 // Real dummy hash so login timing is similar whether or not the email exists.
 const DUMMY_P = hashPassword("not-a-real-password-for-timing");
 
-export function authRoutes(app: FastifyInstance, d: { store: Store; secret: string; google: GoogleVerifier; whatsapp?: { welcome(u: { id: string; fullName: string; phone: string | null }): Promise<void> } }) {
+export function authRoutes(app: FastifyInstance, d: { store: Store; secret: string; google: GoogleVerifier; whatsapp?: { welcome(u: { id: string; fullName: string; phone: string | null }): Promise<unknown> } }) {
   const { store, secret, google, whatsapp } = d;
   const strict = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } };
   const loginLock = new FailureThrottle(8, 15 * 60_000); const adminLock = new FailureThrottle(5, 15 * 60_000);
