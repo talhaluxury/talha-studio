@@ -7,6 +7,7 @@ import type { makeAuth } from "../plugins/auth.js";
 import type { Store } from "../store.js";
 import { MAX_BROADCAST_RECIPIENTS, type WhatsAppService } from "../whatsapp.js";
 import type { BaileysWhatsApp } from "../waQr.js";
+import type { Storage } from "../storage.js";
 
 /** Meta signs every webhook with HMAC-SHA256(app secret, raw body). */
 export function verifyMetaSignature(secret: string, raw: string, header: string | undefined): boolean {
@@ -16,7 +17,7 @@ export function verifyMetaSignature(secret: string, raw: string, header: string 
 }
 
 interface Deps {
-  whatsapp?: WhatsAppService; qr?: BaileysWhatsApp; auth: ReturnType<typeof makeAuth>; store: Pick<Store, "listCustomersWithPhone">; catalog: CatalogStore;
+  whatsapp?: WhatsAppService; qr?: BaileysWhatsApp; storage?: Storage; auth: ReturnType<typeof makeAuth>; store: Pick<Store, "listCustomersWithPhone">; catalog: CatalogStore;
   verifyToken?: string; appSecret?: string; log?: { error(o: object, m: string): void };
 }
 
@@ -47,7 +48,8 @@ export function whatsappRoutes(app: FastifyInstance, d: Deps) {
     if (!d.whatsapp?.configured) throw conflict("WhatsApp is not switched on yet (WHATSAPP_DRIVER=cloud and the token are needed)");
     const p = await d.catalog.getProduct(productId, true); if (!p) throw notFound("Product not found or not published");
     const customers = (await d.store.listCustomersWithPhone()).slice(0, MAX_BROADCAST_RECIPIENTS);
-    void d.whatsapp.broadcastNewArrival({ id: p.id, name: p.name, price: p.price, salePrice: p.salePrice }, customers)
+    const first = [...p.images].sort((a, b) => a.sortOrder - b.sortOrder)[0];
+    void d.whatsapp.broadcastNewArrival({ id: p.id, name: p.name, price: p.price, salePrice: p.salePrice, imageUrl: first && d.storage ? d.storage.url(first.storageKey) : null }, customers)
       .catch((e) => d.log?.error({ err: String(e) }, "whatsapp broadcast failed"));
     return reply.status(202).send({ queued: customers.length });
   });

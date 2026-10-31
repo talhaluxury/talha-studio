@@ -128,25 +128,38 @@ export class BaileysWhatsApp implements WhatsAppProvider {
 
   /** One message at a time per lane with a random pause, like a person typing: this keeps the number from being flagged.
    *  New-product broadcasts get their own slower lane so an order confirmation never waits behind hundreds of promo messages. */
-  private enqueue(jid: string, text: string, lane: "main" | "bulk" = "main"): Promise<void> {
+  private enqueue(jid: string, text: string, lane: "main" | "bulk" = "main", imageUrl?: string | null): Promise<void> {
     const job = this.lanes[lane].then(async () => {
       if (!this.configured || !this.sock) throw new Error("WhatsApp is not linked. Scan the QR code in Admin > WhatsApp.");
       await sleep(lane === "bulk" ? 6000 + Math.floor(Math.random() * 8000) : 1500 + Math.floor(Math.random() * 2500));
-      await this.sock.sendMessage(jid, { text });
+      const jpeg = imageUrl ? await this.jpegFrom(imageUrl) : null;      // no picture available: the text still goes out
+      await this.sock.sendMessage(jid, jpeg ? { image: jpeg, caption: text } : { text });
     });
     this.lanes[lane] = job.catch(() => undefined);
     return job as Promise<void>;
   }
+  /** Product pictures are stored as WebP; WhatsApp shows JPEG photos reliably, so convert (and keep the result for the whole broadcast). */
+  private imgCache = new Map<string, Buffer>();
+  private async jpegFrom(url: string): Promise<Buffer | null> {
+    const hit = this.imgCache.get(url); if (hit) return hit;
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(15_000) }); if (!r.ok) return null;
+      const sharp = (await import("sharp")).default;
+      const out = await sharp(Buffer.from(await r.arrayBuffer())).rotate().resize({ width: 1080, height: 1080, fit: "inside", withoutEnlargement: true }).flatten({ background: "#ffffff" }).jpeg({ quality: 85 }).toBuffer();
+      if (this.imgCache.size > 20) this.imgCache.clear();
+      this.imgCache.set(url, out); return out;
+    } catch (e) { this.d.log?.error({ err: String((e as Error).message ?? e) }, "whatsapp product image failed, sending text only"); return null; }
+  }
   async sendText(to: string, text: string) { await this.enqueue(`${to}@s.whatsapp.net`, text); }
 
   /** The Cloud API sends approved templates; here the same templates are written out as plain text from their parameters. */
-  async sendTemplate(to: string, template: string, _lang: string, p: string[]) {
+  async sendTemplate(to: string, template: string, _lang: string, p: string[], imageUrl?: string | null) {
     const { tpl, storeName } = this.d;
     let text: string; let lane: "main" | "bulk" = "main";
     if (template === tpl.welcome) text = `Assalam o Alaikum ${p[0]}! Welcome to ${p[1]}. Your account is ready. Ask us anything here on WhatsApp or in the app chat, we are happy to help.`;
     else if (template === tpl.order) text = `Hi ${p[0]}, thank you for your order ${p[1]} at ${p[2]}.\nTotal: Rs ${p[3]}\nDelivery city: ${p[4]}\n\nPlease reply YES to confirm your order. We will message you when it ships.`;
-    else if (template === tpl.newArrival) { lane = "bulk"; text = `Hi ${p[0]}, new at ${p[3] ?? storeName}: ${p[1]} for Rs ${p[2]}. Open the app to see it.\nReply STOP to stop these messages.`; }
+    else if (template === tpl.newArrival) { lane = "bulk"; text = `Hi ${p[0]}, new at ${p[3] ?? storeName}: ${p[1]} for Rs ${p[2]}.`; }
     else throw new Error(`Unknown message type: ${template}`);
-    await this.enqueue(`${to}@s.whatsapp.net`, text, lane);
+    await this.enqueue(`${to}@s.whatsapp.net`, text, lane, lane === "bulk" ? imageUrl : null);
   }
 }

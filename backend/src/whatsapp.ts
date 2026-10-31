@@ -6,7 +6,7 @@ import type { AssistantService } from "./assistant.js";
 import type { Store, User } from "./store.js";
 
 /** WhatsApp Business Cloud API (Meta). Business-initiated messages MUST be pre-approved templates. */
-export interface WhatsAppProvider { readonly name: string; readonly configured: boolean; sendTemplate(to: string, template: string, lang: string, params: string[]): Promise<void>; /** Free text: only allowed by Meta within 24h of the customer's last message (i.e. when answering a reply). */ sendText(to: string, text: string): Promise<void> }
+export interface WhatsAppProvider { readonly name: string; readonly configured: boolean; sendTemplate(to: string, template: string, lang: string, params: string[], imageUrl?: string | null): Promise<void>; /** Free text: only allowed by Meta within 24h of the customer's last message (i.e. when answering a reply). */ sendText(to: string, text: string): Promise<void> }
 
 export const noWhatsApp: WhatsAppProvider = { name: "none", configured: false, sendTemplate: async () => { throw new Error("WhatsApp is not configured"); }, sendText: async () => { throw new Error("WhatsApp is not configured"); } };
 
@@ -17,7 +17,7 @@ export class CloudWhatsApp implements WhatsAppProvider {
   readonly name = "cloud";
   constructor(private token: string, private phoneNumberId: string, private fetchFn: typeof fetch = fetch) {}
   get configured() { return !!this.token && !!this.phoneNumberId; }
-  async sendTemplate(to: string, template: string, lang: string, params: string[]) {
+  async sendTemplate(to: string, template: string, lang: string, params: string[], _imageUrl?: string | null) {
     const r = await this.fetchFn(`https://graph.facebook.com/v21.0/${this.phoneNumberId}/messages`, {
       method: "POST", signal: AbortSignal.timeout(15_000),
       headers: { authorization: `Bearer ${this.token}`, "content-type": "application/json" },
@@ -74,14 +74,14 @@ export class WhatsAppService implements OrderEvents {
   get configured() { return this.d.provider.configured; }
   get providerName() { return this.d.provider.name; }
 
-  private async send(kind: WaKind, refId: string, rawPhone: string | null | undefined, template: string, params: string[]): Promise<"sent" | "failed" | "skipped" | "none"> {
+  private async send(kind: WaKind, refId: string, rawPhone: string | null | undefined, template: string, params: string[], imageUrl?: string | null): Promise<"sent" | "failed" | "skipped" | "none"> {
     try {
       if (!this.configured) return "none";                       // not claimed on purpose: switching WhatsApp on later must not message old orders
       const to = rawPhone ? normalizePhone(rawPhone) : null; if (!to) return "none";
       const row = await this.d.store.claim(kind, refId, to); if (!row) return "none";
       // A customer can type any number at checkout, so cap what one number can receive per hour.
       if ((await this.d.store.countRecentTo(to, 3600_000, TEMPLATE_KINDS)) > MAX_WHATSAPP_PER_NUMBER_PER_HOUR) { await this.d.store.finish(row.id, "skipped", "Too many messages to this number in the last hour"); return "skipped"; }
-      try { await this.d.provider.sendTemplate(to, template, this.d.cfg.WHATSAPP_LANG, params); await this.d.store.finish(row.id, "sent", null); return "sent"; }
+      try { await this.d.provider.sendTemplate(to, template, this.d.cfg.WHATSAPP_LANG, params, imageUrl); await this.d.store.finish(row.id, "sent", null); return "sent"; }
       catch (e) { const m = String((e as Error).message ?? e).slice(0, 500); await this.d.store.finish(row.id, "failed", m); this.d.log?.error({ kind, err: m }, "whatsapp send failed"); return "failed"; }
     } catch (e) { this.d.log?.error({ kind, err: String(e) }, "whatsapp bookkeeping failed"); return "failed"; }
   }
@@ -102,7 +102,7 @@ export class WhatsAppService implements OrderEvents {
    * "New product" message to every customer with a phone number who has not replied STOP. Template: {{1}} = first name, {{2}} = product,
    * {{3}} = price (PKR), {{4}} = store name. One message per (product, customer), so pressing the button twice never doubles it.
    */
-  async broadcastNewArrival(p: { id: string; name: string; price: number; salePrice: number | null }, customers: Pick<User, "id" | "fullName" | "phone">[]) {
+  async broadcastNewArrival(p: { id: string; name: string; price: number; salePrice: number | null; imageUrl?: string | null }, customers: Pick<User, "id" | "fullName" | "phone">[]) {
     const out = { total: 0, sent: 0, failed: 0, skipped: 0 };
     const tpl = this.d.cfg.WHATSAPP_TPL_NEW_ARRIVAL ?? "new_arrival";
     for (const u of customers.slice(0, MAX_BROADCAST_RECIPIENTS)) {
@@ -110,7 +110,7 @@ export class WhatsAppService implements OrderEvents {
       out.total++;
       if (await this.d.store.isOptedOut(to)) { out.skipped++; continue; }
       const r = await this.send("new_arrival", `${p.id}:${u.id}`, u.phone, tpl,
-        [u.fullName.trim().split(/\s+/)[0] || "there", p.name, (p.salePrice ?? p.price).toLocaleString("en-US"), this.d.cfg.STORE_NAME]);
+        [u.fullName.trim().split(/\s+/)[0] || "there", p.name, (p.salePrice ?? p.price).toLocaleString("en-US"), this.d.cfg.STORE_NAME], p.imageUrl);
       if (r === "sent") out.sent++; else if (r === "failed") out.failed++; else out.skipped++;
     }
     return out;
