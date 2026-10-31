@@ -9,8 +9,15 @@ export class PgWhatsApp implements WhatsAppStore {
     return r.rows[0] ? toLog(r.rows[0]) : null;
   }
   async finish(id: string, status: WaStatus, error: string | null) { await this.pool.query("UPDATE whatsapp_logs SET status = $2, error = $3 WHERE id = $1", [id, status, error]); }
-  async countRecentTo(toPhone: string, windowMs: number) {
-    return Number((await this.pool.query("SELECT count(*) AS n FROM whatsapp_logs WHERE to_phone = $1 AND created_at > now() - ($2 || ' milliseconds')::interval", [toPhone, String(windowMs)])).rows[0].n);
+  async countRecentTo(toPhone: string, windowMs: number, kinds?: WaKind[]) {
+    return Number((await this.pool.query("SELECT count(*) AS n FROM whatsapp_logs WHERE to_phone = $1 AND created_at > now() - ($2 || ' milliseconds')::interval AND ($3::text[] IS NULL OR kind = ANY($3::text[]))", [toPhone, String(windowMs), kinds ?? null])).rows[0].n);
   }
   async recent(limit: number) { return (await this.pool.query("SELECT * FROM whatsapp_logs ORDER BY created_at DESC LIMIT $1", [limit])).rows.map(toLog); }
+  /** Meta retries webhooks: true only the first time a message id is seen. */
+  async markInbound(messageId: string) { return (await this.pool.query("INSERT INTO whatsapp_inbound (message_id) VALUES ($1) ON CONFLICT DO NOTHING", [messageId])).rowCount === 1; }
+  async setOptOut(phone: string, optedOut: boolean) {
+    if (optedOut) await this.pool.query("INSERT INTO whatsapp_optouts (phone) VALUES ($1) ON CONFLICT DO NOTHING", [phone]);
+    else await this.pool.query("DELETE FROM whatsapp_optouts WHERE phone = $1", [phone]);
+  }
+  async isOptedOut(phone: string) { return (await this.pool.query("SELECT 1 FROM whatsapp_optouts WHERE phone = $1", [phone])).rowCount === 1; }
 }

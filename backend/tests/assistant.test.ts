@@ -19,7 +19,9 @@ const cfg = {
 
 class FakeWa implements WhatsAppProvider {
   name = "fake"; configured = true; sent: { to: string; template: string; params: string[] }[] = []; fail = false;
+  texts: { to: string; text: string }[] = [];
   async sendTemplate(to: string, template: string, _l: string, params: string[]) { if (this.fail) throw new Error("template not approved"); this.sent.push({ to, template, params }); }
+  async sendText(to: string, text: string) { if (this.fail) throw new Error("window closed"); this.texts.push({ to, text }); }
 }
 const flush = () => new Promise((r) => setTimeout(r, 20));
 

@@ -25,6 +25,7 @@ export class MemoryStore implements Store {
     for (const [k, a] of this.addresses) if (a.userId === id) this.addresses.delete(k);
   }
   async countCustomers() { return [...this.users.values()].filter((u) => u.role === "customer" && !u.deletedAt).length; }
+  async listCustomersWithPhone() { return [...this.users.values()].filter((u) => u.role === "customer" && u.isActive && !u.deletedAt && !!u.phone); }
   async listUsersByRoles(roles: Role[]) { return [...this.users.values()].filter((u) => roles.includes(u.role)); }
 
   async saveRefreshToken(t: { userId: string; tokenHash: string; expiresAt: Date }) { this.refresh.set(t.tokenHash, { userId: t.userId, expiresAt: t.expiresAt, revokedAt: null }); }

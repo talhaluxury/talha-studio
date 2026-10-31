@@ -24,6 +24,8 @@ export interface Store {
   updateUser(id: string, patch: Partial<Pick<User, "fullName" | "phone" | "googleSub" | "isActive" | "role" | "passwordHash">>): Promise<User>;
   anonymiseUser(id: string): Promise<void>;
   listUsersByRoles(roles: Role[]): Promise<User[]>;
+  /** Active customers that have a phone number (WhatsApp replies and new-product messages). */
+  listCustomersWithPhone(): Promise<User[]>;
   countCustomers(): Promise<number>;
 
   saveRefreshToken(t: { userId: string; tokenHash: string; expiresAt: Date }): Promise<void>;

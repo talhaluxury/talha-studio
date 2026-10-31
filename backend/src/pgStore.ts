@@ -61,6 +61,7 @@ export class PgStore implements Store {
     } catch (e) { await c.query("ROLLBACK"); throw e; } finally { c.release(); }
   }
   async countCustomers() { const r = await this.q("SELECT count(*)::int AS n FROM users WHERE role = 'customer' AND deleted_at IS NULL"); return r.rows[0].n; }
+  async listCustomersWithPhone() { const r = await this.q("SELECT * FROM users WHERE role = 'customer' AND is_active AND deleted_at IS NULL AND phone IS NOT NULL ORDER BY created_at"); return r.rows.map(toUser); }
   async listUsersByRoles(roles: Role[]) { const r = await this.q("SELECT * FROM users WHERE role = ANY($1::user_role[]) ORDER BY created_at", [roles]); return r.rows.map(toUser); }
 
   async saveRefreshToken(t: { userId: string; tokenHash: string; expiresAt: Date }) {

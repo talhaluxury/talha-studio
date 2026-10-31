@@ -38,11 +38,12 @@ import type { SlideStore, StatusStore } from "./contentStore.js";
 import { chatRoutes } from "./routes/chat.js";
 import type { AssistantService } from "./assistant.js";
 import type { WhatsAppService } from "./whatsapp.js";
+import type { BaileysWhatsApp } from "./waQr.js";
 import { assistantRoutes } from "./routes/assistant.js";
 import { whatsappRoutes } from "./routes/whatsapp.js";
 import { contentRoutes } from "./routes/content.js";
 
-export interface Deps { whatsapp?: WhatsAppService; assistant?: AssistantService; chat: ChatStore; slides: SlideStore; status: StatusStore; coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
+export interface Deps { whatsapp?: WhatsAppService; waQr?: BaileysWhatsApp; assistant?: AssistantService; chat: ChatStore; slides: SlideStore; status: StatusStore; coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
 
 export function googleVerifier(clientId: string): GoogleVerifier {
   const client = new OAuth2Client(clientId);
@@ -104,7 +105,7 @@ export async function buildApp(cfg: Config, deps: Deps) {
     adminEmailRoutes(v1, { cfg, email: deps.email, emails: deps.emails, settings: deps.settings, store, auth });
     contentRoutes(v1, { slides: deps.slides, status: deps.status, storage, images, store, auth });
     assistantRoutes(v1, { assistant: deps.assistant, auth });
-    whatsappRoutes(v1, { whatsapp: deps.whatsapp, auth });
+    whatsappRoutes(v1, { whatsapp: deps.whatsapp, qr: deps.waQr, auth, store, catalog, verifyToken: cfg.WHATSAPP_VERIFY_TOKEN, appSecret: cfg.WHATSAPP_APP_SECRET, log: app.log });
     chatRoutes(v1, { chat: deps.chat, store, storage, images, push: deps.push, auth });
     adminCatalogRoutes(v1, { catalog, storage, images, auth, log: (e) => store.logActivity(e) });
   }, { prefix: "/v1" });

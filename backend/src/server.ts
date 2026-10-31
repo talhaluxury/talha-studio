@@ -12,7 +12,8 @@ import { PgChat } from "./pgChat.js";
 import { PgSlides, PgStatus } from "./pgContent.js";
 import { AnthropicLLM, AssistantService, noLLM } from "./assistant.js";
 import { PgWhatsApp } from "./pgWhatsapp.js";
-import { createWhatsAppProvider, WhatsAppService } from "./whatsapp.js";
+import { createWhatsAppProvider, WhatsAppService, type WhatsAppProvider } from "./whatsapp.js";
+import { BaileysWhatsApp } from "./waQr.js";
 import { PgPushStore } from "./pgPush.js";
 import { PushService } from "./pushService.js";
 import { FcmSender, NullSender } from "./pushSender.js";
@@ -29,14 +30,18 @@ const email = new EmailService({ cfg, provider: createEmailProvider(cfg), emails
 const pushStore = new PgPushStore(store.db);
 const push = new PushService({ store: pushStore, sender: cfg.FCM_SERVICE_ACCOUNT_JSON ? new FcmSender(JSON.parse(cfg.FCM_SERVICE_ACCOUNT_JSON)) : new NullSender(), log: { error: (o, m) => console.error(m, JSON.stringify(o)) } });
 
-const whatsapp = new WhatsAppService({ cfg, provider: createWhatsAppProvider(cfg), store: new PgWhatsApp(store.db), log: { error: (o, m) => console.error(m, JSON.stringify(o)) } });
 const catalog = new PgCatalog(store.db);
 const assistant = new AssistantService({ cfg, llm: cfg.ANTHROPIC_API_KEY ? new AnthropicLLM(cfg.ANTHROPIC_API_KEY, cfg.ASSISTANT_MODEL) : noLLM, catalog, orders });
+const waLog = { error: (o: object, m: string) => console.error(m, JSON.stringify(o)) };
+const waQr = cfg.WHATSAPP_DRIVER === "qr" ? new BaileysWhatsApp({ pool: store.db, storeName: cfg.STORE_NAME, tpl: { welcome: cfg.WHATSAPP_TPL_WELCOME, order: cfg.WHATSAPP_TPL_ORDER, newArrival: cfg.WHATSAPP_TPL_NEW_ARRIVAL }, log: waLog }) : undefined;
+const waProvider: WhatsAppProvider = waQr ?? createWhatsAppProvider(cfg);
+const whatsapp = new WhatsAppService({ cfg, provider: waProvider, store: new PgWhatsApp(store.db), inbound: { users: store, orders, assistant }, log: { error: (o, m) => console.error(m, JSON.stringify(o)) } });
 
-const app = await buildApp(cfg, { store, catalog, orders, whatsapp, assistant, storage: createStorage(cfg), emails, settings, email, push, pushStore, coupons: new PgCoupons(store.db), banners: new PgBanners(store.db), chat: new PgChat(store.db), slides: new PgSlides(store.db), status: new PgStatus(store.db) });
+const app = await buildApp(cfg, { store, catalog, orders, whatsapp, waQr, assistant, storage: createStorage(cfg), emails, settings, email, push, pushStore, coupons: new PgCoupons(store.db), banners: new PgBanners(store.db), chat: new PgChat(store.db), slides: new PgSlides(store.db), status: new PgStatus(store.db) });
 await app.listen({ port: cfg.PORT, host: "0.0.0.0" });
+if (waQr) { waQr.onMessage((from, text, id) => whatsapp.handleInbound(from, text, id)); void waQr.start(); }
 if (!push.configured) app.log.warn("FCM_SERVICE_ACCOUNT_JSON is not set: push is off (the in-app notification inbox still works).");
-if (!whatsapp.configured) app.log.warn("WHATSAPP_DRIVER is not configured: no WhatsApp welcome/order messages will be sent.");
+if (!whatsapp.configured && !waQr) app.log.warn("WHATSAPP_DRIVER is not configured: no WhatsApp welcome/order messages will be sent.");
 if (!assistant.enabled) app.log.warn("ANTHROPIC_API_KEY is not set: the in-app AI assistant is off.");
 if (!email.configured) app.log.warn("EMAIL_DRIVER is not configured: order emails will wait in the queue until it is.");
 
