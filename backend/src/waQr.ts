@@ -75,8 +75,13 @@ export class BaileysWhatsApp implements WhatsAppProvider {
       const L = this.lib; const makeWASocket = L.default?.default ?? L.default ?? L.makeWASocket;
       const auth = await usePgAuthState(this.d.pool, { BufferJSON: L.BufferJSON, initAuthCreds: L.initAuthCreds, proto: L.proto });
       let version: number[] | undefined; try { version = (await L.fetchLatestBaileysVersion()).version; } catch { /* use the library default */ }
-      const sock = makeWASocket({ version, auth: auth.state, logger: pino({ level: "silent" }), browser: L.Browsers.ubuntu("Chrome"),
-        printQRInTerminal: false, markOnlineOnConnect: false, syncFullHistory: false, generateHighQualityLinkPreview: false });
+      const logger = pino({ level: "silent" });
+      // Cached key store (recommended by Baileys): avoids read/write races on the encryption keys, a cause of "Waiting for this message".
+      const keys = typeof L.makeCacheableSignalKeyStore === "function" ? L.makeCacheableSignalKeyStore(auth.state.keys, logger) : auth.state.keys;
+      const sock = makeWASocket({ version, auth: { creds: auth.state.creds, keys }, logger, browser: L.Browsers.ubuntu("Chrome"),
+        printQRInTerminal: false, markOnlineOnConnect: false, syncFullHistory: false, generateHighQualityLinkPreview: false,
+        // When a phone fails to decrypt a message it asks us to send it again. Without this it shows "Waiting for this message" forever.
+        getMessage: async (key: { id?: string | null }) => (key.id ? this.sentCache.get(key.id) : undefined) });
       this.sock = sock;
       sock.ev.on("creds.update", () => { void auth.saveCreds().catch((e: unknown) => this.d.log?.error({ err: String(e) }, "whatsapp session save failed")); });
       sock.ev.on("connection.update", async (u: any) => {
@@ -134,13 +139,17 @@ export class BaileysWhatsApp implements WhatsAppProvider {
       const [min, extra] = WA_SPEED_GAP[speed];
       await sleep(lane === "bulk" ? min + Math.floor(Math.random() * extra) : 1500 + Math.floor(Math.random() * 2500));
       const jpeg = imageUrl ? await this.jpegFrom(imageUrl) : null;      // no picture available: the text still goes out
-      await this.sock.sendMessage(jid, jpeg ? { image: jpeg, caption: text } : { text });
+      const sent = await this.sock.sendMessage(jid, jpeg ? { image: jpeg, caption: text } : { text });
+      const id: string | undefined = sent?.key?.id;
+      if (id && sent?.message) { this.sentCache.set(id, sent.message); if (this.sentCache.size > 500) this.sentCache.delete(this.sentCache.keys().next().value as string); }
     });
     this.lanes[lane] = job.catch(() => undefined);
     return job as Promise<void>;
   }
   /** Product pictures are stored as WebP; WhatsApp shows JPEG photos reliably, so convert (and keep the result for the whole broadcast). */
   private imgCache = new Map<string, Buffer>();
+  /** Recently sent messages, so WhatsApp "please resend" requests can be answered. */
+  private sentCache = new Map<string, unknown>();
   private async jpegFrom(url: string): Promise<Buffer | null> {
     const hit = this.imgCache.get(url); if (hit) return hit;
     try {
