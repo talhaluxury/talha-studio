@@ -33,9 +33,9 @@ export class PgCatalog implements CatalogStore {
     } catch (e) { throw this.dupErr(e); }
   }
   async setCategoryImage(id: string, key: string | null) {
-    const old = (await this.q("SELECT image_key FROM categories WHERE id = $1", [id]))[0]; if (!old) return null;
+    const old = (await this.q("SELECT image_key FROM categories WHERE id = $1", [id])).rows[0]; if (!old) return null;
     const r = await this.q("UPDATE categories SET image_key = $2 WHERE id = $1 RETURNING *", [id, key]);
-    return { category: toCat(r[0]!), oldKey: (old.image_key as string | null) ?? null };
+    return { category: toCat(r.rows[0]!), oldKey: (old.image_key as string | null) ?? null };
   }
   async deleteCategory(id: string) {
     try { const r = await this.q("DELETE FROM categories WHERE id=$1", [id]); return (r.rowCount ?? 0) > 0; }
