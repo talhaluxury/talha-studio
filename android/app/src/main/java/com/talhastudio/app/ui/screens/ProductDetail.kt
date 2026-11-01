@@ -72,8 +72,10 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
 
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         Box {
-            HorizontalPager(pager, Modifier.fillMaxWidth().aspectRatio(0.85f)) { i ->
-                ImageTile(p.images.getOrNull(i)?.url, p.name, Modifier.fillMaxSize(), ContentScale.Fit)
+            var ratio by remember(p.id) { mutableStateOf(0.67f) }   // the first photo's own shape: whole photo, no side bars
+            HorizontalPager(pager, Modifier.fillMaxWidth().aspectRatio(ratio)) { i ->
+                ImageTile(p.images.getOrNull(i)?.url, p.name, Modifier.fillMaxSize(), ContentScale.Fit,
+                    onRatio = if (i == 0) ({ r: Float -> ratio = r.coerceIn(0.5f, 1.1f) }) else null)
             }
             if (p.images.size > 1) Text("${pager.currentPage + 1}/${p.images.size}", style = MaterialTheme.typography.labelSmall, color = TS.Ivory,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp).clip(RoundedCornerShape(50)).background(TS.Black.copy(0.7f)).padding(horizontal = 10.dp, vertical = 4.dp))

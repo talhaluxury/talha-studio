@@ -10,6 +10,10 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,16 +29,21 @@ fun pkr(v: Int) = "Rs. " + "%,d".format(v)
 
 /** Image, or a neutral placeholder tile when there is no photo (never a fake photo). */
 @Composable
-fun ImageTile(url: String?, label: String, modifier: Modifier = Modifier, fit: ContentScale = ContentScale.Crop) {
+fun ImageTile(url: String?, label: String, modifier: Modifier = Modifier, fit: ContentScale = ContentScale.Crop, onRatio: ((Float) -> Unit)? = null) {
     Box(modifier.background(TS.Neutral), contentAlignment = Alignment.Center) {
         if (url != null) AsyncImage(
             model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current).data(url).crossfade(250).build(),
-            contentDescription = label, modifier = Modifier.fillMaxSize(), contentScale = fit)
+            contentDescription = label, modifier = Modifier.fillMaxSize(), contentScale = fit,
+            onSuccess = { st -> val sz = st.painter.intrinsicSize; if (sz.width > 0f && sz.height > 0f) onRatio?.invoke(sz.width / sz.height) })
         else Text(label.take(1), style = MaterialTheme.typography.displayLarge, color = TS.Gold)
     }
 }
 @Composable
-fun ProductImage(p: Product, modifier: Modifier = Modifier) = ImageTile(p.thumbUrl, p.name, modifier, ContentScale.Fit)   // the whole photo, never cut
+fun ProductImage(p: Product, modifier: Modifier = Modifier) {
+    // The tile takes the photo's own shape, so the whole photo shows (never cut) and there are no empty bars at the sides.
+    var ratio by remember(p.thumbUrl) { mutableStateOf(0.67f) }
+    ImageTile(p.thumbUrl, p.name, modifier.aspectRatio(ratio), ContentScale.Fit, onRatio = { ratio = it.coerceIn(0.6f, 0.8f) })
+}
 
 @Composable
 fun PriceText(p: Product) {
@@ -50,7 +59,7 @@ fun ProductCard(
 ) {
     Column(modifier.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).clickable(onClick = onClick)) {
         Box {
-            ProductImage(p, Modifier.fillMaxWidth().aspectRatio(0.78f))
+            ProductImage(p, Modifier.fillMaxWidth())
             p.discountPercent?.let {
                 Text("$it% OFF", style = MaterialTheme.typography.labelSmall, color = TS.Black,
                     modifier = Modifier.padding(8.dp).clip(RoundedCornerShape(50)).background(TS.Gold).padding(horizontal = 8.dp, vertical = 3.dp))
