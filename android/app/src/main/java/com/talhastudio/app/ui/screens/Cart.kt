@@ -92,7 +92,7 @@ private fun CouponBox(shop: ShopViewModel, ready: com.talhastudio.app.data.Quote
         Text("Discount code", style = MaterialTheme.typography.titleMedium)
         if (code != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (problem == null && ready?.couponCode != null) "$code applied" else code, Modifier.weight(1f), color = if (problem == null && ready?.couponCode != null) TS.Success else TS.Black)
+                Text(if (problem == null && ready?.couponCode != null) "$code applied" else code, Modifier.weight(1f), color = if (problem == null && ready?.couponCode != null) TS.Success else TS.Ivory)
                 TextButton({ shop.clearCoupon() }) { Text("Remove", color = TS.Gold) }
             }
             if (problem != null) Text("$problem. Remove the code to continue.", style = MaterialTheme.typography.labelSmall, color = TS.Danger)

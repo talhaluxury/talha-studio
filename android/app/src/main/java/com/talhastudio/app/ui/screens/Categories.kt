@@ -104,4 +104,4 @@ private fun FilterDialog(current: Filter, onDismiss: () -> Unit, onApply: (Filte
 }
 
 @Composable
-private fun chipColors() = FilterChipDefaults.filterChipColors(selectedContainerColor = TS.Black, selectedLabelColor = TS.Ivory)
+private fun chipColors() = FilterChipDefaults.filterChipColors(selectedContainerColor = TS.Ivory, selectedLabelColor = TS.Black)

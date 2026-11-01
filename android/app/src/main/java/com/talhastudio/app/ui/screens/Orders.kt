@@ -137,7 +137,7 @@ private fun Progress(o: Order) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         trackingSteps.forEachIndexed { i, st -> Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(if (i <= idx) TS.Gold else TS.Neutral))
-            Text(statusLabel(st), style = MaterialTheme.typography.labelSmall, color = if (i <= idx) TS.Black else TS.Gray, modifier = Modifier.padding(top = 4.dp), maxLines = 1)
+            Text(statusLabel(st), style = MaterialTheme.typography.labelSmall, color = if (i <= idx) TS.Ivory else TS.Gray, modifier = Modifier.padding(top = 4.dp), maxLines = 1)
         } }
     }
 }

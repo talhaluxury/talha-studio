@@ -40,6 +40,12 @@ android {
     }
 
     signingConfigs {
+        // Fixed key for debug APKs. GitHub's build machines create a NEW random debug key on every run, which changes the SHA-1 each time
+        // and breaks Google Sign-In. This key is debug-only (package ...app.debug); it is NOT the Play Store / release key.
+        getByName("debug") {
+            storeFile = file("talha-debug.p12"); storeType = "pkcs12"
+            storePassword = "android"; keyAlias = "talhadebug"; keyPassword = "android"
+        }
         val storePath = secret("storeFile", "TS_KEYSTORE_PATH")
         if (storePath != null) {
             create("release") {

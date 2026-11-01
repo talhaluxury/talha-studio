@@ -18,7 +18,7 @@ fun TsButton(
 ) {
     val (bg, fg) = when (style) {
         TsButtonStyle.Gold -> TS.Gold to TS.Black
-        TsButtonStyle.Black -> TS.Black to TS.Ivory
+        TsButtonStyle.Black -> TS.Ivory to TS.Black   // dark app: the "black" button is white
         TsButtonStyle.Outline -> Color.Transparent to TS.Gold
     }
     Button(
