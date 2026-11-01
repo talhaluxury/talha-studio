@@ -78,7 +78,7 @@ fun parseSlides(o: JSONObject) = o.optJSONArray("slides").mapObjects { Slide(it.
 fun parseChatMessage(o: JSONObject) = ChatMessage(o.getLong("seq"), o.getString("id"), o.getString("sender") == "store", o.optString("body", ""), o.str("imageUrl"), o.getString("createdAt"), o.optBoolean("read", false))
 fun parseStatus(o: JSONObject) = StatusItem(o.getString("id"), o.getString("imageUrl"), o.str("caption"), o.getString("createdAt"))
 fun parseAssistant(o: JSONObject) = AssistantReply(o.optString("reply", ""), o.optJSONArray("actions").mapObjects { AssistantAction(it.getString("type"), it.str("id"), it.getString("label")) })
-fun parseCategories(a: JSONArray?) = a.mapObjects { Category(it.getString("id"), it.getString("slug"), it.getString("name")) }
+fun parseCategories(a: JSONArray?) = a.mapObjects { Category(it.getString("id"), it.getString("slug"), it.getString("name"), it.optString("imageUrl").takeIf { u -> u.isNotBlank() && u != "null" }) }
 
 /** Login state. Tokens live in app-private storage (backups are disabled in the manifest). */
 object Session {

@@ -1,5 +1,7 @@
 package com.talhastudio.app.ui.screens
 
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -94,7 +96,8 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                         items(d.categories, key = { it.id }) { c ->
                             Column(Modifier.clickable { onBrowse(c.slug) }, horizontalAlignment = Alignment.CenterHorizontally) {
                                 Box(Modifier.size(64.dp).clip(CircleShape).background(TS.Neutral), contentAlignment = Alignment.Center) {
-                                    Text(c.name.take(1), fontFamily = DisplayFont, color = TS.Gold, style = MaterialTheme.typography.titleLarge)
+                                    if (c.imageUrl != null) AsyncImage(model = c.imageUrl, contentDescription = c.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                    else Text(c.name.take(1), fontFamily = DisplayFont, color = TS.Gold, style = MaterialTheme.typography.titleLarge)
                                 }
                                 Spacer(Modifier.height(6.dp)); Text(c.name, style = MaterialTheme.typography.labelSmall)
                             }

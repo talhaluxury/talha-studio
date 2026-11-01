@@ -1,6 +1,5 @@
 package com.talhastudio.app.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -24,6 +23,6 @@ private val Dark = darkColorScheme(
 )
 
 @Composable
-fun TalhaTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+fun TalhaTheme(dark: Boolean = true, content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = if (dark) Dark else Light, typography = TalhaTypography, content = content)
 }

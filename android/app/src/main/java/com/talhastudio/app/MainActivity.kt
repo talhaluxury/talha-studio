@@ -4,6 +4,8 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import android.graphics.Color
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import com.talhastudio.app.data.Session
 import com.talhastudio.app.push.Channels
@@ -18,7 +20,8 @@ class MainActivity : ComponentActivity() {
         Session.init(applicationContext); PushTokens.init(applicationContext); Channels.create(applicationContext); com.talhastudio.app.data.Repo.initCache(applicationContext)
         com.talhastudio.app.push.InboxSync.schedule(applicationContext)
         normalizeDeepLink(intent)
-        enableEdgeToEdge()
+        // The app is always dark, so keep the status/navigation bar icons light even when the phone itself is in light mode.
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT), navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT))
         val fromLink = intent?.data != null
         setContent { TalhaTheme { TalhaNavHost(startOnMain = fromLink) } }
     }

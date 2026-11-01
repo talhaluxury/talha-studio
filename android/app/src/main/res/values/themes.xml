@@ -1,6 +1,6 @@
 <resources>
-    <style name="Theme.TalhaStudio" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">#FAF8F3</item>
+    <style name="Theme.TalhaStudio" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#080808</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
