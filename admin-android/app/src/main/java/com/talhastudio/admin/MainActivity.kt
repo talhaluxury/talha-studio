@@ -7,9 +7,9 @@ import android.os.Bundle
 import android.view.WindowManager
 import android.webkit.*
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.fragment.app.FragmentActivity
 import androidx.webkit.WebViewAssetLoader
 
 /**
@@ -17,7 +17,7 @@ import androidx.webkit.WebViewAssetLoader
  * Pages are served from https://appassets.androidplatform.net/assets/ so ES modules, sessionStorage and CORS behave like a real site.
  * The backend's ADMIN_ORIGIN must include https://appassets.androidplatform.net.
  */
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     private lateinit var web: WebView
     private var chooser: ValueCallback<Array<Uri>>? = null
 
@@ -55,6 +55,8 @@ class MainActivity : ComponentActivity() {
             userAgentString = "$userAgentString TalhaAdminApp"
         }
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+        // Fingerprint login: the page can only reach it because it only ever loads our own bundled files.
+        web.addJavascriptInterface(BiometricVault(this, web), "TalhaNative")
 
         web.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) = loader.shouldInterceptRequest(request.url)

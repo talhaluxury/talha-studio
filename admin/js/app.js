@@ -41,7 +41,7 @@ function shell(active, content) {
     h("button", { class: "btn ghost sm", "aria-label": "Open menu", onclick: () => toggle(true) }, "Menu"));
   return h("div", { class: "shell" }, top, side, scrim, h("main", { class: "main", id: "main", tabindex: "-1" }, content));
 }
-function logout() { session.clear(); location.hash = "#/login"; }
+function logout() { session.clear(); sessionStorage.setItem("ts_no_autologin", "1"); location.hash = "#/login"; }
 
 let token = 0;
 async function route() {

@@ -34,8 +34,8 @@ android {
         applicationId = "com.talhastudio.admin"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
     signingConfigs {
         val storePath = secret("storeFile", "TS_KEYSTORE_PATH")
@@ -65,4 +65,6 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.webkit)
+    implementation(libs.androidx.biometric)
+    implementation(libs.androidx.fragment)
 }
