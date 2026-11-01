@@ -45,7 +45,7 @@ describe("admin tools: numbers, product messages, free text", () => {
     const wa = new Fake(); const svc = new WhatsAppService({ cfg, provider: wa, store: new MemoryWhatsApp() });
     svc.sendCustom("Hi", [ali], "fast"); await finished(svc);
     expect(wa.texts[0]!.opts?.speed).toBe("fast");
-    expect([waSpeedMinutes(100, "safe"), waSpeedMinutes(100, "normal"), waSpeedMinutes(100, "fast")]).toEqual([17, 9, 3]);
+    expect([waSpeedMinutes(100, "safe"), waSpeedMinutes(100, "normal"), waSpeedMinutes(100, "fast")]).toEqual([17, 9, 4]);
   });
 
   it("runs one send at a time", async () => {

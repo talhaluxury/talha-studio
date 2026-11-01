@@ -215,7 +215,7 @@ Sab sahi hai to "YES" likh dein. Agar kuch galat hai to bas "galat hai" likh dei
   }
   /** Template {{1}} = name, {{2}} = order number, {{3}} = store name, {{4}} = total (PKR), {{5}} = city. In QR mode the full message with the product photo is sent instead. */
   async orderPlaced(o: OrderRec) {
-    const first = o.items[0];
+    const first = o.items?.[0];
     const media: WaMedia | undefined = this.d.provider.name === "qr" ? { text: this.orderText(o), imageUrl: first?.thumbKey && this.d.mediaUrl ? this.d.mediaUrl(first.thumbKey) : null } : undefined;
     await this.send("order_confirmation", o.id, o.customer.phone, this.d.cfg.WHATSAPP_TPL_ORDER,
       [o.customer.name, o.orderNumber, this.d.cfg.STORE_NAME, o.total.toLocaleString("en-US"), o.address.city], media);
