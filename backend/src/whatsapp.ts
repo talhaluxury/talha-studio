@@ -122,7 +122,7 @@ export class WhatsAppService implements OrderEvents {
     /** Public URL of a stored picture (order messages show the product photo). */ mediaUrl?: (key: string) => string;
     /** Runs after a customer confirmed an order on WhatsApp (app notification). Failures are logged, never raised. */ onConfirmed?: (o: OrderRec, prev: OrderStatus) => Promise<void>;
     /** Only needed for customer replies (YES / AI answers). */
-    inbound?: { users: Pick<Store, "listCustomersWithPhone">; orders: OrderStore; assistant?: AssistantService } }) {}
+    inbound?: { users: Pick<Store, "listCustomersWithPhone"> & Partial<Pick<Store, "findUserById">>; orders: OrderStore; assistant?: AssistantService } }) {}
   get configured() { return this.d.provider.configured; }
   get providerName() { return this.d.provider.name; }
 
@@ -310,11 +310,25 @@ Sab sahi hai to "YES" likh dein. Agar kuch galat hai to bas "galat hai" likh dei
         if (STOP_RE.test(body)) { await this.d.store.setOptOut(from, true); return `You will no longer get promotional WhatsApp messages from ${this.d.cfg.STORE_NAME}. Order updates still reach you. Reply START to subscribe again.`; }
         if (START_RE.test(body)) { await this.d.store.setOptOut(from, false); return `Thank you! You will hear from ${this.d.cfg.STORE_NAME} about new arrivals again. Reply STOP any time to unsubscribe.`; }
         const mine = (await w.users.listCustomersWithPhone()).filter((u) => normalizePhone(u.phone ?? "") === from);
+        // The order message goes to the phone typed at CHECKOUT, which can differ from the account's phone. Also treat the owner of a
+        // pending order with this checkout phone as "this customer", so YES / "galat hai" still find the order.
+        if (w.users.findUserById) {
+          const seen = new Set(mine.map((u) => u.id));
+          const open = await w.orders.adminList({ status: "pending", page: 1, limit: 100 });
+          for (const s of open.items) {
+            if (normalizePhone(s.customerPhone) !== from) continue;
+            const o = await w.orders.adminGet(s.id); if (!o?.userId || seen.has(o.userId)) continue;
+            const u = await w.users.findUserById(o.userId);
+            if (u && u.role === "customer" && u.isActive && !u.deletedAt) { mine.push(u); seen.add(u.id); }
+          }
+        }
         const fixed = await this.deliveryFlow(from, body, mine); if (fixed) return fixed;
         const exactYes = YES_RE.test(body);
         if (exactYes || isAffirm(body)) {
+          let already: string | null = null;
           for (const u of mine) {
             const latest = (await w.orders.listForUser(u.id, 1, 1)).items[0];
+            if (latest && ["confirmed", "processing"].includes(latest.status)) already ??= latest.orderNumber;
             if (latest?.status !== "pending") continue;
             const first = u.fullName.split(" ")[0];
             // 1st yes = "the address is correct" (remembered per order), 2nd yes = "confirm the order".
@@ -326,16 +340,17 @@ Sab sahi hai to "YES" likh dein. Agar kuch galat hai to bas "galat hai" likh dei
               return `Shukriya ${first}! ✅ Aap ka order ${latest.orderNumber} confirm ho gaya hai. Hum isay jald dispatch karenge, shipping ki update yahin aur app mein milti rahegi. ${this.d.cfg.STORE_NAME} se shopping ka bohat shukriya! 🌸`;
             }
           }
+          if (exactYes && already) return `Aap ka order ${already} pehle hi confirm ho chuka hai ✅ (You have no order waiting for confirmation right now.) Koi sawal ho to yahin likh dein.`;
           if (exactYes) return "You have no order waiting for confirmation right now. If you need help, just write your question here.";
         }
         if (!w.assistant?.enabled) return null;
         const now = Date.now(); const old = this.convo.get(from);
         const history = old && now - old.at < 12 * 3600_000 ? old.turns : [];
-        const turns: ChatTurn[] = [...history, { role: "user" as const, content: body.slice(0, 1000) }].slice(-8);
+        const turns: ChatTurn[] = [...history, { role: "user" as const, content: body.slice(0, 1000) }].slice(-4);
         const last = await this.d.store.lastNewArrival(from);
         const productId = last && now - last.at.getTime() < 14 * 86_400_000 ? last.productId : null;   // only a recent message makes a product "the one we are talking about"
         const r = await w.assistant.reply(turns, mine[0] ?? null, `wa:${from}`, { channel: "whatsapp", productId });
-        this.convo.set(from, { at: now, turns: [...turns, { role: "assistant" as const, content: r.reply }].slice(-8) });
+        this.convo.set(from, { at: now, turns: [...turns, { role: "assistant" as const, content: r.reply }].slice(-4) });
         if (this.convo.size > 2000) for (const [k, v] of this.convo) if (now - v.at > 12 * 3600_000) this.convo.delete(k);
         return r.reply;
       };

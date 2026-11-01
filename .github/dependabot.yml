@@ -24,6 +24,9 @@ updates:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
       - dependency-name: "org.jetbrains.kotlin*"
+      # Newer androidx libs need compileSdk 37 / AGP 9; hold them until the project is upgraded on purpose.
+      - dependency-name: "androidx.*"
+        update-types: ["version-update:semver-minor"]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
