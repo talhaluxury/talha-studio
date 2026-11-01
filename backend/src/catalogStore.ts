@@ -4,18 +4,18 @@ export interface ImageRec { id: string; storageKey: string; thumbKey: string; wi
 export interface ProductRec {
   id: string; sku: string; slug: string; name: string; description: string;
   categoryId: string; categorySlug: string; categoryName: string;
-  price: number; salePrice: number | null; fabric: string | null; isPublished: boolean; isFeatured: boolean;
+  price: number; salePrice: number | null; fabric: string | null; isPublished: boolean; isFeatured: boolean; isNew: boolean;
   variants: Variant[]; images: ImageRec[]; createdAt: Date;
 }
 export interface VariantInput { sku: string; size: string | null; color: string | null; stock: number }
 export interface ProductInput {
   sku: string; name: string; description: string; categoryId: string; price: number; salePrice: number | null;
-  fabric: string | null; isPublished: boolean; isFeatured: boolean; variants: VariantInput[];
+  fabric: string | null; isPublished: boolean; isFeatured: boolean; isNew: boolean; variants: VariantInput[];
 }
 export interface CategoryInput { name: string; slug: string; parentId: string | null; sortOrder: number; isActive: boolean }
 export interface ProductQuery {
   publishedOnly: boolean; categorySlug?: string; q?: string; sort: "new" | "price_asc" | "price_desc";
-  ids?: string[]; onSale?: boolean; minPrice?: number; maxPrice?: number; size?: string; color?: string; inStock?: boolean; featured?: boolean;
+  ids?: string[]; onSale?: boolean; minPrice?: number; maxPrice?: number; size?: string; color?: string; inStock?: boolean; featured?: boolean; newArrival?: boolean;
   page: number; limit: number;
 }
 export interface VariantLookup {
@@ -31,6 +31,8 @@ export interface CatalogStore {
   listCategories(activeOnly: boolean): Promise<Category[]>;
   createCategory(c: CategoryInput): Promise<Category>;
   updateCategory(id: string, c: CategoryInput): Promise<Category | null>;
+  /** Sets (or clears, with null) the category picture. Returns the category and the key of the picture it replaced, so the file can be deleted. */
+  setCategoryImage(id: string, key: string | null): Promise<{ category: Category; oldKey: string | null } | null>;
   deleteCategory(id: string): Promise<boolean>;            // throws InUseError when products reference it
 
   listProducts(q: ProductQuery): Promise<{ items: ProductRec[]; total: number }>;

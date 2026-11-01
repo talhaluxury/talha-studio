@@ -2,6 +2,12 @@ package com.talhastudio.app.ui.nav
 
 import android.content.Intent
 import androidx.activity.ComponentActivity
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -23,6 +29,8 @@ import com.talhastudio.app.data.LocalStore
 import com.talhastudio.app.data.Session
 import com.talhastudio.app.push.PushTokens
 import com.talhastudio.app.push.normalizeDeepLink
+import com.talhastudio.app.ui.components.FlyToCartOverlay
+import com.talhastudio.app.ui.components.LiquidBottomBar
 import com.talhastudio.app.ui.components.TsButton
 import com.talhastudio.app.ui.screens.*
 
@@ -47,6 +55,8 @@ object Routes {
     const val Info = "info/{slug}"
     fun info(slug: String) = "info/$slug"
 }
+
+private val barRoutes = setOf(Routes.Main, Routes.Product, Routes.Confirmation, Routes.Orders, Routes.Order, Routes.Addresses, Routes.Notifications, Routes.Support, Routes.Settings, Routes.Info)
 
 /** [startOnMain] is true when the app was opened from a notification: skip the splash and land inside the app. */
 @Composable
@@ -74,8 +84,15 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
     // After sign-in (or app start while signed in): register this phone for push and refresh the bell.
     LaunchedEffect(Session.user?.id) { if (Session.signedIn) { PushTokens.sync(); shop.refreshUnread() } }
 
+    // The bottom bar is on every normal screen (not on splash, welcome, sign-in, chat and checkout). Tapping a tab goes back to the main screen on that tab.
+    val showBar = route != null && route in barRoutes
+    val barSpace by animateDpAsState(if (showBar && route != Routes.Main) 88.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() else 0.dp, label = "barSpace")
+    fun goTab(i: Int) { shop.currentTab = i; if (route != Routes.Main && !nav.popBackStack(Routes.Main, false)) nav.navigate(Routes.Main) }
+
     Box(Modifier.fillMaxSize()) {
-    NavHost(nav, startDestination = if (startOnMain) Routes.Main else Routes.Splash) {
+    // Screens other than the main one stop above the bar (the main screen floats its content under it on purpose).
+    NavHost(nav, startDestination = if (startOnMain) Routes.Main else Routes.Splash,
+        modifier = Modifier.padding(bottom = barSpace).consumeWindowInsets(WindowInsets.navigationBars)) {
         composable(Routes.Splash) {
             SplashScreen(onDone = {
                 nav.navigate(if (local.onboarded()) Routes.Main else Routes.Onboarding) { popUpTo(Routes.Splash) { inclusive = true } }
@@ -139,6 +156,12 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
             else SignInRequired(onBack = { nav.popBackStack() }) { nav.navigate(Routes.auth()) }
         }
     }
+    AnimatedVisibility(showBar, Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+        enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+        LiquidBottomBar(shellTabs, shop.currentTab, badges = mapOf(3 to shop.cartCount, 2 to shop.wishlist.size), onSelect = { goTab(it) }, pulseIndex = 3, pulse = shop.cartPulse)
+    }
+    // An item was added to the cart: its picture flies into the cart tab, the icon bounces, then the cart opens.
+    FlyToCartOverlay(shop.flyEvent, cartTabIndex = 3, tabCount = shellTabs.size) { shop.flyEvent = null; shop.cartPulse++; goTab(3) }
     // The floating AI assistant sits above every normal screen (not on splash, welcome, sign-in, chat or checkout) and can be dragged anywhere.
     AssistantOverlay(visible = route != null && route !in setOf(Routes.Splash, Routes.Onboarding, Routes.Auth, Routes.PhoneAuth, Routes.Chat, Routes.Checkout)) { a ->
         when (a.type) {

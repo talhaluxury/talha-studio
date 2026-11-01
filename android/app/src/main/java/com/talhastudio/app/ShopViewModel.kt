@@ -3,6 +3,7 @@ package com.talhastudio.app
 import android.app.Application
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -21,6 +22,9 @@ sealed interface QuoteState {
 }
 
 /** Cart, wishlist and recently viewed live on the device; prices and stock are always confirmed by the server. */
+/** A product picture that flies from the "Add to Cart" button into the cart tab. Positions are in window pixels. */
+data class FlyEvent(val imageUrl: String?, val label: String, val startX: Float, val startY: Float)
+
 class ShopViewModel(app: Application) : AndroidViewModel(app) {
     private val local = LocalStore(app)
     val wishlist = mutableStateListOf<String>().also { it.addAll(local.wishlist()) }
@@ -40,6 +44,12 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
         private set
     /** Set by the assistant ("open cart") and consumed by MainShell, because the tabs live inside it. */
     var requestedTab by mutableStateOf<Int?>(null)
+    /** Selected tab of the main screen. Lives here so the bottom bar (drawn by the nav host on every screen) and MainShell agree. */
+    var currentTab by mutableIntStateOf(0)
+    /** Set when an item was added to the cart: the overlay animates it, then opens the cart. */
+    var flyEvent by mutableStateOf<FlyEvent?>(null)
+    /** Goes up by one each time the cart icon should bounce. */
+    var cartPulse by mutableIntStateOf(0)
     private var knownStatusIds: List<String> = emptyList()
     fun refreshUpdates() { viewModelScope.launch {
         if (!Session.signedIn) { chatUnread = 0; newStatus = false; return@launch }

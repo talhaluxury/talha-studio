@@ -1,6 +1,9 @@
 package com.talhastudio.app.ui.components
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
@@ -35,7 +38,7 @@ data class NavItem(val label: String, val icon: ImageVector)
 @Composable
 fun LiquidBottomBar(
     items: List<NavItem>, selected: Int, badges: Map<Int, Int> = emptyMap(),
-    onSelect: (Int) -> Unit, modifier: Modifier = Modifier,
+    onSelect: (Int) -> Unit, modifier: Modifier = Modifier, pulseIndex: Int = -1, pulse: Int = 0,
 ) {
     val pos by animateFloatAsState(
         targetValue = selected.toFloat(),
@@ -61,6 +64,11 @@ fun LiquidBottomBar(
             Row(Modifier.fillMaxSize()) {
                 items.forEachIndexed { i, item ->
                     val active = i == selected
+                    // A small bounce on the icon when an item lands in the cart.
+                    val bump = remember { Animatable(1f) }
+                    if (i == pulseIndex) LaunchedEffect(pulse) {
+                        if (pulse > 0) { bump.snapTo(1f); bump.animateTo(1.45f, tween(110)); bump.animateTo(1f, spring(dampingRatio = Spring.DampingRatioHighBouncy, stiffness = Spring.StiffnessMedium)) }
+                    }
                     Box(
                         Modifier.weight(1f).fillMaxHeight()
                             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, role = Role.Tab) { onSelect(i) }
@@ -72,7 +80,7 @@ fun LiquidBottomBar(
                                 val n = badges[i] ?: 0
                                 if (n > 0) Badge(containerColor = TS.Danger, contentColor = Color.White) { Text(n.toString()) }
                             }) {
-                                Icon(item.icon, null, tint = if (active) TS.Black else Color.White.copy(0.75f), modifier = Modifier.size(22.dp))
+                                Icon(item.icon, null, tint = if (active) TS.Black else Color.White.copy(0.75f), modifier = Modifier.size(22.dp).graphicsLayer { scaleX = bump.value; scaleY = bump.value })
                             }
                             Text(item.label, style = MaterialTheme.typography.labelSmall, color = if (active) TS.Black else Color.White.copy(0.75f))
                         }

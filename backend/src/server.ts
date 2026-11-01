@@ -35,9 +35,10 @@ const assistant = new AssistantService({ cfg, llm: cfg.ANTHROPIC_API_KEY ? new A
 const waLog = { error: (o: object, m: string) => console.error(m, JSON.stringify(o)) };
 const waQr = cfg.WHATSAPP_DRIVER === "qr" ? new BaileysWhatsApp({ pool: store.db, storeName: cfg.STORE_NAME, tpl: { welcome: cfg.WHATSAPP_TPL_WELCOME, order: cfg.WHATSAPP_TPL_ORDER, newArrival: cfg.WHATSAPP_TPL_NEW_ARRIVAL }, log: waLog }) : undefined;
 const waProvider: WhatsAppProvider = waQr ?? createWhatsAppProvider(cfg);
-const whatsapp = new WhatsAppService({ cfg, provider: waProvider, store: new PgWhatsApp(store.db), inbound: { users: store, orders, assistant }, log: { error: (o, m) => console.error(m, JSON.stringify(o)) } });
+const storage = createStorage(cfg);
+const whatsapp = new WhatsAppService({ cfg, provider: waProvider, mediaUrl: (k) => storage.url(k), onConfirmed: (o) => push.orderConfirmed(o), store: new PgWhatsApp(store.db), inbound: { users: store, orders, assistant }, log: { error: (o, m) => console.error(m, JSON.stringify(o)) } });
 
-const app = await buildApp(cfg, { store, catalog, orders, whatsapp, waQr, assistant, storage: createStorage(cfg), emails, settings, email, push, pushStore, coupons: new PgCoupons(store.db), banners: new PgBanners(store.db), chat: new PgChat(store.db), slides: new PgSlides(store.db), status: new PgStatus(store.db) });
+const app = await buildApp(cfg, { store, catalog, orders, whatsapp, waQr, assistant, storage, emails, settings, email, push, pushStore, coupons: new PgCoupons(store.db), banners: new PgBanners(store.db), chat: new PgChat(store.db), slides: new PgSlides(store.db), status: new PgStatus(store.db) });
 await app.listen({ port: cfg.PORT, host: "0.0.0.0" });
 if (waQr) { waQr.onMessage((from, text, id) => whatsapp.handleInbound(from, text, id)); void waQr.start(); }
 if (!push.configured) app.log.warn("FCM_SERVICE_ACCOUNT_JSON is not set: push is off (the in-app notification inbox still works).");

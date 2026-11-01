@@ -18,8 +18,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.unit.dp
+import com.talhastudio.app.FlyEvent
 import com.talhastudio.app.ShopViewModel
 import com.talhastudio.app.data.Product
 import com.talhastudio.app.data.Repo
@@ -63,11 +68,12 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
     val variant = p.variantFor(size, color)
     val maxQty = ((variant?.stock ?: 0)).coerceAtMost(10)
     val pager = rememberPagerState { p.images.size.coerceAtLeast(1) }
+    var buttonCenter by remember { mutableStateOf(Offset.Zero) }
 
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         Box {
             HorizontalPager(pager, Modifier.fillMaxWidth().aspectRatio(0.85f)) { i ->
-                ImageTile(p.images.getOrNull(i)?.url, p.name, Modifier.fillMaxSize())
+                ImageTile(p.images.getOrNull(i)?.url, p.name, Modifier.fillMaxSize(), ContentScale.Fit)
             }
             if (p.images.size > 1) Text("${pager.currentPage + 1}/${p.images.size}", style = MaterialTheme.typography.labelSmall, color = TS.Ivory,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp).clip(RoundedCornerShape(50)).background(TS.Black.copy(0.7f)).padding(horizontal = 10.dp, vertical = 4.dp))
@@ -103,13 +109,17 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
                 Text("$qty", Modifier.widthIn(min = 28.dp), style = MaterialTheme.typography.titleMedium)
                 IconButton({ if (qty < maxQty) qty++ }, enabled = qty < maxQty) { Icon(Icons.Outlined.Add, "Increase quantity") }
             }
-            TsButton("Add to Cart", style = TsButtonStyle.Black, enabled = p.inStock, onClick = {
-                when {
-                    needsChoice -> say("Please choose " + listOfNotNull("a color".takeIf { p.colors.isNotEmpty() && color == null }, "a size".takeIf { p.sizes.isNotEmpty() && size == null }).joinToString(" and ") + ".")
-                    variant == null || variant.stock == 0 -> say("That combination is out of stock.")
-                    else -> say(if (shop.addToCart(p, variant, qty)) "Added to cart." else "Added the maximum available (${variant.stock}).")
-                }
-            })
+            Box(Modifier.onGloballyPositioned { c -> val o = c.positionInRoot(); buttonCenter = Offset(o.x + c.size.width / 2f, o.y + c.size.height / 2f) }) {
+                TsButton("Add to Cart", style = TsButtonStyle.Black, enabled = p.inStock, onClick = {
+                    when {
+                        needsChoice -> say("Please choose " + listOfNotNull("a color".takeIf { p.colors.isNotEmpty() && color == null }, "a size".takeIf { p.sizes.isNotEmpty() && size == null }).joinToString(" and ") + ".")
+                        variant == null || variant.stock == 0 -> say("That combination is out of stock.")
+                        // The picture flies into the cart tab, then the cart opens (see FlyToCartOverlay).
+                        shop.addToCart(p, variant, qty) -> { shop.flyEvent = FlyEvent(p.images.firstOrNull()?.url ?: p.thumbUrl, p.name, buttonCenter.x, buttonCenter.y) }
+                        else -> say("Added the maximum available (${variant.stock}).")
+                    }
+                })
+            }
             if (p.description.isNotBlank()) { Text("Description", style = MaterialTheme.typography.titleMedium); Text(p.description, style = MaterialTheme.typography.bodyLarge) }
         }
         if (p.related.isNotEmpty()) { SectionHeader("You may also like"); Spacer(Modifier.height(12.dp)); ProductRow(shop, p.related, onOpenProduct) }

@@ -24,6 +24,7 @@ export async function renderEditor(view, idArg) {
     fabric: h("input", { id: "fabric", maxlength: 60, value: p?.fabric ?? "", placeholder: "Lawn, Linen, Wash & Wear..." }),
     desc: h("textarea", { id: "desc", maxlength: 5000 }, p?.description ?? ""),
     featured: h("input", { id: "featured", type: "checkbox", checked: p?.isFeatured }),
+    isNew: h("input", { id: "isnew", type: "checkbox", checked: p?.isNew }),
   };
   if (!write) Object.values(f).forEach((x) => (x.disabled = true));
 
@@ -52,7 +53,7 @@ export async function renderEditor(view, idArg) {
     const num = (x) => (x.value === "" ? null : Number(x.value));
     const body = {
       sku: f.sku.value.trim(), name: f.name.value.trim(), description: f.desc.value, categoryId: f.category.value,
-      price: num(f.price), salePrice: num(f.sale), fabric: f.fabric.value.trim() || null, isFeatured: f.featured.checked,
+      price: num(f.price), salePrice: num(f.sale), fabric: f.fabric.value.trim() || null, isFeatured: f.featured.checked, isNew: f.isNew.checked,
       isPublished: p?.isPublished ?? false,
       variants: variants.map((v) => ({ sku: v.sku.trim(), size: v.size.trim() || null, color: v.color.trim() || null, stock: Number(v.stock) })),
     };
@@ -73,7 +74,8 @@ export async function renderEditor(view, idArg) {
         h("div", { class: "field" }, h("label", { for: "price" }, "Price (Rs.)"), f.price, h("div", { class: "err", "data-err": "price" })),
         h("div", { class: "field" }, h("label", { for: "sale" }, "Sale price (Rs.)"), f.sale, h("div", { class: "err", "data-err": "salePrice" }), h("div", { class: "hint" }, "Optional. Must be lower than the price."))),
       h("div", { class: "field" }, h("label", { for: "desc" }, "Description"), f.desc, h("div", { class: "err", "data-err": "description" })),
-      h("label", { class: "check", for: "featured" }, f.featured, "Feature on the home screen")),
+      h("label", { class: "check", for: "featured" }, f.featured, "Feature on the home screen"),
+      h("label", { class: "check", for: "isnew" }, f.isNew, "Show in New Arrivals")),
     h("div", { class: "card" }, h("h2", {}, "Sizes, colors and stock"), h("p", { class: "hint" }, "One row per size and color. Stock is deducted automatically when orders are placed."), varBox,
       write ? h("button", { class: "btn ghost sm", type: "button", onclick: () => { variants.push({ sku: "", size: "", color: "", stock: 0 }); drawVariants(); } }, "Add variant") : null),
     write ? h("div", { class: "row" }, saveBtn, h("a", { class: "btn ghost", href: "#/products" }, "Back to products")) : h("a", { class: "btn ghost", href: "#/products" }, "Back to products"));

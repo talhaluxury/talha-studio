@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { notFound } from "../errors.js";
-import { totalStock, type CatalogStore, type ProductRec } from "../catalogStore.js";
+import { totalStock, type CatalogStore, type Category, type ProductRec } from "../catalogStore.js";
 import type { Storage } from "../storage.js";
 import type { Config } from "../config.js";
 import { priceCart, type PriceCfg } from "../pricing.js";
@@ -9,10 +9,11 @@ import type { BannerStore } from "../bannerStore.js";
 import type { CouponStore } from "../couponStore.js";
 import type { SettingsStore } from "../settingsStore.js";
 
+export const toApiCategory = (c: Category, s: Storage) => ({ ...c, imageUrl: c.imageKey ? s.url(c.imageKey) : null });
 export const toApiProduct = (p: ProductRec, s: Storage, admin = false) => ({
   id: p.id, sku: p.sku, slug: p.slug, name: p.name, description: p.description,
   category: { id: p.categoryId, slug: p.categorySlug, name: p.categoryName },
-  price: p.price, salePrice: p.salePrice, fabric: p.fabric, isFeatured: p.isFeatured,
+  price: p.price, salePrice: p.salePrice, fabric: p.fabric, isFeatured: p.isFeatured, isNew: p.isNew,
   images: p.images.map((i) => ({ id: i.id, url: s.url(i.storageKey), thumbUrl: s.url(i.thumbKey) })),
   variants: p.variants.map((v) => ({ id: v.id, ...(admin ? { sku: v.sku } : {}), size: v.size, color: v.color, stock: v.stock })),
   inStock: totalStock(p) > 0,
@@ -28,6 +29,7 @@ export const productQuery = z.object({
   featured: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
   ids: z.string().max(2000).transform((v) => v.split(",").filter(Boolean)).pipe(z.array(z.string().uuid()).max(50)).optional(),
   onSale: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
+  newArrival: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
   page: z.coerce.number().int().min(1).max(1000).default(1), limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
@@ -39,7 +41,7 @@ export async function priceCfgFrom(settings: SettingsStore, cfg: Pick<Config, "M
 
 export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; storage: Storage; cfg: Config; settings: SettingsStore; banners: BannerStore; coupons: CouponStore }) {
   const { catalog, storage, cfg, settings, banners, coupons } = d;
-  app.get("/categories", async () => ({ items: await catalog.listCategories(true) }));
+  app.get("/categories", async () => ({ items: (await catalog.listCategories(true)).map((c) => toApiCategory(c, storage)) }));
 
   app.get("/products", async (req) => {
     const f = productQuery.parse(req.query);
@@ -58,15 +60,16 @@ export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; 
   // Home feed. Collections are generated from live catalog data; banners arrive with admin banner management.
   app.get("/home", async () => {
     const base = { publishedOnly: true, sort: "new" as const, page: 1, limit: 10 };
-    const [cats, news, featured, sale, live, st] = await Promise.all([
-      catalog.listCategories(true), catalog.listProducts(base), catalog.listProducts({ ...base, featured: true }), catalog.listProducts({ ...base, onSale: true }),
+    const [cats, newest, pinned, featured, sale, live, st] = await Promise.all([
+      catalog.listCategories(true), catalog.listProducts(base), catalog.listProducts({ ...base, newArrival: true }), catalog.listProducts({ ...base, featured: true }), catalog.listProducts({ ...base, onSale: true }),
       banners.live(new Date()), settings.load(),
     ]);
+    const news = pinned.items.length ? pinned : newest;      // products the owner marked as New Arrival, otherwise simply the newest ones
     const col = (slug: string, title: string, r: { items: Parameters<typeof toApiProduct>[0][] }) => ({ slug, title, products: r.items.map((p) => toApiProduct(p, storage)) });
     return {
       announcement: st.announcement.active && st.announcement.text ? st.announcement.text : null,
       banners: live.map((b) => ({ id: b.id, title: b.title, subtitle: b.subtitle, ctaLabel: b.ctaLabel, ctaLink: b.ctaLink, imageUrl: b.imageKey ? storage.url(b.imageKey) : null })),
-      categories: cats,
+      categories: cats.map((c) => toApiCategory(c, storage)),
       collections: [col("new-arrivals", "New Arrivals", news), col("featured", "Featured", featured), col("sale", "On Sale", sale)].filter((c) => c.products.length),
     };
   });

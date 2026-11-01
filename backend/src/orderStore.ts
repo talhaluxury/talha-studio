@@ -32,6 +32,8 @@ export interface OrderStore {
   createOrder(i: NewOrderInput): Promise<{ order: OrderRec; created: boolean }>;
   listForUser(userId: string, page: number, limit: number): Promise<{ items: OrderSummary[]; total: number }>;
   getForUser(userId: string, id: string): Promise<OrderRec | null>;
+  /** The customer corrected the delivery address and phone (only while the order is pending or confirmed). Recorded in the order history. */
+  updateDelivery(id: string, userId: string, d: { address: OrderRec["address"]; phone: string }, note: string): Promise<OrderRec | null>;
   customerCancel(userId: string, id: string): Promise<OrderRec | null>;
   requestReturn(userId: string, id: string, reason: string, windowDays: number): Promise<OrderRec | null>;
   adminList(f: OrderFilter): Promise<{ items: OrderSummary[]; total: number }>;

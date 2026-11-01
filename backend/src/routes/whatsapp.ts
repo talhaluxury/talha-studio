@@ -5,7 +5,8 @@ import type { CatalogStore } from "../catalogStore.js";
 import { conflict, notFound } from "../errors.js";
 import type { makeAuth } from "../plugins/auth.js";
 import type { Store } from "../store.js";
-import { MAX_BROADCAST_RECIPIENTS, type WhatsAppService } from "../whatsapp.js";
+import { normalizePhone } from "../phone.js";
+import { MAX_BROADCAST_RECIPIENTS, MAX_MESSAGES_PER_SEND, parseNumbers, waSpeedMinutes, type CatalogItem, type Recipient, type WhatsAppService } from "../whatsapp.js";
 import type { BaileysWhatsApp } from "../waQr.js";
 import type { Storage } from "../storage.js";
 
@@ -40,6 +41,72 @@ export function whatsappRoutes(app: FastifyInstance, d: Deps) {
   app.post("/admin/whatsapp/qr/logout", { ...admin, config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (_req, reply) => {
     if (!d.qr) throw conflict("WhatsApp QR login is not switched on (WHATSAPP_DRIVER=qr)");
     await d.qr.logout(); return reply.status(202).send({ ok: true });
+  });
+
+
+  // ---- Admin tools (QR mode): numbers added by hand, product messages to many people, free text messages. ----
+  const qrOnly = () => {
+    const w = d.whatsapp;
+    if (!w || w.providerName !== "qr") throw conflict("This tool works with the QR login (WHATSAPP_DRIVER=qr).");
+    if (!w.configured) throw conflict("WhatsApp is not linked right now. Scan the QR code first.");
+    return w;
+  };
+  const audienceSchema = z.object({ audience: z.enum(["all", "customers", "contacts", "numbers"]), numbers: z.string().max(5000).optional(), speed: z.enum(["safe", "normal", "fast"]).default("safe") });
+  async function audienceFor(w: WhatsAppService, a: z.infer<typeof audienceSchema>): Promise<Recipient[]> {
+    const out = new Map<string, Recipient>();
+    const add = (phone: string | null | undefined, name: string, ref: string) => { const n = phone ? normalizePhone(phone) : null; if (n && !out.has(n)) out.set(n, { phone: n, name, ref }); };
+    if (a.audience === "all" || a.audience === "customers") for (const u of await d.store.listCustomersWithPhone()) add(u.phone, u.fullName, u.id);
+    if (a.audience === "all" || a.audience === "contacts") for (const c of await w.contacts()) add(c.phone, c.name ?? "", `c:${c.id}`);
+    if (a.audience === "numbers") for (const n of parseNumbers(a.numbers ?? "").valid) add(n, "", `n:${n}:${Date.now()}`);   // typed by the owner: always sent, even if sent before
+    return [...out.values()];
+  }
+
+  app.get("/admin/whatsapp/contacts", admin, async () => {
+    const items = d.whatsapp ? await d.whatsapp.contacts() : [];
+    return { total: items.length, items: items.slice(0, 500).map((c) => ({ id: c.id, phone: c.phone, name: c.name, createdAt: c.createdAt })) };
+  });
+  app.post("/admin/whatsapp/contacts", { ...admin, config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req) => {
+    const { numbers } = z.object({ numbers: z.string().min(1).max(20000) }).parse(req.body);
+    if (!d.whatsapp) throw conflict("WhatsApp is not switched on");
+    const { valid, invalid } = parseNumbers(numbers);
+    if (valid.length > 1000) throw conflict("Add at most 1000 numbers at a time.");
+    const r = valid.length ? await d.whatsapp.addContacts(valid) : { added: 0, existing: 0 };
+    return { ...r, invalid };
+  });
+  app.delete("/admin/whatsapp/contacts/:id", admin, async (req, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    if (!d.whatsapp || !(await d.whatsapp.deleteContact(id))) throw notFound("Number not found");
+    return reply.status(204).send();
+  });
+
+  app.get("/admin/whatsapp/job", admin, async () => ({ job: d.whatsapp?.getJob() ?? null }));
+
+  app.post("/admin/whatsapp/send-products", { ...admin, config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const body = audienceSchema.extend({ productIds: z.array(z.string().uuid()).min(1).max(15) }).parse(req.body);
+    const w = qrOnly();
+    const items: CatalogItem[] = [];
+    for (const id of new Set<string>(body.productIds)) {
+      const p = await d.catalog.getProduct(id, true); if (!p) continue;         // unpublished or deleted: skipped
+      const first = [...p.images].sort((a, b) => a.sortOrder - b.sortOrder)[0];
+      items.push({ id: p.id, name: p.name, price: p.price, salePrice: p.salePrice, description: p.description, imageUrl: first && d.storage ? d.storage.url(first.storageKey) : null });
+    }
+    if (!items.length) throw notFound("None of the chosen products is published");
+    const audience = await audienceFor(w, body);
+    if (!audience.length) throw conflict("There is nobody to send to. Add numbers or pick another audience.");
+    const total = items.length * audience.length;
+    if (total > MAX_MESSAGES_PER_SEND) throw conflict(`That would be ${total} messages. Send at most ${MAX_MESSAGES_PER_SEND} at a time (products x numbers): pick fewer products or send in parts.`);
+    const job = w.sendProducts(items, audience, body.speed); if (!job) throw conflict("Another send is still running. Wait until it finishes.");
+    return reply.status(202).send({ products: items.length, recipients: audience.length, messages: total, minutes: waSpeedMinutes(total, body.speed) });
+  });
+
+  app.post("/admin/whatsapp/send-custom", { ...admin, config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const body = audienceSchema.extend({ text: z.string().trim().min(1).max(1000) }).parse(req.body);
+    const w = qrOnly();
+    const audience = await audienceFor(w, body);
+    if (!audience.length) throw conflict("There is nobody to send to. Add numbers or pick another audience.");
+    if (audience.length > MAX_MESSAGES_PER_SEND) throw conflict(`That would be ${audience.length} messages. Send at most ${MAX_MESSAGES_PER_SEND} at a time.`);
+    const job = w.sendCustom(body.text, audience, body.speed); if (!job) throw conflict("Another send is still running. Wait until it finishes.");
+    return reply.status(202).send({ recipients: audience.length, messages: audience.length, minutes: waSpeedMinutes(audience.length, body.speed) });
   });
 
   // "Tell customers about this product": runs in the background (hundreds of messages), results appear in the list above.

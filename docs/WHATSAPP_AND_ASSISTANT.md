@@ -42,3 +42,10 @@ No Meta account, no templates, no approval. Set `WHATSAPP_DRIVER=qr` on the serv
 - This is unofficial: send only to customers who signed up or ordered, keep new-product messages rare, and never send the same thing to hundreds of people every day. Broadcasts go out slowly (one every 6 to 14 seconds) on purpose.
 - Render free plan: the server sleeps after 15 minutes idle and WhatsApp disconnects while it sleeps. Ping `https://<your-api>/healthz` every 5 minutes with UptimeRobot.
 - While the phone is not linked, no message is sent and none is queued.
+
+## 5. Admin tools in QR mode (Admin > WhatsApp)
+- **Add customer numbers:** paste numbers (one per line or separated by commas). They are saved and receive product and admin messages like app customers do.
+- **Send products:** tick up to 15 published products, choose who gets them (everyone, only app customers, only added numbers, or specific numbers for a test) and press Send. Each product goes as its own message with the photo, name, price and a short description, one product at a time to everybody. A product is never sent twice to the same person.
+- **Send a message:** free text to the same audiences. `{name}` becomes the customer's first name.
+- Progress is shown live. At most 600 messages (products x numbers) per send, one send at a time, about one message every 6 to 14 seconds. People who replied STOP are skipped.
+- Unofficial: messaging people who never wrote to you or ordered from you is what gets numbers banned. Start small (20 to 50 numbers a day), test on your own number first, and prefer people who know your shop.

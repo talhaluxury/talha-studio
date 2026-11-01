@@ -24,6 +24,8 @@ export class PushService implements OrderEvents {
   get configured() { return this.d.sender.configured; }
 
   async orderPlaced(o: OrderRec) { await this.orderNote(o, { title: "Order confirmed", body: `Thank you! Order ${o.orderNumber} has been placed (Rs. ${o.total.toLocaleString("en-PK")}, Cash on Delivery).` }); }
+  /** The customer confirmed the order themselves on WhatsApp: tell them in the app too (inbox entry + push). */
+  async orderConfirmed(o: OrderRec) { await this.orderNote(o, { title: "Order confirmed ✅", body: `Shukriya ${o.customer.name.trim().split(/\s+/)[0] || ""}! Aap ka order ${o.orderNumber} confirm ho gaya hai. Hum jald dispatch karenge, update isi app mein milti rahegi.`.replace("Shukriya !", "Shukriya!") }); }
   async statusChanged(o: OrderRec, _prev: OrderStatus) { const m = ORDER_PUSH[o.status]; if (m) await this.orderNote(o, m(o)); }
 
   private async orderNote(o: OrderRec, m: { title: string; body: string }) {

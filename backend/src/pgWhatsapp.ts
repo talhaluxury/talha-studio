@@ -20,4 +20,20 @@ export class PgWhatsApp implements WhatsAppStore {
     else await this.pool.query("DELETE FROM whatsapp_optouts WHERE phone = $1", [phone]);
   }
   async isOptedOut(phone: string) { return (await this.pool.query("SELECT 1 FROM whatsapp_optouts WHERE phone = $1", [phone])).rowCount === 1; }
+  async lastNewArrival(phone: string) {
+    const r = (await this.pool.query("SELECT ref_id, created_at FROM whatsapp_logs WHERE kind = 'new_arrival' AND status = 'sent' AND to_phone = $1 ORDER BY created_at DESC LIMIT 1", [phone])).rows[0];
+    const productId = String(r?.ref_id ?? "").split(":")[0];
+    return r && productId ? { productId, at: r.created_at as Date } : null;
+  }
+  async awaitingAddress(phone: string) {
+    const r = (await this.pool.query("SELECT id, ref_id FROM whatsapp_logs WHERE kind = 'address_fix' AND status = 'sending' AND to_phone = $1 AND created_at > now() - interval '24 hours' ORDER BY created_at DESC LIMIT 1", [phone])).rows[0];
+    return r ? { id: String(r.id), orderId: String(r.ref_id).split(":")[0]! } : null;
+  }
+  async addContacts(phones: string[]) {
+    let added = 0;
+    for (const ph of phones) added += (await this.pool.query("INSERT INTO whatsapp_contacts (phone) VALUES ($1) ON CONFLICT (phone) DO NOTHING", [ph])).rowCount ?? 0;
+    return { added, existing: phones.length - added };
+  }
+  async listContacts() { return (await this.pool.query("SELECT id, phone, name, created_at FROM whatsapp_contacts ORDER BY created_at DESC")).rows.map((r) => ({ id: String(r.id), phone: String(r.phone), name: (r.name as string | null) ?? null, createdAt: r.created_at as Date })); }
+  async deleteContact(id: string) { return ((await this.pool.query("DELETE FROM whatsapp_contacts WHERE id = $1", [id])).rowCount ?? 0) > 0; }
 }

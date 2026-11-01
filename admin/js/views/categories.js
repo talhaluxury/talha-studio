@@ -1,4 +1,4 @@
-import { api, session } from "../api.js";
+import { api, session, uploadTo } from "../api.js";
 import { clear, confirmDialog, h, showFieldErrors, toast, put } from "../ui.js";
 
 export async function renderCategories(view) {
@@ -32,6 +32,20 @@ export async function renderCategories(view) {
     return el;
   }
 
+  /** The picture shown in the app's category circle. */
+  function pictureBox(c) {
+    const info = h("span", { class: "hint" }, c.imageUrl ? "" : "No picture yet. The app shows the first letter.");
+    const pick = h("input", { type: "file", accept: "image/*", "aria-label": `Picture for ${c.name}` });
+    pick.onchange = async () => {
+      const f = pick.files[0]; if (!f) return;
+      try { await uploadTo(`/admin/categories/${c.id}/image`, f, (p) => { info.textContent = `Uploading ${p}%`; }); toast("Picture saved"); await load(); }
+      catch (ex) { toast(ex.message, "error"); info.textContent = ""; }
+    };
+    return h("div", { class: "row", style: "gap:12px;align-items:center;margin:8px 0" },
+      c.imageUrl ? h("img", { src: c.imageUrl, alt: "", style: "width:72px;height:72px;object-fit:cover;border-radius:50%" }) : h("div", { class: "thumb", "aria-hidden": "true" }, c.name[0]),
+      write ? h("div", {}, pick, " ", c.imageUrl ? h("button", { class: "btn ghost sm", type: "button", onclick: async () => { try { await api(`/admin/categories/${c.id}/image`, { method: "DELETE" }); toast("Picture removed"); await load(); } catch (ex) { toast(ex.message, "error"); } } }, "Remove picture") : null, h("div", {}, info)) : null);
+  }
+
   async function load() {
     const { items } = await api("/admin/categories");
     put(clear(body), 
@@ -39,6 +53,7 @@ export async function renderCategories(view) {
       items.length ? items.map((c) => {
         const det = h("details", { class: "card" },
           h("summary", {}, h("b", {}, c.name), " ", h("span", { class: `badge ${c.isActive ? "ok" : ""}` }, c.isActive ? "Visible" : "Hidden"), " ", h("span", { class: "hint" }, c.slug)),
+          pictureBox(c),
           h("div", {}, form(c)),
           write ? h("div", { class: "row end" }, h("button", { class: "btn danger sm", onclick: async () => {
             if (!(await confirmDialog(`Delete ${c.name}?`, "This cannot be undone. Categories that still contain products cannot be deleted."))) return;

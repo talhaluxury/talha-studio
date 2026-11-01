@@ -80,6 +80,12 @@ export class MemoryOrders implements OrderStore {
   }
   async adminList(f: OrderFilter) { const r = this.filtered(f); return { items: r.slice((f.page - 1) * f.limit, f.page * f.limit).map((o) => this.summary(o)), total: r.length }; }
   async adminGet(id: string) { return this.orders.find((o) => o.id === id) ?? null; }
+  async updateDelivery(id: string, userId: string, d: { address: OrderRec["address"]; phone: string }, note: string) {
+    const o = this.orders.find((x) => x.id === id && x.userId === userId); if (!o) return null;
+    if (!["pending", "confirmed"].includes(o.status)) throw new TransitionError("This order is already being prepared, so the address can no longer be changed here.");
+    o.address = { ...d.address }; o.customer = { ...o.customer, phone: d.phone }; o.updatedAt = new Date(); o.history.push({ status: o.status, note, at: o.updatedAt });
+    return o;
+  }
   async adminSetStatus(id: string, to: OrderStatus, note: string | null, trackingUrl: string | null) {
     const o = await this.adminGet(id); return o ? this.apply(o, to, note, trackingUrl) : null;
   }

@@ -1,6 +1,6 @@
 import type pg from "pg";
 import { normalizePhone } from "./phone.js";
-import type { WhatsAppProvider } from "./whatsapp.js";
+import { WA_SPEED_GAP, type WaMedia, type WaSendOpts, type WaSpeed, type WhatsAppProvider } from "./whatsapp.js";
 
 /**
  * WhatsApp through a normal WhatsApp / WhatsApp Business number linked by QR code (like WhatsApp Web), using Baileys.
@@ -128,10 +128,11 @@ export class BaileysWhatsApp implements WhatsAppProvider {
 
   /** One message at a time per lane with a random pause, like a person typing: this keeps the number from being flagged.
    *  New-product broadcasts get their own slower lane so an order confirmation never waits behind hundreds of promo messages. */
-  private enqueue(jid: string, text: string, lane: "main" | "bulk" = "main", imageUrl?: string | null): Promise<void> {
+  private enqueue(jid: string, text: string, lane: "main" | "bulk" = "main", imageUrl?: string | null, speed: WaSpeed = "safe"): Promise<void> {
     const job = this.lanes[lane].then(async () => {
       if (!this.configured || !this.sock) throw new Error("WhatsApp is not linked. Scan the QR code in Admin > WhatsApp.");
-      await sleep(lane === "bulk" ? 6000 + Math.floor(Math.random() * 8000) : 1500 + Math.floor(Math.random() * 2500));
+      const [min, extra] = WA_SPEED_GAP[speed];
+      await sleep(lane === "bulk" ? min + Math.floor(Math.random() * extra) : 1500 + Math.floor(Math.random() * 2500));
       const jpeg = imageUrl ? await this.jpegFrom(imageUrl) : null;      // no picture available: the text still goes out
       await this.sock.sendMessage(jid, jpeg ? { image: jpeg, caption: text } : { text });
     });
@@ -150,16 +151,17 @@ export class BaileysWhatsApp implements WhatsAppProvider {
       this.imgCache.set(url, out); return out;
     } catch (e) { this.d.log?.error({ err: String((e as Error).message ?? e) }, "whatsapp product image failed, sending text only"); return null; }
   }
-  async sendText(to: string, text: string) { await this.enqueue(`${to}@s.whatsapp.net`, text); }
+  async sendText(to: string, text: string, opts?: WaSendOpts) { await this.enqueue(`${to}@s.whatsapp.net`, text, opts?.bulk ? "bulk" : "main", opts?.imageUrl ?? null, opts?.speed ?? "safe"); }
 
-  /** The Cloud API sends approved templates; here the same templates are written out as plain text from their parameters. */
-  async sendTemplate(to: string, template: string, _lang: string, p: string[], imageUrl?: string | null) {
+  /** The Cloud API sends approved templates; here the same templates are written out as plain text from their parameters (or the ready-made text in media.text). */
+  async sendTemplate(to: string, template: string, _lang: string, p: string[], media?: WaMedia) {
     const { tpl, storeName } = this.d;
-    let text: string; let lane: "main" | "bulk" = "main";
+    let text: string | null = null; let lane: "main" | "bulk" = "main";
     if (template === tpl.welcome) text = `Assalam o Alaikum ${p[0]}! Welcome to ${p[1]}. Your account is ready. Ask us anything here on WhatsApp or in the app chat, we are happy to help.`;
     else if (template === tpl.order) text = `Hi ${p[0]}, thank you for your order ${p[1]} at ${p[2]}.\nTotal: Rs ${p[3]}\nDelivery city: ${p[4]}\n\nPlease reply YES to confirm your order. We will message you when it ships.`;
     else if (template === tpl.newArrival) { lane = "bulk"; text = `Hi ${p[0]}, new at ${p[3] ?? storeName}: ${p[1]} for Rs ${p[2]}.`; }
-    else throw new Error(`Unknown message type: ${template}`);
-    await this.enqueue(`${to}@s.whatsapp.net`, text, lane, lane === "bulk" ? imageUrl : null);
+    text = media?.text ?? text;
+    if (!text) throw new Error(`Unknown message type: ${template}`);
+    await this.enqueue(`${to}@s.whatsapp.net`, text, lane, media?.imageUrl ?? null);
   }
 }

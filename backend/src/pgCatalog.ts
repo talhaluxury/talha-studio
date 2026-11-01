@@ -32,6 +32,11 @@ export class PgCatalog implements CatalogStore {
       return r.rows[0] ? toCat(r.rows[0]) : null;
     } catch (e) { throw this.dupErr(e); }
   }
+  async setCategoryImage(id: string, key: string | null) {
+    const old = (await this.q("SELECT image_key FROM categories WHERE id = $1", [id]))[0]; if (!old) return null;
+    const r = await this.q("UPDATE categories SET image_key = $2 WHERE id = $1 RETURNING *", [id, key]);
+    return { category: toCat(r[0]!), oldKey: (old.image_key as string | null) ?? null };
+  }
   async deleteCategory(id: string) {
     try { const r = await this.q("DELETE FROM categories WHERE id=$1", [id]); return (r.rowCount ?? 0) > 0; }
     catch (e: any) { if (e?.code === "23503") throw new InUseError(); throw e; }
@@ -47,7 +52,7 @@ export class PgCatalog implements CatalogStore {
     return rows.map((r) => ({
       id: r.id, sku: r.sku, slug: r.slug, name: r.name, description: r.description, categoryId: r.category_id,
       categorySlug: r.category_slug, categoryName: r.category_name, price: r.price, salePrice: r.sale_price, fabric: r.fabric,
-      isPublished: r.is_published, isFeatured: r.is_featured, createdAt: r.created_at,
+      isPublished: r.is_published, isFeatured: r.is_featured, isNew: r.is_new, createdAt: r.created_at,
       variants: vs.rows.filter((v) => v.product_id === r.id).map((v): Variant => ({ id: v.id, sku: v.sku, size: v.size, color: v.color, stock: v.stock })),
       images: is.rows.filter((i) => i.product_id === r.id).map((i): ImageRec => ({ id: i.id, storageKey: i.storage_key, thumbKey: i.thumb_key, width: i.width, height: i.height, sortOrder: i.sort_order })),
     }));
@@ -67,6 +72,7 @@ export class PgCatalog implements CatalogStore {
     if (f.color) add("EXISTS (SELECT 1 FROM product_variants x WHERE x.product_id = p.id AND lower(x.color) = lower(?))", f.color);
     if (f.inStock) w.push("EXISTS (SELECT 1 FROM product_variants x WHERE x.product_id = p.id AND x.stock > 0)");
     if (f.featured) w.push("p.is_featured");
+    if (f.newArrival) w.push("p.is_new");
     const where = w.length ? `WHERE ${w.join(" AND ")}` : "";
     const order = f.sort === "price_asc" ? "COALESCE(p.sale_price, p.price) ASC, p.id" : f.sort === "price_desc" ? "COALESCE(p.sale_price, p.price) DESC, p.id" : "p.created_at DESC, p.id";
     const total = await this.q(`SELECT count(*)::int AS n FROM products p JOIN categories c ON c.id = p.category_id ${where}`, v);
@@ -111,9 +117,9 @@ export class PgCatalog implements CatalogStore {
       const id = await this.tx(async (c) => {
         const slug = `${slugify(p.name)}-${Math.random().toString(36).slice(2, 8)}`;
         const r = await c.query(
-          `INSERT INTO products (sku,slug,name,description,category_id,price,sale_price,fabric,is_published,is_featured)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-          [p.sku, slug, p.name, p.description, p.categoryId, p.price, p.salePrice, p.fabric, p.isPublished, p.isFeatured]);
+          `INSERT INTO products (sku,slug,name,description,category_id,price,sale_price,fabric,is_published,is_featured,is_new)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+          [p.sku, slug, p.name, p.description, p.categoryId, p.price, p.salePrice, p.fabric, p.isPublished, p.isFeatured, p.isNew ?? false]);
         await this.syncVariants(c, r.rows[0].id, p.variants);
         return r.rows[0].id as string;
       });
@@ -124,8 +130,8 @@ export class PgCatalog implements CatalogStore {
     try {
       const ok = await this.tx(async (c) => {
         const r = await c.query(
-          `UPDATE products SET sku=$1,name=$2,description=$3,category_id=$4,price=$5,sale_price=$6,fabric=$7,is_published=$8,is_featured=$9,updated_at=now()
-           WHERE id=$10`, [p.sku, p.name, p.description, p.categoryId, p.price, p.salePrice, p.fabric, p.isPublished, p.isFeatured, id]);
+          `UPDATE products SET sku=$1,name=$2,description=$3,category_id=$4,price=$5,sale_price=$6,fabric=$7,is_published=$8,is_featured=$9,is_new=$10,updated_at=now()
+           WHERE id=$11`, [p.sku, p.name, p.description, p.categoryId, p.price, p.salePrice, p.fabric, p.isPublished, p.isFeatured, p.isNew ?? false, id]);
         if (!r.rowCount) return false;
         await this.syncVariants(c, id, p.variants); return true;
       });

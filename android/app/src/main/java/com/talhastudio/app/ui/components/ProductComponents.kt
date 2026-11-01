@@ -34,7 +34,7 @@ fun ImageTile(url: String?, label: String, modifier: Modifier = Modifier, fit: C
     }
 }
 @Composable
-fun ProductImage(p: Product, modifier: Modifier = Modifier) = ImageTile(p.thumbUrl, p.name, modifier)
+fun ProductImage(p: Product, modifier: Modifier = Modifier) = ImageTile(p.thumbUrl, p.name, modifier, ContentScale.Fit)   // the whole photo, never cut
 
 @Composable
 fun PriceText(p: Product) {

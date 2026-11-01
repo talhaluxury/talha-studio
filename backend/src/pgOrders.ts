@@ -156,6 +156,18 @@ export class PgOrders implements OrderStore {
     return { items: rows.rows.map(toSummary), total: n.rows[0].n };
   }
   adminGet(id: string) { return this.load("id = $1", [id]); }
+  async updateDelivery(id: string, userId: string, d: { address: OrderRec["address"]; phone: string }, note: string) {
+    const ok = await this.tx(async (c) => {
+      const r = await c.query("SELECT status, user_id FROM orders WHERE id = $1 FOR UPDATE", [id]);
+      const o = r.rows[0]; if (!o || o.user_id !== userId) return false;
+      if (!["pending", "confirmed"].includes(o.status)) throw new TransitionError("This order is already being prepared, so the address can no longer be changed here.");
+      await c.query("UPDATE orders SET ship_line1 = $2, ship_line2 = $3, ship_city = $4, ship_province = $5, ship_postal = $6, customer_phone = $7, updated_at = now() WHERE id = $1",
+        [id, d.address.line1, d.address.line2, d.address.city, d.address.province, d.address.postalCode, d.phone]);
+      await c.query("INSERT INTO order_status_history (order_id, status, note, changed_by) VALUES ($1,$2,$3,$4)", [id, o.status, note, userId]);
+      return true;
+    });
+    return ok ? this.adminGet(id) : null;
+  }
   async adminSetStatus(id: string, to: OrderStatus, note: string | null, trackingUrl: string | null, adminId: string) {
     const ok = await this.tx((c) => this.applyStatus(c, id, to, note, trackingUrl, adminId));
     return ok ? this.adminGet(id) : null;

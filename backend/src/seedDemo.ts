@@ -45,7 +45,7 @@ for (const [i, [cat, name, price, sale, fabric, colors, szs, featured]] of demo.
   const sku = `DEMO-${String(i + 1).padStart(3, "0")}`;
   const variants = (szs.length ? szs : [null]).flatMap((s) => colors.map((c) => ({ sku: `${sku}-${s ?? "OS"}-${c.slice(0, 3).toUpperCase()}`, size: s, color: c, stock: 3 + ((i * 7 + (s?.length ?? 1)) % 12) })));
   try {
-    const p = await catalog.createProduct({ sku, name: `${name} (Demo)`, description: "Demo product for testing. Not real inventory.", categoryId: cats[cat]!, price, salePrice: sale, fabric, isPublished: false, isFeatured: featured, variants });
+    const p = await catalog.createProduct({ sku, name: `${name} (Demo)`, description: "Demo product for testing. Not real inventory.", categoryId: cats[cat]!, price, salePrice: sale, fabric, isPublished: false, isFeatured: featured, isNew: false, variants });
     const t = await tile(name, ["#E9E0D3", "#EFE8DC", "#E4DACB"][i % 3]!);
     const base = `products/${p.id}/${randomUUID()}`;
     await storage.put(`${base}.webp`, t.full, "image/webp"); await storage.put(`${base}-thumb.webp`, t.thumb, "image/webp");

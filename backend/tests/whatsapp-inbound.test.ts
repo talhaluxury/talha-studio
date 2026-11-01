@@ -21,29 +21,67 @@ const cfg = {
 } as unknown as Config;
 
 class FakeWa implements WhatsAppProvider {
-  name = "fake"; configured = true; sent: { to: string; template: string; params: string[] }[] = []; texts: { to: string; text: string }[] = []; fail = false;
-  async sendTemplate(to: string, template: string, _l: string, params: string[]) { if (this.fail) throw new Error("template not approved"); this.sent.push({ to, template, params }); }
+  name = "fake"; configured = true; sent: { to: string; template: string; params: string[]; media?: unknown }[] = []; texts: { to: string; text: string }[] = []; fail = false;
+  async sendTemplate(to: string, template: string, _l: string, params: string[], media?: unknown) { if (this.fail) throw new Error("template not approved"); this.sent.push({ to, template, params, ...(media ? { media } : {}) }); }
   async sendText(to: string, text: string) { if (this.fail) throw new Error("window closed"); this.texts.push({ to, text }); }
 }
 const ali = { id: "u-ali", fullName: "Ali Khan", phone: "0300 1234567" };
 
 describe("WhatsApp replies and new-product messages", () => {
-  let wa: FakeWa; let log: MemoryWhatsApp; let svc: WhatsAppService; let statusCalls: unknown[][]; let pending: boolean; let answer: string;
+  let wa: FakeWa; let log: MemoryWhatsApp; let svc: WhatsAppService; let statusCalls: unknown[][]; let pending: boolean; let answer: string; let confirmed: unknown[]; let updates: unknown[][];
   beforeEach(() => {
-    wa = new FakeWa(); log = new MemoryWhatsApp(); statusCalls = []; pending = true; answer = "Yes, we have it in stock.";
+    wa = new FakeWa(); log = new MemoryWhatsApp(); statusCalls = []; confirmed = []; updates = []; pending = true; answer = "Yes, we have it in stock.";
     const orders = {
       listForUser: async () => ({ items: [{ id: "o1", orderNumber: "TS-1001", status: pending ? "pending" : "confirmed", total: 9000, createdAt: new Date(), itemCount: 1, firstItemName: "x", firstThumbKey: null }], total: 1 }),
       adminSetStatus: async (...a: unknown[]) => { statusCalls.push(a); return { id: "o1" }; },
+      getForUser: async () => ({ id: "o1", customer: { name: "Ali Khan", phone: "0300 1234567" }, address: { line1: "Old House", line2: null, city: "Lahore", province: "Punjab", postalCode: null } }),
+      updateDelivery: async (...a: any[]) => { updates.push(a); return { id: "o1", address: a[2].address }; },
     } as any;
     const llm: LLM = { configured: true, complete: async () => answer };
     const assistant = new AssistantService({ cfg, llm, catalog: new MemoryCatalog(), orders });
-    svc = new WhatsAppService({ cfg, provider: wa, store: log, inbound: { users: { listCustomersWithPhone: async () => [ali as any] }, orders, assistant } });
+    svc = new WhatsAppService({ cfg, provider: wa, store: log, onConfirmed: async (o) => { confirmed.push(o); }, inbound: { users: { listCustomersWithPhone: async () => [ali as any] }, orders, assistant } });
   });
 
-  it("YES confirms the customer's pending order and thanks them", async () => {
+  it("two steps: the first YES confirms the address, the second YES confirms the order and fires the app notification", async () => {
     await svc.handleInbound("923001234567", "Haan", "m1");
+    expect(statusCalls).toHaveLength(0); expect(wa.texts[0]!.text).toContain("address");
+    await svc.handleInbound("923001234567", "Haan", "m1b");
     expect(statusCalls[0]).toEqual(["o1", "confirmed", "Confirmed by the customer on WhatsApp", null, "u-ali"]);
-    expect(wa.texts[0]!.text).toContain("TS-1001");
+    expect(wa.texts[1]!.text).toContain("TS-1001"); expect(confirmed).toHaveLength(1);
+  });
+  it("understands natural sentences, but a question is never taken as a yes", async () => {
+    await svc.handleInbound("923001234567", "han ye address sahi hai", "n1");
+    expect(wa.texts[0]!.text).toContain("address"); expect(statusCalls).toHaveLength(0);
+    answer = "It is Rs 4,500.";
+    await svc.handleInbound("923001234567", "ji price kya hai?", "n3");
+    expect(wa.texts[1]!.text).toBe(answer); expect(statusCalls).toHaveLength(0);
+  });
+  it("wrong address: asks for the right one and a number that is active, then updates the order and asks to confirm again", async () => {
+    await svc.handleInbound("923001234567", "address galat hai", "w1");
+    expect(wa.texts[0]!.text).toContain("mobile number"); expect(updates).toHaveLength(0);
+    answer = JSON.stringify({ line1: "House 5, Street 2", line2: "Gulberg", city: "Lahore", province: "Punjab", phone: "0321 1234567" });
+    await svc.handleInbound("923001234567", "House 5 street 2 Gulberg Lahore, number 0321 1234567", "w2");
+    expect(updates[0]![0]).toBe("o1"); expect(updates[0]![2]).toEqual({ address: { line1: "House 5, Street 2", line2: "Gulberg", city: "Lahore", province: "Punjab", postalCode: null }, phone: "03211234567" });
+    expect(wa.texts[1]!.text).toContain("03211234567"); expect(wa.texts[1]!.text).toContain("YES");
+    expect(statusCalls).toHaveLength(0);                        // still waiting for the customer to say the new details are right
+  });
+  it("wrong address, given in two messages: address first, then 'same' for the number", async () => {
+    answer = JSON.stringify({ line1: "Flat 3, Block B", city: "Karachi", province: "Sindh" });
+    await svc.handleInbound("923001234567", "address galat hai, Flat 3 Block B Karachi", "p1");
+    expect(wa.texts[0]!.text).toContain("same"); expect(updates).toHaveLength(0);
+    answer = JSON.stringify({ sameNumber: true });
+    await svc.handleInbound("923001234567", "same", "p2");
+    expect((updates[0]![2] as any).phone).toBe("03001234567"); expect((updates[0]![2] as any).address.city).toBe("Karachi");
+  });
+  it("in QR mode the order message carries the product photo, items, total and the delivery address", async () => {
+    wa.name = "qr";
+    const order = { id: "o9", orderNumber: "TS-2002", total: 9500, customer: { name: "Ali Khan", phone: "0300 1234567", email: "a@b.c" }, address: { line1: "House 5, Street 2", line2: null, city: "Lahore", province: "Punjab", postalCode: null },
+      items: [{ name: "Lawn Suit", size: "M", color: null, qty: 2, thumbKey: "t/1.webp" }] } as any;
+    const q = new WhatsAppService({ cfg, provider: wa, store: log, mediaUrl: (k) => `https://cdn.test/${k}` });
+    await q.orderPlaced(order);
+    const m = wa.sent[0]!.media as { text: string; imageUrl: string };
+    expect(m.imageUrl).toBe("https://cdn.test/t/1.webp");
+    for (const t of ["TS-2002", "Lawn Suit (M) x2", "Rs 9,500", "House 5, Street 2, Lahore, Punjab", "address", "0300 1234567", "call"]) expect(m.text).toContain(t);
   });
   it("YES with no pending order does not touch anything", async () => {
     pending = false; await svc.handleInbound("923001234567", "yes", "m2");

@@ -4,6 +4,7 @@ import { renderCategories } from "./views/categories.js";
 import { renderDashboard } from "./views/dashboard.js";
 import { renderEditor } from "./views/editor.js";
 import { renderLogin } from "./views/login.js";
+import { renderBulkAdd } from "./views/bulk.js";
 import { renderProducts } from "./views/products.js";
 import { renderOrderDetail } from "./views/orderDetail.js";
 import { renderOrders } from "./views/orders.js";
@@ -57,6 +58,7 @@ async function route() {
   document.title = `${section[0].toUpperCase() + section.slice(1)} · Talha Studio Admin`;
   try {
     if (section === "dashboard") await renderDashboard(view);
+    else if (section === "products" && arg === "bulk") await renderBulkAdd(view);
     else if (section === "products" && arg) await renderEditor(view, arg);
     else if (section === "products") await renderProducts(view);
     else if (section === "orders" && arg) await renderOrderDetail(view, arg);

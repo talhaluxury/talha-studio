@@ -20,6 +20,10 @@ export class MemoryCatalog implements CatalogStore {
     for (const p of this.prods.values()) if (p.categoryId === id) { p.categorySlug = row.slug; p.categoryName = row.name; }
     return row;
   }
+  async setCategoryImage(id: string, key: string | null) {
+    const row = this.cats.get(id); if (!row) return null;
+    const oldKey = row.imageKey; row.imageKey = key; return { category: row, oldKey };
+  }
   async deleteCategory(id: string) {
     if ([...this.prods.values()].some((p) => p.categoryId === id)) throw new InUseError();
     return this.cats.delete(id);
@@ -38,6 +42,7 @@ export class MemoryCatalog implements CatalogStore {
     if (q.color) r = r.filter((p) => p.variants.some((v) => v.color?.toLowerCase() === q.color!.toLowerCase()));
     if (q.inStock) r = r.filter((p) => totalStock(p) > 0);
     if (q.featured) r = r.filter((p) => p.isFeatured);
+    if (q.newArrival) r = r.filter((p) => p.isNew);
     r.sort(q.sort === "price_asc" ? (a, b) => this.eff(a) - this.eff(b) : q.sort === "price_desc" ? (a, b) => this.eff(b) - this.eff(a) : (a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     return { items: r.slice((q.page - 1) * q.limit, q.page * q.limit), total: r.length };
   }
@@ -57,7 +62,7 @@ export class MemoryCatalog implements CatalogStore {
     return {
       id, sku: p.sku, slug: prev?.slug ?? `${slugify(p.name)}-${id.slice(0, 6)}`, name: p.name, description: p.description,
       categoryId: cat.id, categorySlug: cat.slug, categoryName: cat.name, price: p.price, salePrice: p.salePrice, fabric: p.fabric,
-      isPublished: p.isPublished, isFeatured: p.isFeatured,
+      isPublished: p.isPublished, isFeatured: p.isFeatured, isNew: p.isNew ?? false,
       variants: p.variants.map((v) => ({ id: prev?.variants.find((x) => x.sku === v.sku)?.id ?? randomUUID(), ...v })),
       images: prev?.images ?? [], createdAt: prev?.createdAt ?? new Date(),
     };

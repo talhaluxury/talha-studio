@@ -6,7 +6,7 @@ import { DuplicateError, InUseError, slugify, type CatalogStore, type ProductInp
 import { MAX_IMAGES_PER_PRODUCT, type ImageProcessor } from "../images.js";
 import type { makeAuth } from "../plugins/auth.js";
 import type { Storage } from "../storage.js";
-import { productQuery, toApiProduct } from "./catalog.js";
+import { productQuery, toApiCategory, toApiProduct } from "./catalog.js";
 
 const idParam = z.string().uuid();
 const nullableText = (max: number) => z.string().trim().max(max).transform((s) => s || null).nullable().optional().transform((v) => v ?? null);
@@ -21,7 +21,7 @@ const productBody = z.object({
   categoryId: z.string().uuid(),
   price: z.number().int().min(1).max(10_000_000),
   salePrice: z.number().int().min(1).nullable().optional().transform((v) => v ?? null),
-  fabric: nullableText(60), isPublished: z.boolean().default(false), isFeatured: z.boolean().default(false),
+  fabric: nullableText(60), isPublished: z.boolean().default(false), isFeatured: z.boolean().default(false), isNew: z.boolean().optional(),
   variants: z.array(variant).max(100).default([]),
 }).superRefine((p, ctx) => {
   if (p.salePrice != null && p.salePrice >= p.price) ctx.addIssue({ code: "custom", path: ["salePrice"], message: "Sale price must be lower than the price" });
@@ -54,7 +54,7 @@ export function adminCatalogRoutes(app: FastifyInstance, d: {
   }
 
   app.get("/admin/stats", read, async () => catalog.stats());
-  app.get("/admin/categories", read, async () => ({ items: await catalog.listCategories(false) }));
+  app.get("/admin/categories", read, async () => ({ items: (await catalog.listCategories(false)).map((c) => toApiCategory(c, storage)) }));
 
   app.post("/admin/categories", write, async (req, reply) => {
     const b = categoryBody.parse(req.body);
@@ -78,6 +78,90 @@ export function adminCatalogRoutes(app: FastifyInstance, d: {
     await act(req, "category.delete", "category", id); return reply.status(204).send();
   });
 
+  // ---- Bulk tools: add up to 15 products at once, change or delete many at once. ----
+  const productFrom = (cur: NonNullable<Awaited<ReturnType<CatalogStore["getProduct"]>>>, over: Partial<ProductInput>): ProductInput => ({
+    sku: cur.sku, name: cur.name, description: cur.description, categoryId: cur.categoryId, price: cur.price, salePrice: cur.salePrice, fabric: cur.fabric,
+    isPublished: cur.isPublished, isFeatured: cur.isFeatured, isNew: cur.isNew, variants: cur.variants.map((v) => ({ sku: v.sku, size: v.size, color: v.color, stock: v.stock })), ...over,
+  });
+  const bulkRow = z.object({
+    name: z.string().trim().min(2).max(160), price: z.number().int().min(1).max(10_000_000),
+    salePrice: z.number().int().min(1).nullable().optional().transform((v) => v ?? null),
+    description: z.string().trim().max(5000).default(""), fabric: nullableText(60),
+    sizes: z.array(z.string().trim().min(1).max(20)).max(20).default([]), stock: z.number().int().min(0).max(100000).default(5),
+    isFeatured: z.boolean().default(false), isNew: z.boolean().default(false),
+  });
+  /** Creates draft products (no pictures yet). The admin page then uploads each product's pictures and publishes. */
+  app.post("/admin/products/bulk", write, async (req, reply) => {
+    const b = z.object({ categoryId: z.string().uuid(), products: z.array(bulkRow).min(1).max(15) }).parse(req.body);
+    b.products.forEach((r, i) => { if (r.salePrice != null && r.salePrice >= r.price) throw new AppError(400, "BAD_ROW", `Row ${i + 1}: the sale price must be lower than the price`); });
+    const items: { id: string; name: string; index: number }[] = []; const failed: { index: number; message: string }[] = [];
+    for (const [index, r] of b.products.entries()) {
+      const sku = `TS-${randomUUID().slice(0, 8).toUpperCase()}`;
+      const sizes = [...new Set<string>(r.sizes.map((s: string) => s.trim()))];
+      const variants = sizes.length ? sizes.map((s) => ({ sku: `${sku}-${s.toUpperCase().replace(/[^A-Z0-9]/g, "") || "X"}`, size: s, color: null, stock: r.stock })) : [{ sku: `${sku}-OS`, size: null, color: null, stock: r.stock }];
+      try {
+        const p = await catalog.createProduct({ sku, name: r.name, description: r.description, categoryId: b.categoryId, price: r.price, salePrice: r.salePrice, fabric: r.fabric, isPublished: false, isFeatured: r.isFeatured, isNew: r.isNew, variants });
+        items.push({ id: p.id, name: p.name, index });
+      } catch (e) { failed.push({ index, message: String((e as Error).message ?? e).slice(0, 200) }); }
+    }
+    if (items.length) await act(req, "product.bulk.create", "product", undefined, { count: items.length });
+    return reply.status(201).send({ items, failed });
+  });
+
+  /** Change many products at once: sections (new arrival, featured), sale (discount percent, 0 removes it), category, published or not. */
+  app.post("/admin/products/bulk-update", write, async (req) => {
+    const b = z.object({
+      ids: z.array(idParam).min(1).max(100),
+      set: z.object({ isFeatured: z.boolean().optional(), isNew: z.boolean().optional(), isPublished: z.boolean().optional(), categoryId: idParam.optional(), discountPercent: z.number().int().min(0).max(90).optional() })
+        .refine((s) => Object.values(s).some((v) => v !== undefined), "Choose what to change"),
+    }).parse(req.body);
+    let updated = 0; const skipped: { id: string; name: string; reason: string }[] = [];
+    for (const id of new Set<string>(b.ids)) {
+      const cur = await catalog.getProduct(id, false); if (!cur) { skipped.push({ id, name: "", reason: "Not found" }); continue; }
+      const s = b.set; const over: Partial<ProductInput> = {};
+      if (s.isFeatured !== undefined) over.isFeatured = s.isFeatured;
+      if (s.isNew !== undefined) over.isNew = s.isNew;
+      if (s.categoryId) over.categoryId = s.categoryId;
+      if (s.isPublished !== undefined) over.isPublished = s.isPublished;
+      if (s.discountPercent !== undefined) {
+        const sale = s.discountPercent === 0 ? null : Math.max(1, Math.round((cur.price * (100 - s.discountPercent)) / 100));
+        if (sale !== null && sale >= cur.price) { skipped.push({ id, name: cur.name, reason: "Discount too small for this price" }); continue; }
+        over.salePrice = sale;
+      }
+      try {
+        if (over.isPublished && !cur.isPublished) await assertPublishable(id, null);
+        await catalog.updateProduct(id, productFrom(cur, over)); updated++;
+      } catch (e) { skipped.push({ id, name: cur.name, reason: e instanceof AppError ? e.message : "Could not update" }); }
+    }
+    await act(req, "product.bulk.update", "product", undefined, { updated, set: b.set });
+    return { updated, skipped };
+  });
+
+  app.post("/admin/products/bulk-delete", write, async (req) => {
+    const { ids } = z.object({ ids: z.array(idParam).min(1).max(100) }).parse(req.body);
+    let deleted = 0;
+    for (const id of new Set<string>(ids)) { const keys = await catalog.deleteProduct(id); if (keys) { await purge(keys, req); deleted++; } }
+    await act(req, "product.bulk.delete", "product", undefined, { deleted });
+    return { deleted };
+  });
+
+  // ---- Category picture (shown in the app's category circles) ----
+  app.post<{ Params: { id: string } }>("/admin/categories/:id/image", write, async (req) => {
+    const id = idParam.parse(req.params.id);
+    const file = await req.file(); if (!file) throw new AppError(400, "NO_FILE", "Choose an image to upload");
+    const buf = await file.toBuffer(); if (file.file.truncated) throw new AppError(413, "TOO_LARGE", "Image is larger than 8 MB");
+    const out = await images.process(buf);
+    const key = `categories/${id}/${randomUUID()}.webp`; await storage.put(key, out.full, "image/webp");
+    const r = await catalog.setCategoryImage(id, key);
+    if (!r) { await purge([key], req); throw notFound("Category not found"); }
+    await purge(r.oldKey ? [r.oldKey] : [], req); await act(req, "category.image", "category", id);
+    return { imageUrl: storage.url(key) };
+  });
+  app.delete<{ Params: { id: string } }>("/admin/categories/:id/image", write, async (req, reply) => {
+    const id = idParam.parse(req.params.id); const r = await catalog.setCategoryImage(id, null); if (!r) throw notFound("Category not found");
+    await purge(r.oldKey ? [r.oldKey] : [], req); await act(req, "category.image.delete", "category", id); return reply.status(204).send();
+  });
+
   app.get("/admin/products", read, async (req) => {
     const f = productQuery.parse(req.query);
     const r = await catalog.listProducts({ ...f, categorySlug: f.category, publishedOnly: false });
@@ -92,7 +176,7 @@ export function adminCatalogRoutes(app: FastifyInstance, d: {
     const b = productBody.parse(req.body);
     if (b.isPublished) throw conflict("Create the product first, add images, then publish it");
     try {
-      const p = await catalog.createProduct(b);
+      const p = await catalog.createProduct({ ...b, isNew: b.isNew ?? false });
       await act(req, "product.create", "product", p.id, { sku: p.sku, price: p.price });
       return reply.status(201).send(toApiProduct(p, storage, true));
     } catch (e) { throw dupMsg(e); }
@@ -102,7 +186,7 @@ export function adminCatalogRoutes(app: FastifyInstance, d: {
     const before = await catalog.getProduct(id, false); if (!before) throw notFound("Product not found");
     if (b.isPublished) await assertPublishable(id, b);
     try {
-      const p = (await catalog.updateProduct(id, b))!;
+      const p = (await catalog.updateProduct(id, { ...b, isNew: b.isNew ?? before.isNew }))!;
       const priceChanged = before.price !== p.price || before.salePrice !== p.salePrice;
       await act(req, priceChanged ? "product.update.price" : "product.update", "product", id, priceChanged ? { from: [before.price, before.salePrice], to: [p.price, p.salePrice] } : undefined);
       return toApiProduct(p, storage, true);
