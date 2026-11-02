@@ -8,6 +8,7 @@ import type { makeAuth } from "../plugins/auth.js";
 import type { PushService } from "../pushService.js";
 import type { Storage } from "../storage.js";
 import type { Store } from "../store.js";
+import type { WhatsAppService } from "../whatsapp.js";
 import { readUpload } from "./content.js";
 
 const text = z.object({ body: z.string().trim().min(1).max(2000) });
@@ -16,8 +17,8 @@ export const CHAT_DEEP_LINK = "talhastudio://chat";
 
 export const toApiMsg = (m: ChatMsg, s: Storage) => ({ seq: m.seq, id: m.id, sender: m.sender, body: m.body, imageUrl: m.imageKey ? s.url(m.imageKey) : null, createdAt: m.createdAt, read: !!m.readAt });
 
-export function chatRoutes(app: FastifyInstance, d: { chat: ChatStore; store: Store; storage: Storage; images: ImageProcessor; push: PushService; auth: ReturnType<typeof makeAuth> }) {
-  const { chat, store, storage, images, push, auth } = d;
+export function chatRoutes(app: FastifyInstance, d: { chat: ChatStore; store: Store; storage: Storage; images: ImageProcessor; push: PushService; auth: ReturnType<typeof makeAuth>; whatsapp?: WhatsAppService }) {
+  const { chat, store, storage, images, push, auth, whatsapp } = d;
   const me = { preHandler: auth.customer };
   const staff = { preHandler: auth.admin };
   const sendLimit = { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } };
@@ -57,6 +58,8 @@ export function chatRoutes(app: FastifyInstance, d: { chat: ChatStore; store: St
   const reply = async (req: any, customerId: string, msg: ChatMsg) => {
     // Phone notification is best effort and never delays or fails the reply.
     void push.chatReply(customerId, msg.body || "Sent you a photo", CHAT_DEEP_LINK);
+    // ...and the same message on the customer's WhatsApp, so people who only use WhatsApp get the answer too.
+    void (async () => { const u = await store.findUserById(customerId); if (u?.phone && whatsapp) await whatsapp.chatReply(u.phone, msg.body || "", msg.id, msg.imageKey ? storage.url(msg.imageKey) : null); })().catch(() => {});
     return toApiMsg(msg, storage);
   };
   app.post<{ Params: { customerId: string } }>("/admin/chat/:customerId", { ...staff, ...sendLimit }, async (req, rep) => {

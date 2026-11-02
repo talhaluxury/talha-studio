@@ -105,7 +105,12 @@ export class BaileysWhatsApp implements WhatsAppProvider {
           if (!jid.endsWith("@s.whatsapp.net")) continue;        // groups, broadcasts and unresolved @lid ids are ignored
           const text: string = m.message.conversation ?? m.message.extendedTextMessage?.text ?? "";
           if (!text || !m.key.id) continue;
-          void this.inbound?.(jid.split("@")[0]?.split(":")[0] ?? "", text, m.key.id).catch((e) => this.d.log?.error({ err: String(e) }, "whatsapp inbound failed"));
+          const phone = jid.split("@")[0]?.split(":")[0] ?? "";
+          // WhatsApp now often talks to us through a hidden "@lid" id. Answer on the SAME id the customer wrote to (not a rebuilt phone-number id),
+          // otherwise the customer's phone cannot open the reply and shows "Waiting for this message".
+          const rj: string = m.key.remoteJid ?? "";
+          if (rj.endsWith("@lid")) { this.replyJid.set(phone, rj); if (this.replyJid.size > 2000) this.replyJid.delete(this.replyJid.keys().next().value as string); }
+          void this.inbound?.(phone, text, m.key.id).catch((e) => this.d.log?.error({ err: String(e) }, "whatsapp inbound failed"));
         }
       });
     } catch (e) {
@@ -133,13 +138,16 @@ export class BaileysWhatsApp implements WhatsAppProvider {
 
   /** One message at a time per lane with a random pause, like a person typing: this keeps the number from being flagged.
    *  New-product broadcasts get their own slower lane so an order confirmation never waits behind hundreds of promo messages. */
-  private enqueue(jid: string, text: string, lane: "main" | "bulk" = "main", imageUrl?: string | null, speed: WaSpeed = "safe"): Promise<void> {
+  private enqueue(jid: string, text: string, lane: "main" | "bulk" = "main", imageUrl?: string | null, speed: WaSpeed = "safe", fallbackJid?: string): Promise<void> {
     const job = this.lanes[lane].then(async () => {
       if (!this.configured || !this.sock) throw new Error("WhatsApp is not linked. Scan the QR code in Admin > WhatsApp.");
       const [min, extra] = WA_SPEED_GAP[speed];
       await sleep(lane === "bulk" ? min + Math.floor(Math.random() * extra) : 1500 + Math.floor(Math.random() * 2500));
       const jpeg = imageUrl ? await this.jpegFrom(imageUrl) : null;      // no picture available: the text still goes out
-      const sent = await this.sock.sendMessage(jid, jpeg ? { image: jpeg, caption: text } : { text });
+      const payload = jpeg ? { image: jpeg, caption: text } : { text };
+      let sent: any;
+      try { sent = await this.sock.sendMessage(jid, payload); }
+      catch (e) { if (!fallbackJid || fallbackJid === jid) throw e; sent = await this.sock.sendMessage(fallbackJid, payload); }   // the @lid id did not work: use the phone-number id
       const id: string | undefined = sent?.key?.id;
       if (id && sent?.message) { this.sentCache.set(id, sent.message); if (this.sentCache.size > 500) this.sentCache.delete(this.sentCache.keys().next().value as string); }
     });
@@ -150,6 +158,8 @@ export class BaileysWhatsApp implements WhatsAppProvider {
   private imgCache = new Map<string, Buffer>();
   /** Recently sent messages, so WhatsApp "please resend" requests can be answered. */
   private sentCache = new Map<string, unknown>();
+  /** phone number -> the "@lid" id that customer last wrote from. */
+  private replyJid = new Map<string, string>();
   private async jpegFrom(url: string): Promise<Buffer | null> {
     const hit = this.imgCache.get(url); if (hit) return hit;
     try {
@@ -160,7 +170,11 @@ export class BaileysWhatsApp implements WhatsAppProvider {
       this.imgCache.set(url, out); return out;
     } catch (e) { this.d.log?.error({ err: String((e as Error).message ?? e) }, "whatsapp product image failed, sending text only"); return null; }
   }
-  async sendText(to: string, text: string, opts?: WaSendOpts) { await this.enqueue(`${to}@s.whatsapp.net`, text, opts?.bulk ? "bulk" : "main", opts?.imageUrl ?? null, opts?.speed ?? "safe"); }
+  async sendText(to: string, text: string, opts?: WaSendOpts) {
+    const pn = `${to}@s.whatsapp.net`;
+    const lid = opts?.bulk ? undefined : this.replyJid.get(to);      // answers to a customer's message go back on the id they used
+    await this.enqueue(lid ?? pn, text, opts?.bulk ? "bulk" : "main", opts?.imageUrl ?? null, opts?.speed ?? "safe", lid ? pn : undefined);
+  }
 
   /** The Cloud API sends approved templates; here the same templates are written out as plain text from their parameters (or the ready-made text in media.text). */
   async sendTemplate(to: string, template: string, _lang: string, p: string[], media?: WaMedia) {

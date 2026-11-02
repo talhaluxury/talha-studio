@@ -242,6 +242,17 @@ Sab sahi hai to "YES" likh dein. Agar kuch galat hai to bas "galat hai" likh dei
   }
 
 
+  /** A message the owner typed in the admin chat goes to the customer's WhatsApp too (best effort, logged like every other send). */
+  async chatReply(phone: string, text: string, refId: string, imageUrl?: string | null): Promise<"sent" | "failed" | "skipped"> {
+    try {
+      if (!this.configured) return "skipped";
+      const to = normalizePhone(phone); if (!to) return "skipped";
+      const row = await this.d.store.claim("custom", `chat:${refId}`, to); if (!row) return "skipped";
+      try { await this.d.provider.sendText(to, text, imageUrl ? { imageUrl } : undefined); await this.d.store.finish(row.id, "sent", null); return "sent"; }
+      catch (e) { const m = String((e as Error).message ?? e).slice(0, 500); await this.d.store.finish(row.id, "failed", m); this.d.log?.error({ kind: "chat", err: m }, "whatsapp chat reply failed"); return "failed"; }
+    } catch (e) { this.d.log?.error({ kind: "chat", err: String(e) }, "whatsapp chat bookkeeping failed"); return "failed"; }
+  }
+
   // ---- Admin tools (QR mode): numbers added by hand, product messages to many people, free text messages. ----
   contacts() { return this.d.store.listContacts(); }
   addContacts(phones: string[]) { return this.d.store.addContacts(phones); }
