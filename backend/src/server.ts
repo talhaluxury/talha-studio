@@ -36,7 +36,7 @@ const waLog = { error: (o: object, m: string) => console.error(m, JSON.stringify
 const waQr = cfg.WHATSAPP_DRIVER === "qr" ? new BaileysWhatsApp({ pool: store.db, storeName: cfg.STORE_NAME, tpl: { welcome: cfg.WHATSAPP_TPL_WELCOME, order: cfg.WHATSAPP_TPL_ORDER, newArrival: cfg.WHATSAPP_TPL_NEW_ARRIVAL }, log: waLog }) : undefined;
 const waProvider: WhatsAppProvider = waQr ?? createWhatsAppProvider(cfg);
 const storage = createStorage(cfg);
-const whatsapp = new WhatsAppService({ cfg, provider: waProvider, mediaUrl: (k) => storage.url(k), onConfirmed: (o) => push.orderConfirmed(o), store: new PgWhatsApp(store.db), inbound: { users: store, orders, assistant }, log: { error: (o, m) => console.error(m, JSON.stringify(o)) } });
+const whatsapp = new WhatsAppService({ cfg, provider: waProvider, mediaUrl: (k) => storage.url(k), onConfirmed: (o) => push.orderConfirmed(o), store: new PgWhatsApp(store.db), inbound: { users: store, orders, assistant, aiEnabled: async () => (await settings.load()).aiReplies !== false }, log: { error: (o, m) => console.error(m, JSON.stringify(o)) } });
 
 const app = await buildApp(cfg, { store, catalog, orders, whatsapp, waQr, assistant, storage, emails, settings, email, push, pushStore, coupons: new PgCoupons(store.db), banners: new PgBanners(store.db), chat: new PgChat(store.db), slides: new PgSlides(store.db), status: new PgStatus(store.db) });
 await app.listen({ port: cfg.PORT, host: "0.0.0.0" });

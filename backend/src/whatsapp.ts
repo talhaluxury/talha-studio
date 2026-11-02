@@ -122,7 +122,7 @@ export class WhatsAppService implements OrderEvents {
     /** Public URL of a stored picture (order messages show the product photo). */ mediaUrl?: (key: string) => string;
     /** Runs after a customer confirmed an order on WhatsApp (app notification). Failures are logged, never raised. */ onConfirmed?: (o: OrderRec, prev: OrderStatus) => Promise<void>;
     /** Only needed for customer replies (YES / AI answers). */
-    inbound?: { users: Pick<Store, "listCustomersWithPhone"> & Partial<Pick<Store, "findUserById">>; orders: OrderStore; assistant?: AssistantService } }) {}
+    inbound?: { users: Pick<Store, "listCustomersWithPhone"> & Partial<Pick<Store, "findUserById">>; orders: OrderStore; assistant?: AssistantService; aiEnabled?: () => Promise<boolean> } }) {}
   get configured() { return this.d.provider.configured; }
   get providerName() { return this.d.provider.name; }
 
@@ -365,6 +365,7 @@ Sab sahi hai to "YES" likh dein. Agar kuch galat hai to bas "galat hai" likh dei
         if (this.convo.size > 2000) for (const [k, v] of this.convo) if (now - v.at > 12 * 3600_000) this.convo.delete(k);
         return r.reply;
       };
+      if (w.aiEnabled && !(await w.aiEnabled())) { await this.d.store.finish(row.id, "skipped", "AI replies are switched off"); return; }
       let text2: string | null = null;
       try { text2 = await answer(); } catch (e) { await this.d.store.finish(row.id, "failed", String((e as Error).message ?? e).slice(0, 500)); return; }
       if (!text2) { await this.d.store.finish(row.id, "skipped", "Assistant is not configured"); return; }

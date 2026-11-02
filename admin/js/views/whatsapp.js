@@ -152,6 +152,21 @@ function customCard() {
     h("p", { class: "muted" }, "Write anything you want to tell your customers. {name} becomes the customer's first name."), text, aud.el, spd.el, btn);
 }
 
+/* Owner switch: ON = the AI answers customers (WhatsApp + app), OFF = only people answer. */
+async function aiCard() {
+  let on = true; try { on = (await api("/admin/ai-replies")).enabled; } catch { /* keeps the default */ }
+  const state = h("b", {}); const btn = h("button", { class: "btn", type: "button" });
+  const paint = () => { state.textContent = on ? "AI auto-reply is ON" : "AI auto-reply is OFF"; btn.textContent = on ? "Turn OFF" : "Turn ON"; btn.className = on ? "btn" : "btn gold"; };
+  btn.onclick = async () => {
+    btn.disabled = true;
+    try { on = (await api("/admin/ai-replies", { method: "PUT", body: { enabled: !on } })).enabled; paint(); toast(on ? "AI replies are ON" : "AI replies are OFF"); }
+    catch (ex) { toast(ex.message, "error"); } finally { btn.disabled = false; }
+  };
+  paint();
+  return h("div", { class: "card" }, h("div", { class: "row between" }, h("div", {}, state,
+    h("p", { class: "muted" }, "ON: the AI answers customers on WhatsApp and in the app. OFF: only you reply (order confirmations by YES still work).")), btn));
+}
+
 /* Log of WhatsApp messages the server tried to send, so the owner can see why one failed. */
 export async function renderWhatsapp(view) {
   const { configured, provider, items } = await api("/admin/whatsapp");
@@ -159,6 +174,7 @@ export async function renderWhatsapp(view) {
   const qrTools = provider === "qr" ? [jobCard(view), await sendProductsCard(), customCard(), contactsCard()] : [];
   put(clear(view), h("div", { class: "pagehead" }, h("div", {}, h("h1", {}, "WhatsApp messages"),
     h("p", { class: "muted" }, "A welcome message goes to everyone who creates an account with a number, and a confirmation to every customer who places an order."))),
+    await aiCard(),
     provider === "qr" ? connectCard(view) : null,
     configured || provider === "qr" ? null : h("div", { class: "card" }, h("b", {}, "WhatsApp is switched off."), h("p", { class: "muted" }, "Set WHATSAPP_DRIVER=cloud, WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID on the server. Nothing is sent until then.")),
     bc,

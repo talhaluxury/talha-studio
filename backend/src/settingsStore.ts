@@ -11,6 +11,7 @@ export interface StoreSettings {
   shipping: { flat: number; freeOver: number };            // freeOver 0 = free shipping disabled
   announcement: { text: string; active: boolean };          // strip shown on the app home screen
   pages: Record<PageSlug, string>;                          // policy / about page bodies
+  aiReplies: boolean;                                       // owner switch: AI answers customers on WhatsApp and in the app
 }
 
 export const DEFAULT_SETTINGS: StoreSettings = {
@@ -20,6 +21,7 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   shipping: { flat: 299, freeOver: 0 },
   announcement: { text: "", active: false },
   pages: DEFAULT_PAGES,
+  aiReplies: true,
   templates: {
     order_confirmation: { subject: "Your Talha Studio order {{orderNumber}}", intro: "Thank you for your order, {{customerName}}. We have received it and will confirm it shortly.", footer: "Questions about your order? Contact us using the details below." },
     owner_new_order: { subject: "New order {{orderNumber}} - {{total}}", intro: "A new order has just been placed.", footer: "" },

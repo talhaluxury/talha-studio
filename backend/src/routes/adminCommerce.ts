@@ -93,6 +93,14 @@ export function adminCommerceRoutes(app: FastifyInstance, d: {
     if (r.oldKey) await storage.delete(r.oldKey).catch(() => {}); return reply.status(204).send();
   });
 
+  // ---- AI auto-reply switch (any staff member): ON = the AI answers customers, OFF = only people answer ----
+  app.get("/admin/ai-replies", { preHandler: auth.admin }, async () => ({ enabled: (await settings.load()).aiReplies !== false }));
+  app.put("/admin/ai-replies", { preHandler: auth.admin }, async (req) => {
+    const b = z.object({ enabled: z.boolean() }).parse(req.body); const cur = await settings.load();
+    await settings.save({ ...cur, aiReplies: b.enabled }); await log(req, "settings.ai", undefined, undefined, { enabled: b.enabled });
+    return { enabled: b.enabled };
+  });
+
   // ---- store settings (owner): shipping charges, home announcement, policy pages ----
   app.get("/admin/store-settings", owner, async () => { const s = await settings.load(); return { shipping: s.shipping, announcement: s.announcement, pages: s.pages }; });
   app.put("/admin/store-settings", owner, async (req) => {

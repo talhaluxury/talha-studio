@@ -104,7 +104,7 @@ export async function buildApp(cfg: Config, deps: Deps) {
     pushRoutes(v1, { store, push: deps.pushStore, svc: deps.push, auth });
     adminEmailRoutes(v1, { cfg, email: deps.email, emails: deps.emails, settings: deps.settings, store, auth });
     contentRoutes(v1, { slides: deps.slides, status: deps.status, storage, images, store, auth });
-    assistantRoutes(v1, { assistant: deps.assistant, auth });
+    assistantRoutes(v1, { assistant: deps.assistant, auth, settings: deps.settings });
     whatsappRoutes(v1, { whatsapp: deps.whatsapp, qr: deps.waQr, storage, auth, store, catalog, verifyToken: cfg.WHATSAPP_VERIFY_TOKEN, appSecret: cfg.WHATSAPP_APP_SECRET, log: app.log });
     chatRoutes(v1, { chat: deps.chat, store, storage, images, push: deps.push, auth, whatsapp: deps.whatsapp });
     adminCatalogRoutes(v1, { catalog, storage, images, auth, log: (e) => store.logActivity(e) });
