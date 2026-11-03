@@ -31,7 +31,7 @@ jobs:
         env:
           KEYSTORE_B64: ${{ secrets.TS_KEYSTORE_BASE64 }}
           TS_KEYSTORE_PASSWORD: ${{ secrets.TS_KEYSTORE_PASSWORD }}
-          TS_ADMIN_KEY_ALIAS: ${{ secrets.TS_ADMIN_KEY_ALIAS }}
+          TS_ADMIN_KEY_ALIAS: ${{ secrets.TS_ADMIN_KEY_ALIAS || secrets.TS_KEY_ALIAS }}
           TS_KEY_PASSWORD: ${{ secrets.TS_KEY_PASSWORD }}
         run: |
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"

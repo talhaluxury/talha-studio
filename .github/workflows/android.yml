@@ -29,8 +29,11 @@ jobs:
           j = json.load(open("app/google-services.json"))
           pk = [c["client_info"]["android_client_info"]["package_name"] for c in j.get("client", [])]
           print("google-services.json OK. project:", j["project_info"]["project_id"], "packages:", pk)
-          need = "com.talhastudiopk.app.debug"
-          if need not in pk: print("::warning title=DEBUG PACKAGE MISSING::" + need + " is not in google-services.json, debug APK push will fail. Add that Android app in Firebase and re-download the file.")
+          missing = [n for n in ("com.talhastudiopk.app", "com.talhastudiopk.app.debug") if n not in pk]
+          if missing:
+              import os
+              os.remove("app/google-services.json")   # a file that lacks one of the packages would break the whole build
+              print("::warning title=PUSH OFF::google-services.json has no Firebase app for " + ", ".join(missing) + ". Push is switched off for this build. Add those Android apps in Firebase, re-download the file and update the secret to turn push on.")
           PY
       - name: Unit tests
         run: gradle :app:testDebugUnitTest -PversionCode=${{ github.run_number }}
