@@ -56,15 +56,24 @@ export function adminCatalogRoutes(app: FastifyInstance, d: {
   app.get("/admin/stats", read, async () => catalog.stats());
   app.get("/admin/categories", read, async () => ({ items: (await catalog.listCategories(false)).map((c) => toApiCategory(c, storage)) }));
 
+  /** Categories go one level deep: a main category can hold sub-categories, a sub-category cannot hold more. */
+  const checkParent = async (self: string | null, parentId: string | null) => {
+    if (!parentId) return;
+    const all = await catalog.listCategories(false);
+    if (parentId === self) throw new AppError(400, "BAD_REQUEST", "A category cannot be its own parent.");
+    const p = all.find((c) => c.id === parentId); if (!p) throw new AppError(400, "BAD_REQUEST", "Parent category not found.");
+    if (p.parentId) throw new AppError(400, "BAD_REQUEST", "Sub-categories go one level deep only. Pick a main category as the parent.");
+    if (self && all.some((c) => c.parentId === self)) throw new AppError(400, "BAD_REQUEST", "This category has sub-categories, so it cannot become a sub-category itself.");
+  };
   app.post("/admin/categories", write, async (req, reply) => {
-    const b = categoryBody.parse(req.body);
+    const b = categoryBody.parse(req.body); await checkParent(null, b.parentId);
     try {
       const c = await catalog.createCategory({ ...b, slug: b.slug ?? slugify(b.name) });
       await act(req, "category.create", "category", c.id); return reply.status(201).send(c);
     } catch (e) { throw dupMsg(e); }
   });
   app.put<{ Params: { id: string } }>("/admin/categories/:id", write, async (req) => {
-    const id = idParam.parse(req.params.id); const b = categoryBody.parse(req.body);
+    const id = idParam.parse(req.params.id); const b = categoryBody.parse(req.body); await checkParent(id, b.parentId);
     try {
       const c = await catalog.updateCategory(id, { ...b, slug: b.slug ?? slugify(b.name) });
       if (!c) throw notFound("Category not found");
@@ -73,6 +82,7 @@ export function adminCatalogRoutes(app: FastifyInstance, d: {
   });
   app.delete<{ Params: { id: string } }>("/admin/categories/:id", write, async (req, reply) => {
     const id = idParam.parse(req.params.id);
+    if ((await catalog.listCategories(false)).some((c) => c.parentId === id)) throw conflict("This category has sub-categories. Move or delete them first.");
     try { if (!(await catalog.deleteCategory(id))) throw notFound("Category not found"); }
     catch (e) { if (e instanceof InUseError) throw conflict("This category still has products. Move or delete them first."); throw e; }
     await act(req, "category.delete", "category", id); return reply.status(204).send();

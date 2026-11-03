@@ -23,7 +23,7 @@ export const ordersCsv = (os: OrderRec[]) => {
   const head = ["Order", "Date", "Status", "Customer", "Phone", "Email", "City", "Address", "Items", "Subtotal", "Shipping", "Total", "Payment", "Payment status"];
   const rows = os.map((o) => [o.orderNumber, o.createdAt.toISOString(), STATUS_LABEL[o.status], o.customer.name, o.customer.phone, o.customer.email, o.address.city,
     [o.address.line1, o.address.line2].filter(Boolean).join(", "), o.items.map((i) => `${i.qty}x ${i.name}${i.size ? ` (${i.size}` + (i.color ? `/${i.color}` : "") + ")" : ""}`).join("; "),
-    o.subtotal, o.shipping, o.total, o.paymentMethod.toUpperCase(), o.paymentStatus]);
+    o.subtotal, o.shipping, o.total, o.paymentMethod.toUpperCase() + (o.paymentRef ? ` (${o.paymentRef})` : ""), o.paymentStatus]);
   return [head, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
 };
 
@@ -64,6 +64,14 @@ export function adminOrderRoutes(app: FastifyInstance, d: {
       await events.statusChanged(o, prevStatus).catch((err) => req.log.error({ err: String(err) }, "order event failed"));
       return withNext(o);
     } catch (e) { throw mapOrderError(e); }
+  });
+
+  app.patch<{ Params: { id: string } }>("/admin/orders/:id/payment", staff, async (req) => {
+    const id = idParam.parse(req.params.id);
+    const b = z.object({ status: z.enum(["paid", "unpaid"]) }).parse(req.body);
+    const o = await orders.setPayment(id, b.status, req.user!.id); if (!o) throw notFound("Order not found");
+    await store.logActivity({ adminId: req.user!.id, action: "order.payment", entity: "order", entityId: id, meta: { status: b.status }, ip: req.ip });
+    return withNext(o);
   });
 
   app.get("/admin/customers", manager, async (req) => {

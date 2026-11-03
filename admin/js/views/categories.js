@@ -7,16 +7,21 @@ export async function renderCategories(view) {
   put(clear(view), h("div", { class: "pagehead" }, h("div", {}, h("h1", {}, "Categories"), h("p", { class: "muted" }, "These appear as the shopping categories in the app."))), body);
   await load();
 
-  function form(existing) {
+  function form(existing, all = []) {
+    const hasKids = existing && all.some((c) => c.parentId === existing.id);
+    const parentSel = h("select", { id: "cparent", disabled: !write || hasKids },
+      h("option", { value: "" }, "None (main category)"),
+      all.filter((c) => !c.parentId && c.id !== existing?.id).map((c) => h("option", { value: c.id, selected: existing?.parentId === c.id }, c.name)));
     const f = {
       name: h("input", { id: "cname", required: true, maxlength: 60, value: existing?.name ?? "", disabled: !write }),
       slug: h("input", { id: "cslug", maxlength: 60, value: existing?.slug ?? "", placeholder: "auto from name", disabled: !write }),
+      parent: parentSel,
       sort: h("input", { id: "csort", type: "number", min: 0, max: 9999, value: existing?.sortOrder ?? 0, disabled: !write }),
       active: h("input", { id: "cact", type: "checkbox", checked: existing ? existing.isActive : true, disabled: !write }),
     };
     const el = h("form", { novalidate: true, onsubmit: async (e) => {
       e.preventDefault();
-      const payload = { name: f.name.value.trim(), sortOrder: Number(f.sort.value) || 0, isActive: f.active.checked };
+      const payload = { name: f.name.value.trim(), parentId: f.parent.value || null, sortOrder: Number(f.sort.value) || 0, isActive: f.active.checked };
       if (f.slug.value.trim()) payload.slug = f.slug.value.trim().toLowerCase();
       try {
         if (existing) await api(`/admin/categories/${existing.id}`, { method: "PUT", body: payload }); else await api("/admin/categories", { method: "POST", body: payload });
@@ -26,6 +31,7 @@ export async function renderCategories(view) {
       h("div", { class: "grid2" },
         h("div", { class: "field" }, h("label", { for: "cname" }, "Name"), f.name, h("div", { class: "err", "data-err": "name" })),
         h("div", { class: "field" }, h("label", { for: "cslug" }, "URL name"), f.slug, h("div", { class: "err", "data-err": "slug" }), h("div", { class: "hint" }, "Lowercase letters, numbers and dashes.")),
+        h("div", { class: "field" }, h("label", { for: "cparent" }, "Inside category"), f.parent, h("div", { class: "hint" }, hasKids ? "This category has sub-categories, so it stays a main category." : "Choose a main category to make this a sub-category (it shows in the slider under it)."), h("div", { class: "err", "data-err": "parentId" })),
         h("div", { class: "field" }, h("label", { for: "csort" }, "Display order"), f.sort, h("div", { class: "err", "data-err": "sortOrder" }))),
       h("label", { class: "check", for: "cact" }, f.active, "Show in the app"),
       write ? h("div", { class: "row" }, h("button", { class: "btn gold", type: "submit" }, existing ? "Save category" : "Add category")) : null);
@@ -47,14 +53,17 @@ export async function renderCategories(view) {
   }
 
   async function load() {
-    const { items } = await api("/admin/categories");
+    const { items: flat } = await api("/admin/categories");
+    // Main categories first, each followed by its sub-categories.
+    const items = flat.filter((c) => !c.parentId).flatMap((c) => [c, ...flat.filter((k) => k.parentId === c.id)]);
+    const nameOf = (id) => flat.find((c) => c.id === id)?.name;
     put(clear(body), 
-      write ? h("div", { class: "card" }, h("h2", {}, "New category"), form(null)) : null,
+      write ? h("div", { class: "card" }, h("h2", {}, "New category or sub-category"), form(null, flat)) : null,
       items.length ? items.map((c) => {
         const det = h("details", { class: "card" },
-          h("summary", {}, h("b", {}, c.name), " ", h("span", { class: `badge ${c.isActive ? "ok" : ""}` }, c.isActive ? "Visible" : "Hidden"), " ", h("span", { class: "hint" }, c.slug)),
+          h("summary", {}, c.parentId ? h("span", { class: "hint" }, `${nameOf(c.parentId)} › `) : null, h("b", {}, c.name), " ", h("span", { class: `badge ${c.isActive ? "ok" : ""}` }, c.isActive ? "Visible" : "Hidden"), " ", h("span", { class: "hint" }, c.slug)),
           pictureBox(c),
-          h("div", {}, form(c)),
+          h("div", {}, form(c, flat)),
           write ? h("div", { class: "row end" }, h("button", { class: "btn danger sm", onclick: async () => {
             if (!(await confirmDialog(`Delete ${c.name}?`, "This cannot be undone. Categories that still contain products cannot be deleted."))) return;
             try { await api(`/admin/categories/${c.id}`, { method: "DELETE" }); toast("Category deleted"); await load(); } catch (ex) { toast(ex.message, "error"); }

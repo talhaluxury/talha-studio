@@ -164,7 +164,7 @@ async function aiCard() {
   };
   paint();
   return h("div", { class: "card" }, h("div", { class: "row between" }, h("div", {}, state,
-    h("p", { class: "muted" }, "ON: the AI answers customers on WhatsApp and in the app. OFF: only you reply (order confirmations by YES still work).")), btn));
+    h("p", { class: "muted" }, "ON: the AI answers customers on WhatsApp and in the app. OFF: nobody answers automatically, not even the "YES" order confirmation. Only you reply.")), btn));
 }
 
 /* Log of WhatsApp messages the server tried to send, so the owner can see why one failed. */

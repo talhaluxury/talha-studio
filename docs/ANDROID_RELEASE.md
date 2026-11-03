@@ -1,6 +1,6 @@
 # Android release guide
 
-Two apps are built from this repo: the **customer app** (`android/`, `com.talhastudio.app`) published on Google Play, and the **admin app** (`admin-android/`, `com.talhastudio.admin`) for the owner (install the APK directly or publish it privately).
+Two apps are built from this repo: the **customer app** (`android/`, `com.talhastudiopk.app`) published on Google Play, and the **admin app** (`admin-android/`, `com.talhastudio.admin`) for the owner (install the APK directly or publish it privately).
 
 ## 1. Create the upload key (once, keep it safe)
 ```
@@ -22,7 +22,7 @@ Run the **Android** workflow (push to `main` or *Run workflow*). Artifacts:
 Local build: `cd android && gradle wrapper && ./gradlew bundleRelease -PapiBaseUrl=https://YOUR-API-HOST/v1/ -PversionCode=2` with `keystore.properties` (git-ignored) containing `storeFile`, `storePassword`, `keyAlias`, `keyPassword`.
 
 ## 4. Google Sign-In fingerprints
-In Google Cloud (OAuth consent + credentials) create an **Android** OAuth client for `com.talhastudio.app` with the SHA-1 of: your debug key, your **upload** key (`keytool -list -v -keystore talha-upload.jks`), and the **Play App Signing** key (Play Console > Setup > App signing). Without the Play signing SHA-1, Google Sign-In fails in the store build even though it works in your own build. Also create the **Web** client whose ID is `GOOGLE_WEB_CLIENT_ID`.
+In Google Cloud (OAuth consent + credentials) create an **Android** OAuth client for `com.talhastudiopk.app` with the SHA-1 of: your debug key, your **upload** key (`keytool -list -v -keystore talha-upload.jks`), and the **Play App Signing** key (Play Console > Setup > App signing). Without the Play signing SHA-1, Google Sign-In fails in the store build even though it works in your own build. Also create the **Web** client whose ID is `GOOGLE_WEB_CLIENT_ID`.
 
 ## 5. Before the first upload
 - Target API: the project targets API 35. Google Play requires new apps and updates to target a recent API level and raises it every year; check *Play Console > Policy > App content* and bump `compileSdk`/`targetSdk` when asked.

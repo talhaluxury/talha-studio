@@ -34,7 +34,7 @@ export class MemoryCatalog implements CatalogStore {
     let r = [...this.prods.values()].filter((p) => !q.publishedOnly || p.isPublished);
     if (q.ids) r = r.filter((p) => q.ids!.includes(p.id));
     if (q.onSale) r = r.filter((p) => p.salePrice != null);
-    if (q.categorySlug) r = r.filter((p) => p.categorySlug === q.categorySlug);
+    if (q.categorySlug) { const top = [...this.cats.values()].find((c) => c.slug === q.categorySlug); r = r.filter((p) => p.categorySlug === q.categorySlug || (!!top && this.cats.get(p.categoryId)?.parentId === top.id)); }
     if (q.q) { const n = q.q.toLowerCase(); r = r.filter((p) => p.name.toLowerCase().includes(n) || p.sku.toLowerCase().includes(n) || p.description.toLowerCase().includes(n)); }
     if (q.minPrice != null) r = r.filter((p) => this.eff(p) >= q.minPrice!);
     if (q.maxPrice != null) r = r.filter((p) => this.eff(p) <= q.maxPrice!);

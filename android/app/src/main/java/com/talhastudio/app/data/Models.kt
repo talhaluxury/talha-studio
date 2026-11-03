@@ -24,7 +24,7 @@ data class Product(
         variants.firstOrNull { it.size == size && it.color == color }
 }
 
-data class Category(val id: String, val slug: String, val name: String, val imageUrl: String? = null)
+data class Category(val id: String, val slug: String, val name: String, val imageUrl: String? = null, val parentId: String? = null)
 data class HomeCollection(val slug: String, val title: String, val products: List<Product>)
 data class Banner(val id: String, val title: String, val subtitle: String?, val ctaLabel: String?, val ctaLink: String?, val imageUrl: String?)
 data class HomeData(val categories: List<Category>, val collections: List<HomeCollection>, val banners: List<Banner> = emptyList(), val announcement: String? = null)
@@ -83,7 +83,9 @@ data class AppNotification(val id: String, val title: String, val body: String, 
 data class NotificationsPage(val items: List<AppNotification>, val total: Int, val unread: Int)
 data class NotifPrefs(val orderUpdates: Boolean, val promotions: Boolean)
 
-data class StoreInfo(val name: String, val supportEmail: String?, val supportPhone: String?, val address: String?, val estimatedDelivery: String?, val shipping: Pair<Int, Int>, val returnWindowDays: Int, val pages: List<Pair<String, String>>)
+data class PayMethod(val id: String, val label: String, val details: String)
+fun payLabel(id: String) = when (id) { "cod" -> "Cash on Delivery"; "jazzcash" -> "JazzCash"; "easypaisa" -> "Easypaisa"; "bank" -> "Bank transfer"; else -> id }
+data class StoreInfo(val name: String, val supportEmail: String?, val supportPhone: String?, val address: String?, val estimatedDelivery: String?, val shipping: Pair<Int, Int>, val returnWindowDays: Int, val pages: List<Pair<String, String>>, val paymentMethods: List<PayMethod> = emptyList())
 data class PageDoc(val slug: String, val title: String, val body: String, val contact: List<String>)
 
 sealed interface PageBlock { data class Heading(val text: String) : PageBlock; data class Para(val text: String) : PageBlock }

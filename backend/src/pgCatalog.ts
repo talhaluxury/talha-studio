@@ -64,7 +64,7 @@ export class PgCatalog implements CatalogStore {
     if (f.publishedOnly) w.push("p.is_published");
     if (f.ids) add("p.id = ANY(?::uuid[])", f.ids);
     if (f.onSale) w.push("p.sale_price IS NOT NULL");
-    if (f.categorySlug) add("c.slug = ?", f.categorySlug);
+    if (f.categorySlug) { v.push(f.categorySlug); w.push(`(c.slug = $${v.length} OR c.parent_id = (SELECT id FROM categories WHERE slug = $${v.length}))`); }   // a main category also lists its sub-categories' products
     if (f.q) { v.push(`%${likeEscape(f.q)}%`); const n = v.length; w.push(`(p.name ILIKE $${n} OR p.sku ILIKE $${n} OR p.description ILIKE $${n})`); }
     if (f.minPrice != null) add("COALESCE(p.sale_price, p.price) >= ?", f.minPrice);
     if (f.maxPrice != null) add("COALESCE(p.sale_price, p.price) <= ?", f.maxPrice);

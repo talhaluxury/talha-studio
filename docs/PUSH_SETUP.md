@@ -10,7 +10,7 @@ Push uses **Firebase Cloud Messaging (FCM)**, which is free. The API calls FCM's
 
 ## One-time setup
 1. Go to the Firebase console, create a project (free Spark plan).
-2. **Add an Android app** with package `com.talhastudio.app`; add a second Android app `com.talhastudio.app.debug` for debug builds. Download `google-services.json` (it may contain both). Note: Android also needs your SHA-1 only for Google Sign-In, not for push.
+2. **Add an Android app** with package `com.talhastudiopk.app`; add a second Android app `com.talhastudiopk.app.debug` for debug builds. Download `google-services.json` (it may contain both). Note: Android also needs your SHA-1 only for Google Sign-In, not for push.
 3. **Android build:** base64 the file (`base64 -w0 google-services.json`) and save it as the GitHub secret `GOOGLE_SERVICES_JSON_BASE64`. The Android workflow writes it to `android/app/google-services.json` at build time. For local builds, drop the file in `android/app/` (it is git-ignored). Builds without it still compile and run, with push off.
 4. **Server:** Firebase console > Project settings > Service accounts > *Generate new private key*. Paste the entire JSON into the host secret `FCM_SERVICE_ACCOUNT_JSON` (one secret, never in git or the app). Restart the API; the log should no longer warn that push is off.
 5. Install the app, sign in, allow notifications (Android 13+ asks at order confirmation or in Notifications), then place a test order or send a campaign.

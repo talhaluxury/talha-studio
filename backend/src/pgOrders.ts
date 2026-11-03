@@ -36,7 +36,7 @@ export class PgOrders implements OrderStore {
       (c as pg.Pool).query("SELECT status, note, created_at FROM order_status_history WHERE order_id = $1 ORDER BY created_at, id", [o.id]),
     ]);
     return {
-      id: o.id, orderNumber: o.order_number, userId: o.user_id, status: o.status, paymentMethod: o.payment_method, paymentStatus: o.payment_status,
+      id: o.id, orderNumber: o.order_number, userId: o.user_id, status: o.status, paymentMethod: o.payment_method, paymentStatus: o.payment_status, paymentRef: o.payment_ref ?? null,
       subtotal: o.subtotal, discount: o.discount, shipping: o.shipping, total: o.total, couponCode: o.coupon_code,
       customer: { name: o.customer_name, email: o.customer_email, phone: o.customer_phone },
       address: { line1: o.ship_line1, line2: o.ship_line2, city: o.ship_city, province: o.ship_province, postalCode: o.ship_postal },
@@ -79,10 +79,10 @@ export class PgOrders implements OrderStore {
         const num = (await c.query("SELECT nextval('order_number_seq') AS n")).rows[0].n;
         const o = await c.query(
           `INSERT INTO orders (order_number, user_id, idempotency_key, subtotal, discount, shipping, total, coupon_code, customer_name, customer_email, customer_phone,
-             ship_line1, ship_line2, ship_city, ship_province, ship_postal, notes)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
+             ship_line1, ship_line2, ship_city, ship_province, ship_postal, notes, payment_method, payment_ref)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id`,
           [`TS-${num}`, i.userId, key, priced.subtotal, priced.discount, priced.shipping, priced.total, priced.couponCode, i.customer.name, i.customer.email, i.customer.phone,
-           i.address.line1, i.address.line2, i.address.city, i.address.province, i.address.postalCode, i.notes]);
+           i.address.line1, i.address.line2, i.address.city, i.address.province, i.address.postalCode, i.notes, i.paymentMethod ?? "cod", i.paymentRef ?? null]);
         const oid = o.rows[0].id as string;
         for (const l of priced.lines) await c.query(
           `INSERT INTO order_items (order_id, product_id, variant_id, name, sku, size, color, unit_price, qty, thumb_key) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
@@ -111,6 +111,11 @@ export class PgOrders implements OrderStore {
     await c.query("UPDATE orders SET status = $2, payment_status = $3, tracking_url = COALESCE($4, tracking_url), updated_at = now() WHERE id = $1", [orderId, to, pay, tracking]);
     await c.query("INSERT INTO order_status_history (order_id, status, note, changed_by) VALUES ($1,$2,$3,$4)", [orderId, to, note, byUser]);
     return true;
+  }
+
+  async setPayment(id: string, status: "paid" | "unpaid", _adminId: string) {
+    const r = await this.pool.query("UPDATE orders SET payment_status = $2, updated_at = now() WHERE id = $1 AND payment_status <> 'refunded' RETURNING id", [id, status]);
+    return r.rowCount ? this.adminGet(id) : null;
   }
 
   async listForUser(userId: string, page: number, limit: number) {

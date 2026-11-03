@@ -1,3 +1,4 @@
+import { payLabel } from "./paymentLabel.js";
 import { STATUS_LABEL, type OrderStatus } from "./orderStatus.js";
 import type { OrderRec } from "./orderStore.js";
 import type { StoreSettings, TemplateKey } from "./settingsStore.js";
@@ -60,11 +61,11 @@ function customerEmail(kind: Extract<TemplateKey, "order_confirmation" | "status
   const html = shell(b, `${h(headline)}${para(intro)}
 <div style="background:${C.ivory};border-radius:10px;padding:12px 16px;margin-bottom:8px"><b>Order ${esc(o.orderNumber)}</b><br><span style="color:${C.gray};font-size:12px">${esc(fmtDate(o.createdAt, b.timezone))} · Status: ${esc(STATUS_LABEL[o.status])}</span></div>
 ${sec("YOUR ITEMS", itemsTable(o))}${sec("DELIVERY ADDRESS", `<p style="margin:0;line-height:1.6">${addressLines(o).map(esc).join("<br>")}</p>`)}
-${sec("PAYMENT", `<p style="margin:0">${o.paymentMethod === "cod" ? "Cash on Delivery" : esc(o.paymentMethod)} (${esc(o.paymentStatus)})</p>`)}
+${sec("PAYMENT", `<p style="margin:0">${esc(payLabel(o.paymentMethod))} (${esc(o.paymentStatus)})</p>`)}
 ${est ? sec("ESTIMATED DELIVERY", `<p style="margin:0">${esc(est)}</p>`) : ""}${track}${footerHtml(s, footer)}`, intro);
   const text = [headline, "", intro, "", `Order ${o.orderNumber} - ${fmtDate(o.createdAt, b.timezone)} - Status: ${STATUS_LABEL[o.status]}`, "", itemsText(o), "",
     `Subtotal: ${pkr(o.subtotal)}`, ...(o.discount ? [`Discount: -${pkr(o.discount)}`] : []), `Delivery: ${o.shipping ? pkr(o.shipping) : "Free"}`, `Total: ${pkr(o.total)}`, "",
-    "Delivery address:", ...addressLines(o), "", `Payment: ${o.paymentMethod === "cod" ? "Cash on Delivery" : o.paymentMethod} (${o.paymentStatus})`,
+    "Delivery address:", ...addressLines(o), "", `Payment: ${payLabel(o.paymentMethod)} (${o.paymentStatus})`,
     ...(est ? ["", `Estimated delivery: ${est}`] : []), ...(o.trackingUrl ? ["", `Track your parcel: ${o.trackingUrl}`] : []), "", footer, ...contactBlock(s), s.store.name].filter((x) => x !== undefined).join("\n");
   return { subject, html, text };
 }
@@ -88,12 +89,12 @@ ${sec("CUSTOMER", `<p style="margin:0;line-height:1.6">${esc(o.customer.name)}<b
 ${sec("DELIVERY ADDRESS", `<p style="margin:0;line-height:1.6">${addressLines(o).slice(1, -1).map(esc).join("<br>")}</p>`)}
 ${o.notes ? sec("CUSTOMER NOTE", `<p style="margin:0">${esc(o.notes)}</p>`) : ""}
 ${sec("ITEMS", itemsTable(o))}
-${sec("PAYMENT", `<p style="margin:0">${o.paymentMethod === "cod" ? "Cash on Delivery" : esc(o.paymentMethod)} · ${esc(o.paymentStatus)} · Total ${esc(pkr(o.total))}</p>`)}
+${sec("PAYMENT", `<p style="margin:0">${esc(payLabel(o.paymentMethod))} · ${esc(o.paymentStatus)} · Total ${esc(pkr(o.total))}</p>`)}
 ${link ? `<p style="margin:24px 0"><a href="${esc(link)}" style="background:${C.gold};color:${C.black};padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:bold">Open order in admin</a></p>` : ""}
 <div style="height:16px"></div>`, intro);
   const text = [headline, intro, "", `${o.orderNumber} - ${pkr(o.total)} - ${fmtDate(o.createdAt, b.timezone)}`, "", "Customer:", o.customer.name, o.customer.phone, o.customer.email, "",
     "Delivery address:", ...addressLines(o).slice(1, -1), ...(o.notes ? ["", `Customer note: ${o.notes}`] : []), "", "Items:", itemsText(o), "",
-    `Payment: ${o.paymentMethod === "cod" ? "Cash on Delivery" : o.paymentMethod} (${o.paymentStatus})`, `Total: ${pkr(o.total)}`, ...(link ? ["", `Open in admin: ${link}`] : [])].join("\n");
+    `Payment: ${payLabel(o.paymentMethod)} (${o.paymentStatus})`, `Total: ${pkr(o.total)}`, ...(link ? ["", `Open in admin: ${link}`] : [])].join("\n");
   return { subject, html, text };
 }
 

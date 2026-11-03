@@ -18,7 +18,7 @@ export async function renderEditor(view, idArg) {
   const f = {
     name: h("input", { id: "name", required: true, maxlength: 160, value: p?.name ?? "" }),
     sku: h("input", { id: "sku", required: true, maxlength: 40, value: p?.sku ?? "", placeholder: "TS-1001" }),
-    category: h("select", { id: "category" }, cats.items.map((c) => h("option", { value: c.id, selected: p?.category.id === c.id }, c.name))),
+    category: h("select", { id: "category" }, cats.items.filter((c) => !c.parentId).flatMap((c) => [c, ...cats.items.filter((k) => k.parentId === c.id)]).map((c) => h("option", { value: c.id, selected: p?.category.id === c.id }, c.parentId ? `${cats.items.find((x) => x.id === c.parentId)?.name} › ${c.name}` : c.name))),
     price: h("input", { id: "price", type: "number", inputmode: "numeric", min: 1, step: 1, required: true, value: p?.price ?? "" }),
     sale: h("input", { id: "sale", type: "number", inputmode: "numeric", min: 1, step: 1, value: p?.salePrice ?? "" }),
     fabric: h("input", { id: "fabric", maxlength: 60, value: p?.fabric ?? "", placeholder: "Lawn, Linen, Wash & Wear..." }),

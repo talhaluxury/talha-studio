@@ -69,7 +69,7 @@ fun CartScreen(shop: ShopViewModel, goShop: () -> Unit, onCheckout: () -> Unit) 
                                 Row { Text("Shipping", Modifier.weight(1f)); Text(if (q.quote.shipping == 0) "Free" else pkr(q.quote.shipping)) }
                                 HorizontalDivider()
                                 Row { Text("Total", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium); Text(pkr(q.quote.total), style = MaterialTheme.typography.titleMedium) }
-                                Text("Payment: Cash on Delivery", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
+                                Text("Payment: choose at checkout (Cash on Delivery or online transfer)", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
                             }
                             is QuoteState.Failed -> { Text(q.message, color = TS.Danger, style = MaterialTheme.typography.bodyMedium); OutlinedButton({ shop.refreshQuote() }) { Text("Try again") } }
                             else -> Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = TS.Gold); Spacer(Modifier.width(10.dp)); Text("Confirming prices...", color = TS.Gray) }

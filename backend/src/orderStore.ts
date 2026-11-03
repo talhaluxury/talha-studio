@@ -1,9 +1,10 @@
 import type { PriceCfg, Issue } from "./pricing.js";
 import type { OrderStatus } from "./orderStatus.js";
+import type { PaymentMethod } from "./paymentLabel.js";
 
 export interface OrderItemRec { productId: string | null; variantId: string | null; name: string; sku: string; size: string | null; color: string | null; unitPrice: number; qty: number; thumbKey: string | null }
 export interface OrderRec {
-  id: string; orderNumber: string; userId: string | null; status: OrderStatus; paymentMethod: "cod"; paymentStatus: "unpaid" | "paid" | "refunded";
+  id: string; orderNumber: string; userId: string | null; status: OrderStatus; paymentMethod: PaymentMethod; paymentStatus: "unpaid" | "paid" | "refunded"; paymentRef?: string | null;
   subtotal: number; discount: number; shipping: number; total: number; couponCode: string | null;
   customer: { name: string; email: string; phone: string };
   address: { line1: string; line2: string | null; city: string; province: string | null; postalCode: string | null };
@@ -13,7 +14,7 @@ export interface OrderRec {
 export interface OrderSummary { id: string; orderNumber: string; status: OrderStatus; total: number; createdAt: Date; itemCount: number; firstItemName: string | null; firstThumbKey: string | null; customerName: string; customerPhone: string }
 export interface NewOrderInput {
   userId: string; idempotencyKey: string; items: { variantId: string; qty: number }[];
-  customer: OrderRec["customer"]; address: OrderRec["address"]; notes: string | null; cfg: PriceCfg; couponCode?: string | null; maxOpenOrders?: number;
+  customer: OrderRec["customer"]; address: OrderRec["address"]; notes: string | null; cfg: PriceCfg; couponCode?: string | null; maxOpenOrders?: number; paymentMethod?: PaymentMethod; paymentRef?: string | null;
 }
 export interface OrderFilter { status?: OrderStatus; q?: string; from?: string; to?: string; page: number; limit: number }
 export interface Analytics {
@@ -39,6 +40,8 @@ export interface OrderStore {
   adminList(f: OrderFilter): Promise<{ items: OrderSummary[]; total: number }>;
   adminGet(id: string): Promise<OrderRec | null>;
   adminSetStatus(id: string, to: OrderStatus, note: string | null, trackingUrl: string | null, adminId: string): Promise<OrderRec | null>;
+  /** Owner confirms (or un-confirms) a manual payment. */
+  setPayment(id: string, status: "paid" | "unpaid", adminId: string): Promise<OrderRec | null>;
   adminExport(f: Omit<OrderFilter, "page" | "limit">): Promise<OrderRec[]>;
   adminCustomers(q: string | undefined, page: number, limit: number): Promise<{ items: CustomerRow[]; total: number }>;
   analytics(days: number, tz: string): Promise<Analytics>;

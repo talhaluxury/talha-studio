@@ -42,6 +42,10 @@ fun CheckoutScreen(shop: ShopViewModel, onBack: () -> Unit, onPlaced: (orderId: 
     var saveAddress by remember { mutableStateOf(true) }
     var busy by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<String?>(null) }
+    val payMethods = rememberLoad("paymethods") { runCatching { Repo.storeInfo().paymentMethods }.getOrDefault(emptyList()) }
+    val methods = (payMethods.state as? Load.Ready)?.data.orEmpty().ifEmpty { listOf(PayMethod("cod", "Cash on Delivery", "")) }
+    var method by remember { mutableStateOf("cod") }
+    var payRef by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { shop.refreshQuote() }
 
@@ -76,6 +80,19 @@ fun CheckoutScreen(shop: ShopViewModel, onBack: () -> Unit, onPlaced: (orderId: 
             Field("Note for the courier (optional)", form.notes, { form = form.copy(notes = it.take(300)) }, minLines = 2)
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) { Checkbox(saveAddress, { saveAddress = it }); Text("Save this address for next time") }
 
+            Text("Payment", style = MaterialTheme.typography.titleMedium)
+            methods.forEach { m ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) { RadioButton(method == m.id, { method = m.id }); Text(m.label) }
+            }
+            methods.firstOrNull { it.id == method && it.id != "cod" }?.let { m ->
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Send the total amount to:", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
+                    Text(m.details, style = MaterialTheme.typography.bodyLarge)
+                    Text("Then type the transaction ID from your payment below. The store confirms it on WhatsApp.", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
+                }
+                Field("Transaction ID", payRef, { payRef = it.take(40) }, errors["payRef"])
+            }
+
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Order summary", style = MaterialTheme.typography.titleMedium)
                 shop.cart.forEach { l -> Row { Text("${l.qty} x ${l.name}", Modifier.weight(1f), maxLines = 1); Text(pkr(l.unitPrice * l.qty)) } }
@@ -91,18 +108,20 @@ fun CheckoutScreen(shop: ShopViewModel, onBack: () -> Unit, onPlaced: (orderId: 
                     is QuoteState.Failed -> Text(q.message, color = TS.Danger)
                     else -> Text("Confirming prices...", color = TS.Gray)
                 }
-                Text("Payment: Cash on Delivery. Pay the courier when your order arrives.", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
+                Text(if (method == "cod") "Payment: Cash on Delivery. Pay the courier when your order arrives." else "Payment: ${payLabel(method)}. Your order is confirmed after the store verifies the payment.", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
                 Text("Returns accepted within 7 days of delivery for unused items.", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
                 Text("We will confirm your order on WhatsApp on the phone number above.", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
             }
             failure?.let { Text(it, color = TS.Danger, style = MaterialTheme.typography.bodyMedium) }
             TsButton(if (busy) "Placing order..." else "Place Order" + (ready?.let { " · " + pkr(it.total) } ?: ""), enabled = canOrder, style = TsButtonStyle.Black, onClick = {
-                val v = validateCheckout(form); errors = v
+                val v = validateCheckout(form).toMutableMap()
+                if (method != "cod" && payRef.trim().length < 6) v["payRef"] = "Enter the transaction ID (at least 6 characters)"
+                errors = v
                 if (v.isNotEmpty()) { failure = "Please fix the highlighted fields."; return@TsButton }
                 failure = null; busy = true
                 scope.launch {
                     try {
-                        val order = Repo.placeOrder(shop.cart.toList(), form, idempotencyKey, shop.couponCode)
+                        val order = Repo.placeOrder(shop.cart.toList(), form, idempotencyKey, shop.couponCode, method, payRef)
                         if (saveAddress) runCatching { Repo.saveAddress(form, isDefault = addrs.isEmpty()) }
                         shop.clearCart(); onPlaced(order.id)
                     } catch (e: ApiException) {

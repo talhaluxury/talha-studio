@@ -8,9 +8,10 @@ import type { makeAuth } from "../plugins/auth.js";
 import type { Storage } from "../storage.js";
 import type { SettingsStore } from "../settingsStore.js";
 import { priceCfgFrom } from "./catalog.js";
+import { PAYMENT_METHODS } from "../paymentLabel.js";
 
 export const toApiOrder = (o: OrderRec, s: Storage) => ({
-  id: o.id, orderNumber: o.orderNumber, status: o.status, paymentMethod: o.paymentMethod, paymentStatus: o.paymentStatus,
+  id: o.id, orderNumber: o.orderNumber, status: o.status, paymentMethod: o.paymentMethod, paymentStatus: o.paymentStatus, paymentRef: o.paymentRef ?? null,
   subtotal: o.subtotal, discount: o.discount, shipping: o.shipping, total: o.total, couponCode: o.couponCode,
   customer: o.customer, address: o.address, notes: o.notes, trackingUrl: o.trackingUrl,
   items: o.items.map((i) => ({ productId: i.productId, variantId: i.variantId, name: i.name, sku: i.sku, size: i.size, color: i.color, unitPrice: i.unitPrice, qty: i.qty, imageUrl: i.thumbKey ? s.url(i.thumbKey) : null })),
@@ -37,7 +38,8 @@ export const placeOrderBody = z.object({
     postalCode: z.string().trim().max(12).nullish().transform((v) => v || null),
   }),
   notes: z.string().trim().max(300).nullish().transform((v) => v || null),
-  paymentMethod: z.literal("cod"),
+  paymentMethod: z.enum(PAYMENT_METHODS).default("cod"),
+  paymentRef: z.string().trim().max(40).nullish().transform((v) => v || null),
   couponCode: z.string().trim().toUpperCase().max(20).nullish().transform((v) => v || null),
 });
 
@@ -50,8 +52,15 @@ export function orderRoutes(app: FastifyInstance, d: { orders: OrderStore; stora
   app.post("/orders", { preHandler: auth.customer, config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (req, reply) => {
     const key = z.string().regex(/^[A-Za-z0-9_-]{8,64}$/, "Idempotency-Key header (8-64 chars) is required").parse(req.headers["idempotency-key"]);
     const b = placeOrderBody.parse(req.body);
+    const sNow = await settings.load();
+    if (b.paymentMethod !== "cod") {
+      if (!sNow.paymentAccounts[b.paymentMethod]?.trim()) throw new AppError(400, "PAYMENT_UNAVAILABLE", "This payment method is not available right now. Please choose another.");
+      if (!b.paymentRef || b.paymentRef.length < 6) throw new AppError(400, "PAYMENT_REF_REQUIRED", "Enter the transaction ID from your payment (at least 6 characters).");
+    }
+    let pc = await priceCfgFrom(settings, cfg);
+    if (b.paymentMethod !== "cod") pc = { ...pc, MAX_COD_ORDER_PKR: Number.MAX_SAFE_INTEGER };   // the cash-on-delivery size limit does not apply to prepaid orders
     try {
-      const { order, created } = await orders.createOrder({ userId: req.user!.id, idempotencyKey: key, items: b.items, customer: b.customer, address: b.address, notes: b.notes, cfg: await priceCfgFrom(settings, cfg), couponCode: b.couponCode, maxOpenOrders: cfg.MAX_OPEN_ORDERS_PER_USER });
+      const { order, created } = await orders.createOrder({ userId: req.user!.id, idempotencyKey: key, items: b.items, customer: b.customer, address: b.address, notes: b.notes, cfg: pc, couponCode: b.couponCode, maxOpenOrders: cfg.MAX_OPEN_ORDERS_PER_USER, paymentMethod: b.paymentMethod, paymentRef: b.paymentRef });
       if (created) await fire(events.orderPlaced(order), req);
       return reply.status(created ? 201 : 200).send(toApiOrder(order, storage));
     } catch (e) { throw mapOrderError(e); }

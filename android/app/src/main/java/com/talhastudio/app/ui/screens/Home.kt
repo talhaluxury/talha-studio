@@ -93,7 +93,7 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                 val d = s.data
                 if (d.categories.isNotEmpty()) item {
                     LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        items(d.categories, key = { it.id }) { c ->
+                        items(d.categories.filter { it.parentId == null }, key = { it.id }) { c ->
                             Column(Modifier.clickable { onBrowse(c.slug) }, horizontalAlignment = Alignment.CenterHorizontally) {
                                 Box(Modifier.size(64.dp).clip(CircleShape).background(TS.Neutral), contentAlignment = Alignment.Center) {
                                     if (c.imageUrl != null) AsyncImage(model = c.imageUrl, contentDescription = c.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)

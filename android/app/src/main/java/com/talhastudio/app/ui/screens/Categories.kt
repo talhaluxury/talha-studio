@@ -1,6 +1,10 @@
 package com.talhastudio.app.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.lazy.items
@@ -59,9 +63,18 @@ fun CategoriesScreen(shop: ShopViewModel, initialCategory: String?, onOpenProduc
             }
         }
         val catList = (cats.state as? Load.Ready)?.data.orEmpty()
-        if (catList.isNotEmpty()) LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        val mains = catList.filter { it.parentId == null }
+        val picked = catList.firstOrNull { it.slug == filter.category }
+        val activeMain = picked?.let { p -> if (p.parentId == null) p else catList.firstOrNull { it.id == p.parentId } }
+        val subs = activeMain?.let { m -> catList.filter { it.parentId == m.id } }.orEmpty()
+        if (mains.isNotEmpty()) LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             item { FilterChip(filter.category == null, { filter = filter.copy(category = null) }, { Text("All") }, colors = chipColors()) }
-            items(catList, key = { it.id }) { c -> FilterChip(filter.category == c.slug, { filter = filter.copy(category = c.slug) }, { Text(c.name) }, colors = chipColors()) }
+            items(mains, key = { it.id }) { c -> FilterChip(activeMain?.id == c.id, { filter = filter.copy(category = c.slug) }, { Text(c.name) }, colors = chipColors()) }
+        }
+        // Sub-categories of the chosen main category: a side-scrolling slider of round pictures.
+        if (activeMain != null && subs.isNotEmpty()) LazyRow(Modifier.padding(top = 12.dp), contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            item(key = "all-" + activeMain.id) { SubCategoryTile("All", null, filter.category == activeMain.slug) { filter = filter.copy(category = activeMain.slug) } }
+            items(subs, key = { it.id }) { s -> SubCategoryTile(s.name, s.imageUrl, filter.category == s.slug) { filter = filter.copy(category = s.slug) } }
         }
         when {
             loading && items.isEmpty() -> ProductGridSkeleton()
@@ -105,3 +118,15 @@ private fun FilterDialog(current: Filter, onDismiss: () -> Unit, onApply: (Filte
 
 @Composable
 private fun chipColors() = FilterChipDefaults.filterChipColors(selectedContainerColor = TS.Ivory, selectedLabelColor = TS.Black)
+
+@Composable
+private fun SubCategoryTile(name: String, imageUrl: String?, selected: Boolean, onClick: () -> Unit) {
+    Column(Modifier.width(72.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(60.dp).clip(androidx.compose.foundation.shape.CircleShape).background(TS.Neutral)
+            .border(if (selected) 2.dp else 0.dp, if (selected) TS.Gold else androidx.compose.ui.graphics.Color.Transparent, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+            if (imageUrl != null) coil.compose.AsyncImage(model = imageUrl, contentDescription = name, modifier = Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+            else Text(name.take(1), color = TS.Gold, style = MaterialTheme.typography.titleMedium)
+        }
+        Text(name, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = if (selected) TS.Gold else TS.Gray, modifier = Modifier.padding(top = 6.dp))
+    }
+}

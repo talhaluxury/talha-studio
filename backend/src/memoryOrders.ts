@@ -28,13 +28,18 @@ export class MemoryOrders implements OrderStore {
     for (const l of priced.lines) this.variant(l.variantId)!.stock -= l.qty;
     const now = new Date();
     const o: OrderRec = {
-      id: randomUUID(), orderNumber: `TS-${this.seq++}`, userId: i.userId, status: "pending", paymentMethod: "cod", paymentStatus: "unpaid",
+      id: randomUUID(), orderNumber: `TS-${this.seq++}`, userId: i.userId, status: "pending", paymentMethod: i.paymentMethod ?? "cod", paymentStatus: "unpaid", paymentRef: i.paymentRef ?? null,
       subtotal: priced.subtotal, discount: priced.discount, shipping: priced.shipping, total: priced.total, couponCode: priced.couponCode,
       customer: i.customer, address: i.address, notes: i.notes, trackingUrl: null,
       items: priced.lines.map((l) => ({ productId: l.productId, variantId: l.variantId, name: l.name, sku: l.sku, size: l.size, color: l.color, unitPrice: l.unitPrice, qty: l.qty, thumbKey: l.thumbKey })),
       history: [{ status: "pending", note: null, at: now }], createdAt: now, updatedAt: now,
     };
     this.orders.unshift(o); this.keys.set(key, o.id); return { order: o, created: true };
+  }
+
+  async setPayment(id: string, status: "paid" | "unpaid", _adminId: string) {
+    const o = this.orders.find((x) => x.id === id); if (!o || o.paymentStatus === "refunded") return null;
+    o.paymentStatus = status; o.updatedAt = new Date(); return o;
   }
 
   private summary(o: OrderRec): OrderSummary {

@@ -43,7 +43,13 @@ export async function renderOrderDetail(view, id) {
           o.discount ? h("div", {}, h("span", {}, "Discount"), h("span", {}, "- " + money(o.discount))) : null,
           h("div", {}, h("span", {}, "Shipping"), h("span", {}, o.shipping ? money(o.shipping) : "Free")),
           h("div", { class: "tot" }, h("span", {}, "Total"), h("span", {}, money(o.total))),
-          h("div", { class: "hint" }, h("span", {}, `Payment: ${o.paymentMethod.toUpperCase()}`), h("span", {}, o.paymentStatus)))),
+          h("div", { class: "hint" }, h("span", {}, `Payment: ${o.paymentMethod.toUpperCase()}`), h("span", {}, o.paymentStatus)),
+          o.paymentMethod !== "cod" ? h("div", { class: "hint" }, h("span", {}, `Transaction ID: ${o.paymentRef || "-"}`),
+            h("button", { class: o.paymentStatus === "paid" ? "btn ghost sm" : "btn gold sm", type: "button", onclick: async (ev) => {
+              ev.target.disabled = true;
+              try { o = await api(`/admin/orders/${o.id}/payment`, { method: "PATCH", body: { status: o.paymentStatus === "paid" ? "unpaid" : "paid" } }); toast(o.paymentStatus === "paid" ? "Payment confirmed" : "Payment marked unpaid"); draw(); }
+              catch (e) { toast(e.message, "error"); ev.target.disabled = false; }
+            } }, o.paymentStatus === "paid" ? "Mark unpaid" : "Confirm payment received")) : null)),
       h("div", { class: "cols" },
         h("div", { class: "card" }, h("h2", {}, "Update status"),
           o.allowedNext.length ? [h("div", { class: "field" }, h("label", { for: "newstatus" }, "Next status"), status), h("div", { class: "field" }, h("label", { for: "note" }, "Note"), note), trackField, save]

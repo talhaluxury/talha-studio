@@ -11,6 +11,7 @@ export interface StoreSettings {
   shipping: { flat: number; freeOver: number };            // freeOver 0 = free shipping disabled
   announcement: { text: string; active: boolean };          // strip shown on the app home screen
   pages: Record<PageSlug, string>;                          // policy / about page bodies
+  paymentAccounts: { jazzcash: string; easypaisa: string; bank: string };   // where customers send money; a method is offered only when its text is not empty
   aiReplies: boolean;                                       // owner switch: AI answers customers on WhatsApp and in the app
 }
 
@@ -22,6 +23,7 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   announcement: { text: "", active: false },
   pages: DEFAULT_PAGES,
   aiReplies: true,
+  paymentAccounts: { jazzcash: "", easypaisa: "", bank: "" },
   templates: {
     order_confirmation: { subject: "Your Talha Studio order {{orderNumber}}", intro: "Thank you for your order, {{customerName}}. We have received it and will confirm it shortly.", footer: "Questions about your order? Contact us using the details below." },
     owner_new_order: { subject: "New order {{orderNumber}} - {{total}}", intro: "A new order has just been placed.", footer: "" },
@@ -38,6 +40,7 @@ const merge = (v: Partial<StoreSettings> | null, ship: StoreSettings["shipping"]
   announcement: { ...DEFAULT_SETTINGS.announcement, ...(v?.announcement ?? {}) },
   pages: { ...DEFAULT_SETTINGS.pages, ...(v?.pages ?? {}) },
   store: { ...DEFAULT_SETTINGS.store, ...(v?.store ?? {}) },
+  paymentAccounts: { ...DEFAULT_SETTINGS.paymentAccounts, ...(v?.paymentAccounts ?? {}) },
   templates: {
     order_confirmation: { ...DEFAULT_SETTINGS.templates.order_confirmation, ...(v?.templates?.order_confirmation ?? {}) },
     owner_new_order: { ...DEFAULT_SETTINGS.templates.owner_new_order, ...(v?.templates?.owner_new_order ?? {}) },

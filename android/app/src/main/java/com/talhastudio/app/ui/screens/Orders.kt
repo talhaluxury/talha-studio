@@ -109,7 +109,7 @@ fun OrderDetailScreen(id: String, onBack: () -> Unit) {
                             Row { Text("Subtotal", Modifier.weight(1f)); Text(pkr(o.subtotal)) }
                             Row { Text("Shipping", Modifier.weight(1f)); Text(if (o.shipping == 0) "Free" else pkr(o.shipping)) }
                             Row { Text("Total", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium); Text(pkr(o.total), style = MaterialTheme.typography.titleMedium) }
-                            Text("Payment: Cash on Delivery (${o.paymentStatus})", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
+                            Text("Payment: ${payLabel(o.paymentMethod)} (${if (o.paymentStatus == "paid") "paid" else if (o.paymentMethod == "cod") "pay on delivery" else "waiting for the store to confirm"})", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
                         }
                         Panel("Delivery") { Text(o.customerName); Text(o.customerPhone); Text(o.address, color = TS.Gray); o.notes?.let { Text("Note: $it", style = MaterialTheme.typography.labelSmall, color = TS.Gray) } }
                         Panel("History") { o.history.reversed().forEach { h -> Column { Text(statusLabel(h.status), style = MaterialTheme.typography.titleMedium); Text(prettyDate(h.at), style = MaterialTheme.typography.labelSmall, color = TS.Gray); h.note?.let { Text(it, style = MaterialTheme.typography.bodyMedium) } } } }

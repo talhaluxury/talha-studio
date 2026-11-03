@@ -29,7 +29,7 @@ jobs:
           j = json.load(open("app/google-services.json"))
           pk = [c["client_info"]["android_client_info"]["package_name"] for c in j.get("client", [])]
           print("google-services.json OK. project:", j["project_info"]["project_id"], "packages:", pk)
-          need = "com.talhastudio.app.debug"
+          need = "com.talhastudiopk.app.debug"
           if need not in pk: print("::warning title=DEBUG PACKAGE MISSING::" + need + " is not in google-services.json, debug APK push will fail. Add that Android app in Firebase and re-download the file.")
           PY
       - name: Unit tests

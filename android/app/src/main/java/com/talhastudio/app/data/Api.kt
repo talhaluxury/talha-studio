@@ -72,13 +72,14 @@ fun parseNotification(o: JSONObject) = AppNotification(o.getString("id"), o.getS
 fun parsePrefs(o: JSONObject) = NotifPrefs(o.optBoolean("orderUpdates", true), o.optBoolean("promotions", true))
 fun parseBanner(o: JSONObject) = Banner(o.getString("id"), o.getString("title"), o.str("subtitle"), o.str("ctaLabel"), o.str("ctaLink"), o.str("imageUrl"))
 fun parseStoreInfo(o: JSONObject) = StoreInfo(o.getString("name"), o.str("supportEmail"), o.str("supportPhone"), o.str("address"), o.str("estimatedDelivery"), o.getJSONObject("shipping").let { it.getInt("flat") to it.getInt("freeOver") }, o.optInt("returnWindowDays", 7),
-    o.optJSONArray("pages").mapObjects { it.getString("slug") to it.getString("title") })
+    o.optJSONArray("pages").mapObjects { it.getString("slug") to it.getString("title") },
+    o.optJSONArray("paymentMethods").mapObjects { PayMethod(it.getString("id"), it.getString("label"), it.optString("details", "")) })
 fun parsePage(o: JSONObject) = PageDoc(o.getString("slug"), o.getString("title"), o.getString("body"), o.optJSONArray("contact")?.let { a -> (0 until a.length()).map(a::getString) } ?: emptyList())
 fun parseSlides(o: JSONObject) = o.optJSONArray("slides").mapObjects { Slide(it.getString("id"), it.getString("title"), it.optString("body", ""), it.str("imageUrl")) }
 fun parseChatMessage(o: JSONObject) = ChatMessage(o.getLong("seq"), o.getString("id"), o.getString("sender") == "store", o.optString("body", ""), o.str("imageUrl"), o.getString("createdAt"), o.optBoolean("read", false))
 fun parseStatus(o: JSONObject) = StatusItem(o.getString("id"), o.getString("imageUrl"), o.str("caption"), o.getString("createdAt"))
 fun parseAssistant(o: JSONObject) = AssistantReply(o.optString("reply", ""), o.optJSONArray("actions").mapObjects { AssistantAction(it.getString("type"), it.str("id"), it.getString("label")) })
-fun parseCategories(a: JSONArray?) = a.mapObjects { Category(it.getString("id"), it.getString("slug"), it.getString("name"), it.optString("imageUrl").takeIf { u -> u.isNotBlank() && u != "null" }) }
+fun parseCategories(a: JSONArray?) = a.mapObjects { Category(it.getString("id"), it.getString("slug"), it.getString("name"), it.optString("imageUrl").takeIf { u -> u.isNotBlank() && u != "null" }, it.optString("parentId").takeIf { u -> u.isNotBlank() && u != "null" }) }
 
 /** Login state. Tokens live in app-private storage (backups are disabled in the manifest). */
 object Session {
@@ -243,7 +244,7 @@ object Repo {
     }
     suspend fun quote(lines: List<CartLine>, coupon: String? = null): Quote {
         val items = JSONArray().also { a -> lines.forEach { a.put(JSONObject().put("variantId", it.variantId).put("qty", it.qty)) } }
-        return parseQuote(Http.request("POST", "/cart/quote", JSONObject().put("items", items).apply { if (!coupon.isNullOrBlank()) put("couponCode", coupon) }))
+        return parseQuote(Http.request("POST", "/cart/quote", JSONObject().put("items", items).apply { if (!coupon.isNullOrBlank()) put("couponCode", coupon); if (payMethod != "cod" && !payRef.isNullOrBlank()) put("paymentRef", payRef.trim()) }))
     }
 
     // ---- accounts ----
@@ -275,9 +276,9 @@ object Repo {
     suspend fun deleteAddress(id: String) { Http.request("DELETE", "/me/addresses/$id", auth = true) }
 
     // ---- orders ----
-    suspend fun placeOrder(lines: List<CartLine>, f: CheckoutForm, idempotencyKey: String, coupon: String? = null): Order {
+    suspend fun placeOrder(lines: List<CartLine>, f: CheckoutForm, idempotencyKey: String, coupon: String? = null, payMethod: String = "cod", payRef: String? = null): Order {
         val items = JSONArray().also { a -> lines.forEach { a.put(JSONObject().put("variantId", it.variantId).put("qty", it.qty)) } }
-        val body = JSONObject().put("items", items).put("paymentMethod", "cod")
+        val body = JSONObject().put("items", items).put("paymentMethod", payMethod)
             .put("customer", JSONObject().put("name", f.name.trim()).put("email", f.email.trim()).put("phone", f.phone.trim()))
             .put("address", JSONObject().put("line1", f.line1.trim()).put("city", f.city.trim())
                 .apply { if (f.line2.isNotBlank()) put("line2", f.line2.trim()); if (f.province.isNotBlank()) put("province", f.province.trim()); if (f.postalCode.isNotBlank()) put("postalCode", f.postalCode.trim()) })

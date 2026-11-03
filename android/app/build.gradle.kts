@@ -28,12 +28,12 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.talhastudio.app"
+        applicationId = "com.talhastudiopk.app"   // same package as the Play Store listing, so this ships as an UPDATE of the old app
         minSdk = 24
         targetSdk = 35
         // CI passes -PversionCode=<run number>; every Play upload needs a higher code than the last.
         versionCode = (providers.gradleProperty("versionCode").orNull ?: "1").toInt()
-        versionName = providers.gradleProperty("versionName").orNull ?: "1.0.0"
+        versionName = providers.gradleProperty("versionName").orNull ?: "2.0.0"
         // Backend base URL. Override per build type; must be HTTPS in production.
         buildConfigField("String", "API_BASE_URL", apiUrl("https://api.example.com/v1/"))
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleClientId\"")

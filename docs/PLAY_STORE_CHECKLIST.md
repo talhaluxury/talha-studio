@@ -4,7 +4,7 @@ This is a preparation list. **Nothing here means the app is approved**; Google r
 
 ## A. Technical
 - [ ] Signed **AAB** built by the Android workflow (`docs/ANDROID_RELEASE.md`), `versionCode` higher than any previous upload.
-- [ ] Application ID `com.talhastudio.app` (permanent once published).
+- [ ] Application ID `com.talhastudiopk.app` (permanent once published).
 - [ ] Target API meets Play's current requirement (project targets 35; verify in Play Console).
 - [ ] Release build tested on a real phone against the **production** API (not the example URL): sign-up, Google Sign-In, browse, order, push.
 - [ ] Release SHA-1 and Play App Signing SHA-1 added to the Google OAuth Android client.

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Config } from "./config.js";
 import type { OrderEvents } from "./events.js";
 import type { OrderStatus } from "./orderStatus.js";
+import { payLabel } from "./paymentLabel.js";
 import { normalizePhone } from "./phone.js";
 import type { OrderRec, OrderStore } from "./orderStore.js";
 import type { AssistantService, ChatTurn, DeliveryDraft } from "./assistant.js";
@@ -200,7 +201,7 @@ Main ${this.d.cfg.STORE_NAME} ki assistant hun. Aap ka order ${o.orderNumber} hu
 🛍️ Aap ka order:
 ${lines.join("\n")}
 
-💰 Total: Rs ${o.total.toLocaleString("en-US")} (Cash on Delivery)
+💰 Total: Rs ${o.total.toLocaleString("en-US")} (${payLabel(o.paymentMethod)})
 
 📍 Delivery address:
 ${o.customer.name}, ${o.customer.phone}
@@ -315,6 +316,11 @@ Sab sahi hai to "YES" likh dein. Agar kuch galat hai to bas "galat hai" likh dei
       if (!this.configured || !w || !from) return;
       if (!(await this.d.store.markInbound(messageId))) return;           // Meta delivered this one before
       const body = text.trim(); if (!body) return;
+      // Owner switched the AI off: send NO automatic reply of any kind. (STOP / START are still recorded, silently.)
+      if (w.aiEnabled && !(await w.aiEnabled())) {
+        if (STOP_RE.test(body)) await this.d.store.setOptOut(from, true); else if (START_RE.test(body)) await this.d.store.setOptOut(from, false);
+        return;
+      }
       if ((await this.d.store.countRecentTo(from, 3600_000, ["reply"])) >= MAX_REPLIES_PER_NUMBER_PER_HOUR) return;
       const row = await this.d.store.claim("reply", messageId, from); if (!row) return;
       const answer = async (): Promise<string | null> => {

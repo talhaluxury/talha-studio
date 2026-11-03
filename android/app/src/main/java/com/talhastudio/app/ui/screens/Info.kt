@@ -63,7 +63,7 @@ fun SupportScreen(onBack: () -> Unit, onOpenPage: (String) -> Unit) {
                         i.address?.let { a -> item { Text(a, style = MaterialTheme.typography.bodyMedium, color = TS.Gray) } }
                         i.estimatedDelivery?.let { d -> item { Text("Estimated delivery: $d", style = MaterialTheme.typography.bodyMedium) } }
                         item { Text("Good to know", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)) }
-                        item { Text("Delivery fee: ${if (i.shipping.first == 0) "free" else pkr(i.shipping.first)}${if (i.shipping.second > 0) ", free over ${pkr(i.shipping.second)}" else ""}. Returns accepted within ${i.returnWindowDays} days of delivery. Payment: Cash on Delivery.", style = MaterialTheme.typography.bodyMedium) }
+                        item { Text("Delivery fee: ${if (i.shipping.first == 0) "free" else pkr(i.shipping.first)}${if (i.shipping.second > 0) ", free over ${pkr(i.shipping.second)}" else ""}. Returns accepted within ${i.returnWindowDays} days of delivery. Payment: Cash on Delivery or JazzCash / Easypaisa / bank transfer.", style = MaterialTheme.typography.bodyMedium) }
                         items(i.pages.size) { n -> val (slug, title) = i.pages[n]; LinkRow(title) { onOpenPage(slug) } }
                     } }
             }

@@ -69,7 +69,7 @@ Secrets live only in Render's environment (never in git, the app, or the admin s
 
 ## 6. Third-party callbacks
 - Resend webhook: `https://YOUR-API-HOST/v1/webhooks/resend`.
-- Google OAuth: Android client for `com.talhastudio.app` with your **release** and **Play App Signing** SHA-1 fingerprints (`docs/ANDROID_RELEASE.md`).
+- Google OAuth: Android client for `com.talhastudiopk.app` with your **release** and **Play App Signing** SHA-1 fingerprints (`docs/ANDROID_RELEASE.md`).
 
 ## 7. Keep-alive and queue flush (optional, free)
 Create a job at cron-job.org every 10 minutes: `POST https://YOUR-API-HOST/v1/internal/email/run` with header `x-cron-secret: <CRON_SECRET>`. It wakes the host and sends any queued emails. It uses instance-hours: pinging every 10 minutes all day keeps the service awake roughly 720 hours a month, inside the 750-hour allowance for one service.

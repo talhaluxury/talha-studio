@@ -1,3 +1,4 @@
+import { PAYMENT_LABEL } from "../paymentLabel.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { esc } from "../emailTemplates.js";
@@ -28,6 +29,7 @@ export function infoRoutes(app: FastifyInstance, d: { settings: SettingsStore; r
     const s = await settings.load();
     return { name: s.store.name, supportEmail: s.store.supportEmail || null, supportPhone: s.store.supportPhone || null, address: s.store.address || null,
       estimatedDelivery: s.estimatedDelivery || null, shipping: s.shipping, returnWindowDays: d.returnWindowDays,
+      paymentMethods: [{ id: "cod", label: PAYMENT_LABEL.cod, details: "" }, ...(["jazzcash", "easypaisa", "bank"] as const).filter((m) => s.paymentAccounts[m].trim()).map((m) => ({ id: m, label: PAYMENT_LABEL[m], details: s.paymentAccounts[m].trim() }))],
       pages: PAGE_SLUGS.map((x) => ({ slug: x, title: PAGE_TITLES[x] })) };
   });
   app.get<{ Params: { slug: string } }>("/pages/:slug", async (req) => {
