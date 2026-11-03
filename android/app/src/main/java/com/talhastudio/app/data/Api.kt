@@ -244,7 +244,7 @@ object Repo {
     }
     suspend fun quote(lines: List<CartLine>, coupon: String? = null): Quote {
         val items = JSONArray().also { a -> lines.forEach { a.put(JSONObject().put("variantId", it.variantId).put("qty", it.qty)) } }
-        return parseQuote(Http.request("POST", "/cart/quote", JSONObject().put("items", items).apply { if (!coupon.isNullOrBlank()) put("couponCode", coupon); if (payMethod != "cod" && !payRef.isNullOrBlank()) put("paymentRef", payRef.trim()) }))
+        return parseQuote(Http.request("POST", "/cart/quote", JSONObject().put("items", items).apply { if (!coupon.isNullOrBlank()) put("couponCode", coupon) }))
     }
 
     // ---- accounts ----
@@ -282,7 +282,7 @@ object Repo {
             .put("customer", JSONObject().put("name", f.name.trim()).put("email", f.email.trim()).put("phone", f.phone.trim()))
             .put("address", JSONObject().put("line1", f.line1.trim()).put("city", f.city.trim())
                 .apply { if (f.line2.isNotBlank()) put("line2", f.line2.trim()); if (f.province.isNotBlank()) put("province", f.province.trim()); if (f.postalCode.isNotBlank()) put("postalCode", f.postalCode.trim()) })
-            .apply { if (f.notes.isNotBlank()) put("notes", f.notes.trim()); if (!coupon.isNullOrBlank()) put("couponCode", coupon) }
+            .apply { if (f.notes.isNotBlank()) put("notes", f.notes.trim()); if (!coupon.isNullOrBlank()) put("couponCode", coupon); if (payMethod != "cod" && !payRef.isNullOrBlank()) put("paymentRef", payRef.trim()) }
         return parseOrder(Http.post("/orders", body, idempotencyKey))
     }
     suspend fun orders(page: Int): PageOf<OrderSummary> {

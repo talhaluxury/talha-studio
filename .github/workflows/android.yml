@@ -23,11 +23,18 @@ jobs:
             echo "::warning title=PUSH OFF::Secret GOOGLE_SERVICES_JSON_BASE64 is EMPTY or missing (must be a Repository secret under Settings > Secrets and variables > Actions > Secrets)"
             exit 0
           fi
-          echo "$GSJ" | base64 -d > app/google-services.json || { echo "::error title=BAD SECRET::GOOGLE_SERVICES_JSON_BASE64 is not valid base64"; exit 1; }
+          # The secret may be the base64 text OR the plain contents of google-services.json (easier to copy on a phone).
+          if printf '%s' "$GSJ" | base64 -d > app/google-services.json 2>/dev/null && python3 -c 'import json;json.load(open("app/google-services.json"))' 2>/dev/null; then :
+          else printf '%s' "$GSJ" > app/google-services.json; fi
           python3 - <<'PY'
-          import json
-          j = json.load(open("app/google-services.json"))
-          pk = [c["client_info"]["android_client_info"]["package_name"] for c in j.get("client", [])]
+          import json, os
+          try:
+              j = json.load(open("app/google-services.json"))
+              pk = [c["client_info"]["android_client_info"]["package_name"] for c in j.get("client", [])]
+          except Exception as e:
+              os.remove("app/google-services.json")
+              print("::warning title=PUSH OFF::GOOGLE_SERVICES_JSON_BASE64 is not a complete google-services.json (" + str(e) + "). It was probably cut off while copying. Paste the whole file again. Push is switched off for this build.")
+              raise SystemExit(0)
           print("google-services.json OK. project:", j["project_info"]["project_id"], "packages:", pk)
           missing = [n for n in ("com.talhastudiopk.app", "com.talhastudiopk.app.debug") if n not in pk]
           if missing:
