@@ -25,12 +25,12 @@ if (file("google-services.json").exists()) pluginManager.apply("com.google.gms.g
 
 android {
     namespace = "com.talhastudio.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.talhastudiopk.app"   // same package as the Play Store listing, so this ships as an UPDATE of the old app
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         // CI passes -PversionCode=<run number>; every Play upload needs a higher code than the last.
         versionCode = (providers.gradleProperty("versionCode").orNull ?: "1").toInt()
         versionName = providers.gradleProperty("versionName").orNull ?: "2.0.0"

@@ -78,7 +78,7 @@ fun AuthScreen(onBack: () -> Unit, onDone: () -> Unit) {
             })
             if (BuildConfig.GOOGLE_WEB_CLIENT_ID.isNotBlank()) TsButton("Continue with Google", enabled = !busy, style = TsButtonStyle.Outline, onClick = {
                 submit {
-                    val token = try { googleIdToken(ctx) } catch (e: GetCredentialCancellationException) { throw ApiException(false, "Google sign-in was cancelled") }
+                    val token = try { googleIdToken(ctx) } catch (e: GetCredentialCancellationException) { throw ApiException(false, if (BuildConfig.DEBUG) "Google sign-in was cancelled, or the Google Cloud Android client does not match this app (package: ${ctx.packageName}). Check the package name and SHA-1." else "Google sign-in was cancelled") }
                         catch (e: GetCredentialException) { throw ApiException(false, "Google sign-in is not available on this device right now") }
                     Repo.googleLogin(token ?: throw ApiException(false, "Google sign-in failed"))
                 }
