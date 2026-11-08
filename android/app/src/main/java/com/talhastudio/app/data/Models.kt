@@ -27,7 +27,13 @@ data class Product(
 data class Category(val id: String, val slug: String, val name: String, val imageUrl: String? = null, val parentId: String? = null)
 data class HomeCollection(val slug: String, val title: String, val products: List<Product>, val banners: List<Banner> = emptyList())
 data class Banner(val id: String, val title: String, val subtitle: String?, val ctaLabel: String?, val ctaLink: String?, val imageUrl: String?, val videoUrl: String? = null)
-data class HomeData(val categories: List<Category>, val collections: List<HomeCollection>, val banners: List<Banner> = emptyList(), val announcement: String? = null)
+data class HomeData(val categories: List<Category>, val collections: List<HomeCollection>, val banners: List<Banner> = emptyList(), val announcement: String? = null, val spin: Boolean = false)
+/** Sale countdown. [endsAtElapsed] is in SystemClock.elapsedRealtime() time, worked out from the server clock so a wrong phone clock does not matter. */
+data class Sale(val label: String, val endsAtElapsed: Long) { fun remainingMs(nowElapsed: Long) = (endsAtElapsed - nowElapsed).coerceAtLeast(0) }
+/** Lucky wheel: [percents] are the slices, [canSpin] false when today's spin is used (next one at [nextAt]). */
+data class SpinStatus(val active: Boolean, val percents: List<Int>, val canSpin: Boolean, val nextAt: String?)
+/** [index] is the winning slice, [code] the single-use coupon the customer can paste at checkout. */
+data class SpinResult(val index: Int, val percent: Int, val code: String, val expiresAt: String)
 data class PageOf<T>(val items: List<T>, val page: Int, val total: Int) { val hasMore get() = page * 20 < total }
 
 /** A cart row. Name/price/image are a snapshot for display; the server re-prices via /cart/quote. */

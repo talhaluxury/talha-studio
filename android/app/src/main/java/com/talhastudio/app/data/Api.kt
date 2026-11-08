@@ -79,6 +79,15 @@ fun parseSlides(o: JSONObject) = o.optJSONArray("slides").mapObjects { Slide(it.
 fun parseChatMessage(o: JSONObject) = ChatMessage(o.getLong("seq"), o.getString("id"), o.getString("sender") == "store", o.optString("body", ""), o.str("imageUrl"), o.getString("createdAt"), o.optBoolean("read", false))
 fun parseStatus(o: JSONObject) = StatusItem(o.getString("id"), o.getString("imageUrl"), o.str("caption"), o.getString("createdAt"))
 fun parseAssistant(o: JSONObject) = AssistantReply(o.optString("reply", ""), o.optJSONArray("actions").mapObjects { AssistantAction(it.getString("type"), it.str("id"), it.getString("label")) })
+/** [now] is the phone's elapsed-realtime clock; the sale end is anchored to it through the server's own "now". Returns null when no sale is running. */
+fun parseSale(o: JSONObject, now: Long): Sale? {
+    val s = o.optJSONObject("sale") ?: return null
+    val ends = runCatching { java.time.Instant.parse(s.getString("endsAt")).toEpochMilli() }.getOrNull() ?: return null
+    val serverNow = runCatching { java.time.Instant.parse(o.getString("serverNow")).toEpochMilli() }.getOrNull() ?: System.currentTimeMillis()
+    return if (ends > serverNow) Sale(s.optString("label", "Sale ends in").ifBlank { "Sale ends in" }, now + (ends - serverNow)) else null
+}
+fun parseSpinStatus(o: JSONObject) = SpinStatus(o.optBoolean("active", false), o.optJSONArray("percents")?.let { a -> (0 until a.length()).map(a::getInt) } ?: emptyList(), o.optBoolean("canSpin", false), o.str("nextAt"))
+fun parseSpinResult(o: JSONObject) = SpinResult(o.getInt("index"), o.getInt("percent"), o.getString("code"), o.getString("expiresAt"))
 fun parseCategories(a: JSONArray?) = a.mapObjects { Category(it.getString("id"), it.getString("slug"), it.getString("name"), it.optString("imageUrl").takeIf { u -> u.isNotBlank() && u != "null" }, it.optString("parentId").takeIf { u -> u.isNotBlank() && u != "null" }) }
 
 /** Login state. Tokens live in app-private storage (backups are disabled in the manifest). */
@@ -218,8 +227,12 @@ object Repo {
     private fun parseHome(o: JSONObject): HomeData {
         return HomeData(parseCategories(o.optJSONArray("categories")),
             o.optJSONArray("collections").mapObjects { c -> HomeCollection(c.getString("slug"), c.getString("title"), c.optJSONArray("products").mapObjects { parseProduct(it) }, c.optJSONArray("banners").mapObjects { parseBanner(it) }) },
-            o.optJSONArray("banners").mapObjects { parseBanner(it) }, o.str("announcement"))
+            o.optJSONArray("banners").mapObjects { parseBanner(it) }, o.str("announcement"), o.optBoolean("spin", false))
     }
+    /** The running sale, or null when there is none. Throws ApiException when the server cannot be reached. */
+    suspend fun sale(): Sale? = parseSale(Http.request("GET", "/sale"), android.os.SystemClock.elapsedRealtime())
+    suspend fun spinStatus() = parseSpinStatus(Http.request("GET", "/me/spin", auth = true))
+    suspend fun spin() = parseSpinResult(Http.request("POST", "/me/spin", JSONObject(), auth = true))
     suspend fun categories() = parseCategories(Http.request("GET", "/categories").optJSONArray("items"))
 
     suspend fun products(f: Filter, page: Int): PageOf<Product> {

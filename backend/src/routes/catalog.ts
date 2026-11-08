@@ -70,6 +70,10 @@ export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; 
     return { ...toApiProduct(p, storage), videoUrl: vk ? storage.url(vk) : null, related: rel.map((x) => toApiProduct(x, storage)) };
   });
 
+  // Sale countdown (admin sets the end time). serverNow lets the app count down correctly even if the phone clock is wrong.
+  const saleOf = (st: Awaited<ReturnType<SettingsStore["load"]>>, now: Date) => st.sale.active && st.sale.endsAt && new Date(st.sale.endsAt) > now ? { label: st.sale.label || "Sale ends in", endsAt: st.sale.endsAt } : null;
+  app.get("/sale", async () => { const now = new Date(); return { sale: saleOf(await settings.load(), now), serverNow: now.toISOString() }; });
+
   // Home feed. Collections are generated from live catalog data; banners arrive with admin banner management.
   app.get("/home", async () => {
     const base = { publishedOnly: true, sort: "new" as const, page: 1, limit: 10 };
@@ -86,6 +90,8 @@ export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; 
     const col = (slug: string, title: string, r: { items: Parameters<typeof toApiProduct>[0][] }) => ({ slug, title, products: r.items.map((p) => toApiProduct(p, storage)) });
     return {
       announcement: st.announcement.active && st.announcement.text ? st.announcement.text : null,
+      sale: saleOf(st, new Date()), serverNow: new Date().toISOString(),
+      spin: st.spin.active && st.spin.percents.length > 0,
       banners: live.filter((b) => b.placement === "top" || !known.has(b.placement)).map(bannerJson),
       categories: cats.map((c) => toApiCategory(c, storage)),
       collections: [col("new-arrivals", "New Arrivals", news), col("featured", "Featured", featured), col("sale", "On Sale", sale), ...customCols.map((c) => col(c.slug, c.title, { items: c.items }))]

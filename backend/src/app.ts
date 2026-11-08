@@ -46,8 +46,10 @@ import type { BaileysWhatsApp } from "./waQr.js";
 import { assistantRoutes } from "./routes/assistant.js";
 import { whatsappRoutes } from "./routes/whatsapp.js";
 import { contentRoutes } from "./routes/content.js";
+import { MemorySpin, type SpinStore } from "./spinStore.js";
+import { spinRoutes } from "./routes/spin.js";
 
-export interface Deps { videos?: VideoStore; sections?: SectionStore; whatsapp?: WhatsAppService; waQr?: BaileysWhatsApp; assistant?: AssistantService; chat: ChatStore; slides: SlideStore; status: StatusStore; coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
+export interface Deps { spin?: SpinStore; videos?: VideoStore; sections?: SectionStore; whatsapp?: WhatsAppService; waQr?: BaileysWhatsApp; assistant?: AssistantService; chat: ChatStore; slides: SlideStore; status: StatusStore; coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
 
 export function googleVerifier(clientId: string): GoogleVerifier {
   const client = new OAuth2Client(clientId);
@@ -68,6 +70,7 @@ export async function buildApp(cfg: Config, deps: Deps) {
   const images = deps.images ?? sharpProcessor;
   const videos = deps.videos ?? new MemoryVideos();
   const sections = deps.sections ?? new MemorySections();
+  const spin = deps.spin ?? new MemorySpin();
   const google = deps.google ?? googleVerifier(cfg.GOOGLE_WEB_CLIENT_ID);
   const serverOptions: FastifyServerOptions = {
     logger: cfg.NODE_ENV === "test" ? false : { level: "info", redact: ["req.headers.authorization", "req.headers.cookie"] },
@@ -104,6 +107,7 @@ export async function buildApp(cfg: Config, deps: Deps) {
     adminRoutes(v1, { store, auth });
     catalogRoutes(v1, { catalog, storage, cfg, settings: deps.settings, banners: deps.banners, coupons: deps.coupons, videos, sections });
     sectionRoutes(v1, { sections, store, auth });
+    spinRoutes(v1, { spin, coupons: deps.coupons, settings: deps.settings, auth });
     videoRoutes(v1, { videos, catalog, banners: deps.banners, storage, store, auth });
     orderRoutes(v1, { orders, storage, auth, cfg, settings: deps.settings, events });
     adminOrderRoutes(v1, { orders, store, storage, auth, cfg, events });

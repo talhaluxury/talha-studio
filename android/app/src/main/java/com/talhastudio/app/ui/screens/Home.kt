@@ -16,7 +16,10 @@ import androidx.compose.material.icons.outlined.DonutLarge
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.talhastudio.app.data.Session
 import com.talhastudio.app.push.routeFor
 import androidx.compose.material3.*
@@ -37,8 +40,10 @@ import com.talhastudio.app.ui.theme.DisplayFont
 import com.talhastudio.app.ui.theme.TS
 
 @Composable
-fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (category: String?) -> Unit, onNotifications: () -> Unit, onUpdates: () -> Unit, onSupport: () -> Unit, onOpenPage: (String) -> Unit) {
+fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (category: String?) -> Unit, onNotifications: () -> Unit, onUpdates: () -> Unit, onSupport: () -> Unit, onOpenPage: (String) -> Unit, onSignIn: () -> Unit = {}) {
     LaunchedEffect(Session.user?.id) { shop.refreshUnread(); shop.refreshUpdates() }
+    LaunchedEffect(Unit) { shop.refreshSale() }
+    var showSpin by remember { mutableStateOf(false) }
     val home = rememberLoad("home") { Repo.home() }
     // Show last visit's feed instantly while fresh data loads (or when offline).
     val cachedHome = remember { Repo.cachedHome() }
@@ -51,7 +56,9 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Image(painterResource(R.drawable.talha_logo), "Talha Studio", Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)))
                     Spacer(Modifier.width(10.dp))
-                    Text("TALHA STUDIO", fontFamily = DisplayFont, letterSpacing = 3.sp, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    Text("TALHA STUDIO", fontFamily = DisplayFont, letterSpacing = 2.sp, maxLines = 1, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    // Lucky wheel: shown only while the owner has it switched on. Signed-out customers are asked to sign in first.
+                    if ((homeState as? Load.Ready)?.data?.spin == true) SpinWheelButton { if (Session.signedIn) showSpin = true else onSignIn() }
                     // Updates: daily status pictures + chat with the store (asks for a mobile-number sign-in the first time).
                     IconButton(onUpdates) {
                         BadgedBox(badge = {
@@ -75,8 +82,8 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
         }
         (homeState as? Load.Ready)?.data?.announcement?.let { text ->
             item(key = "announcement") {
-                Text(text, style = MaterialTheme.typography.labelLarge, color = TS.Black, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(TS.Gold.copy(alpha = 0.35f)).padding(horizontal = 14.dp, vertical = 10.dp))
+                Text(text, style = MaterialTheme.typography.labelLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = TS.Black, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(TS.Gold).padding(horizontal = 14.dp, vertical = 10.dp))
             }
         }
         item(key = "banners") { // Admin-managed banners; before any exist (or while loading) the Talha Studio brand banner is shown
@@ -121,6 +128,7 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
         }
         item(key = "footer") { Footer(onSupport, onOpenPage) }
     }
+    if (showSpin) SpinWheelDialog(onDismiss = { showSpin = false }, onUseCode = { shop.applyCoupon(it) })
 }
 
 @Composable

@@ -36,6 +36,8 @@ const bannerBody = z.object({
 const storeSettingsBody = z.object({
   shipping: z.object({ flat: z.number().int().min(0).max(100_000), freeOver: z.number().int().min(0).max(10_000_000) }),
   announcement: z.object({ text: oneLine(120), active: z.boolean() }),
+  sale: z.object({ active: z.boolean(), label: oneLine(40), endsAt: z.string().datetime({ offset: true }).nullish().transform((v) => v ?? null) }).optional(),
+  spin: z.object({ active: z.boolean(), percents: z.array(z.number().int().min(1).max(90)).min(1).max(8) }).optional(),
   pages: z.object(Object.fromEntries(PAGE_SLUGS.map((s) => [s, z.string().max(20_000)])) as Record<(typeof PAGE_SLUGS)[number], z.ZodString>),
   paymentAccounts: z.object({ jazzcash: z.string().trim().max(200), easypaisa: z.string().trim().max(200), bank: z.string().trim().max(300) }).optional(),
 });
@@ -108,10 +110,10 @@ export function adminCommerceRoutes(app: FastifyInstance, d: {
   });
 
   // ---- store settings (owner): shipping charges, home announcement, policy pages ----
-  app.get("/admin/store-settings", owner, async () => { const s = await settings.load(); return { shipping: s.shipping, announcement: s.announcement, pages: s.pages, paymentAccounts: s.paymentAccounts }; });
+  app.get("/admin/store-settings", owner, async () => { const s = await settings.load(); return { shipping: s.shipping, announcement: s.announcement, sale: s.sale, spin: s.spin, pages: s.pages, paymentAccounts: s.paymentAccounts }; });
   app.put("/admin/store-settings", owner, async (req) => {
     const b = storeSettingsBody.parse(req.body); const cur = await settings.load();
-    await settings.save({ ...cur, shipping: b.shipping, announcement: b.announcement, pages: b.pages, paymentAccounts: b.paymentAccounts ?? cur.paymentAccounts });
+    await settings.save({ ...cur, shipping: b.shipping, announcement: b.announcement, sale: b.sale ?? cur.sale, spin: b.spin ?? cur.spin, pages: b.pages, paymentAccounts: b.paymentAccounts ?? cur.paymentAccounts });
     await log(req, "settings.store", undefined, undefined, { shipping: b.shipping, announcementActive: b.announcement.active });
     return b;
   });

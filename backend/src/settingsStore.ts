@@ -10,6 +10,8 @@ export interface StoreSettings {
   templates: Record<TemplateKey, TemplateText>;
   shipping: { flat: number; freeOver: number };            // freeOver 0 = free shipping disabled
   announcement: { text: string; active: boolean };          // strip shown on the app home screen
+  sale: { active: boolean; label: string; endsAt: string | null };   // countdown bar above the app's bottom bar (endsAt = ISO time the sale finishes)
+  spin: { active: boolean; percents: number[] };            // lucky-wheel: every segment is one of these discount percentages
   pages: Record<PageSlug, string>;                          // policy / about page bodies
   paymentAccounts: { jazzcash: string; easypaisa: string; bank: string };   // where customers send money; a method is offered only when its text is not empty
   aiReplies: boolean;                                       // owner switch: AI answers customers on WhatsApp and in the app
@@ -21,6 +23,8 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   estimatedDelivery: "",
   shipping: { flat: 299, freeOver: 0 },
   announcement: { text: "", active: false },
+  sale: { active: false, label: "Sale ends in", endsAt: null },
+  spin: { active: false, percents: [5, 10, 15] },
   pages: DEFAULT_PAGES,
   aiReplies: true,
   paymentAccounts: { jazzcash: "", easypaisa: "", bank: "" },
@@ -38,6 +42,8 @@ const merge = (v: Partial<StoreSettings> | null, ship: StoreSettings["shipping"]
   ...DEFAULT_SETTINGS, ...(v ?? {}),
   shipping: { ...ship, ...(v?.shipping ?? {}) },
   announcement: { ...DEFAULT_SETTINGS.announcement, ...(v?.announcement ?? {}) },
+  sale: { ...DEFAULT_SETTINGS.sale, ...(v?.sale ?? {}) },
+  spin: { ...DEFAULT_SETTINGS.spin, ...(v?.spin ?? {}) },
   pages: { ...DEFAULT_SETTINGS.pages, ...(v?.pages ?? {}) },
   store: { ...DEFAULT_SETTINGS.store, ...(v?.store ?? {}) },
   paymentAccounts: { ...DEFAULT_SETTINGS.paymentAccounts, ...(v?.paymentAccounts ?? {}) },

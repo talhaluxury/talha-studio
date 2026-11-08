@@ -42,8 +42,14 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var newStatus by mutableStateOf(false)
         private set
+    /** The running sale (null = none). Refreshed when the app opens, and when it comes back or the countdown reaches zero. */
+    var sale by mutableStateOf<Sale?>(null)
+        private set
+    fun refreshSale() { viewModelScope.launch { runCatching { Repo.sale() }.onSuccess { sale = it } } }       // offline: keep showing the last known timer
     /** Set by the assistant ("open cart") and consumed by MainShell, because the tabs live inside it. */
     var requestedTab by mutableStateOf<Int?>(null)
+    /** Set by the sale bar ("@sale|On Sale"); MainShell opens that list in the Categories tab and clears it. */
+    var browseRequest by mutableStateOf<String?>(null)
     /** Selected tab of the main screen. Lives here so the bottom bar (drawn by the nav host on every screen) and MainShell agree. */
     var currentTab by mutableIntStateOf(0)
     /** Set when an item was added to the cart: the overlay animates it, then opens the cart. */

@@ -31,6 +31,8 @@ import com.talhastudio.app.push.PushTokens
 import com.talhastudio.app.push.normalizeDeepLink
 import com.talhastudio.app.ui.components.FlyToCartOverlay
 import com.talhastudio.app.ui.components.LiquidBottomBar
+import com.talhastudio.app.ui.components.SaleBar
+import com.talhastudio.app.ui.components.rememberSaleRemaining
 import com.talhastudio.app.ui.components.TsButton
 import com.talhastudio.app.ui.screens.*
 
@@ -156,9 +158,16 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
             else SignInRequired(onBack = { nav.popBackStack() }) { nav.navigate(Routes.auth()) }
         }
     }
+    // Sale timer: a small bar right above the bottom bar on the main tabs; tapping it lists every item on sale. It vanishes when the time is up.
+    val sale = shop.sale
+    val saleLeft by rememberSaleRemaining(sale)
+    LaunchedEffect(sale, saleLeft) { if (sale != null && saleLeft <= 0L) shop.refreshSale() }      // time is up: ask the server (the owner may have started a new sale)
     AnimatedVisibility(showBar, Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
         enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
-        LiquidBottomBar(shellTabs, shop.currentTab, badges = mapOf(3 to shop.cartCount, 2 to shop.wishlist.size), onSelect = { goTab(it) }, pulseIndex = 3, pulse = shop.cartPulse)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            if (route == Routes.Main && sale != null && saleLeft > 0) SaleBar(sale, saleLeft, onClick = { shop.browseRequest = "@sale|On Sale" })
+            LiquidBottomBar(shellTabs, shop.currentTab, badges = mapOf(3 to shop.cartCount, 2 to shop.wishlist.size), onSelect = { goTab(it) }, pulseIndex = 3, pulse = shop.cartPulse)
+        }
     }
     // An item was added to the cart: its picture flies into the cart tab, the icon bounces, then the cart opens.
     FlyToCartOverlay(shop.flyEvent, cartTabIndex = 3, tabCount = shellTabs.size) { shop.flyEvent = null; shop.cartPulse++; goTab(3) }

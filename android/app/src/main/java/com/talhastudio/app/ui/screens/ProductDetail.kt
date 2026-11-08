@@ -38,7 +38,9 @@ fun ProductDetailScreen(shop: ShopViewModel, id: String, onBack: () -> Unit, onO
     val load = rememberLoad(id) { Repo.product(id) }
     val snack = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(id) { shop.markViewed(id) }
+    LaunchedEffect(id) { shop.markViewed(id); shop.refreshSale() }
+    val sale = shop.sale
+    val saleLeft by rememberSaleRemaining(sale)
 
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
@@ -55,6 +57,9 @@ fun ProductDetailScreen(shop: ShopViewModel, id: String, onBack: () -> Unit, onO
                 is Load.Error -> if (s.message.contains("not found", true)) EmptyState("Product not found", "It may have been removed.", "Go back", onBack) else ErrorState(s.message, s.offline, load.retry)
                 is Load.Ready -> Details(shop, s.data, snack, onOpenProduct) { msg -> scope.launch { snack.showSnackbar(msg) } }
             }
+            // Sale countdown for products that are on sale: small, left side, just above the bottom bar.
+            if (sale != null && saleLeft > 0 && (load.state as? Load.Ready)?.data?.salePrice != null)
+                SaleChip(saleLeft, Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 8.dp))
         }
     }
 }
@@ -75,7 +80,7 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
         Box {
             var ratio by remember(p.id) { mutableStateOf(0.67f) }   // the first photo's own shape: whole photo, no side bars
             HorizontalPager(pager, Modifier.fillMaxWidth().aspectRatio(ratio)) { i ->
-                if (p.videoUrl != null && i == p.images.size.coerceAtLeast(1)) Box(Modifier.fillMaxSize().background(TS.Black)) { com.talhastudio.app.ui.components.VideoPlayer(p.videoUrl, Modifier.fillMaxSize()) }
+                if (p.videoUrl != null && i == p.images.size.coerceAtLeast(1)) Box(Modifier.fillMaxSize().background(TS.Black)) { com.talhastudio.app.ui.components.VideoPlayer(p.videoUrl, Modifier.fillMaxSize(), autoplay = true, muted = true, loop = true, controls = true, fit = true, play = pager.currentPage == i) }
                 else ImageTile(p.images.getOrNull(i)?.url, p.name, Modifier.fillMaxSize(), ContentScale.Fit,
                     onRatio = if (i == 0) ({ r: Float -> ratio = r.coerceIn(0.5f, 1.1f) }) else null)
             }
