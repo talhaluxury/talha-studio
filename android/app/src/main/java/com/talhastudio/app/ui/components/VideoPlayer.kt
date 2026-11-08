@@ -85,12 +85,12 @@ fun VideoPlayer(
         LaunchedEffect(player, isMuted) { player.volume = if (isMuted) 0f else 1f }
 
         Box(modifier.background(Color.Black)) {
-            AndroidView(Modifier.fillMaxSize(), factory = { c ->
+            AndroidView(factory = { c ->
                 TextureView(c).also { tv ->
                     player.setVideoTextureView(tv)
                     tv.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> fitVideo(v as TextureView, sizeNow.value, fit) }
                 }
-            }, update = { tv -> fitVideo(tv, videoSize, fit) }, onRelease = { tv -> player.clearVideoTextureView(tv) })
+            }, modifier = Modifier.fillMaxSize(), update = { tv -> fitVideo(tv, videoSize, fit) }, onRelease = { tv -> player.clearVideoTextureView(tv) })
 
             if (failed) Text("Video unavailable", color = Color.White.copy(0.7f), modifier = Modifier.align(Alignment.Center))
             if (controls && !failed) {
