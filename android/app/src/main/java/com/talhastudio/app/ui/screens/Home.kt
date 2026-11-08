@@ -106,8 +106,11 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                 }
                 if (d.collections.isEmpty()) item { EmptyState("New collection coming soon", "Our products will appear here as soon as they are published.") }
                 d.collections.forEach { col ->
-                    item(key = "h-${col.slug}") { SectionHeader(col.title, "View All") { onBrowse(null) } }
+                    item(key = "h-${col.slug}") { SectionHeader(col.title, "View All") { onBrowse("@${col.slug}|${col.title}") } }
                     item(key = "r-${col.slug}") { ProductRow(shop, col.products, onOpenProduct) }
+                    if (col.banners.isNotEmpty()) item(key = "b-${col.slug}") {
+                        BannerCarousel(col.banners) { link -> routeFor(link)?.takeIf { it.startsWith("product/") }?.let { onOpenProduct(it.removePrefix("product/")) } ?: onBrowse(null) }
+                    }
                 }
             }
         }
@@ -158,10 +161,9 @@ private fun BannerCarousel(banners: List<com.talhastudio.app.data.Banner>, onOpe
                 if (b.imageUrl != null || b.videoUrl != null) {
                     if (b.videoUrl != null) com.talhastudio.app.ui.components.VideoPlayer(b.videoUrl, Modifier.fillMaxSize(), autoplay = true, muted = true, loop = true, controls = false)
                     else ImageTile(b.imageUrl, b.title, Modifier.fillMaxSize())
-                    Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(TS.Black.copy(0.75f), androidx.compose.ui.graphics.Color.Transparent))))
                 }
                 Column(Modifier.padding(24.dp).align(Alignment.CenterStart).fillMaxWidth(0.7f)) {
-                    Text(b.title, fontFamily = DisplayFont, color = TS.Ivory, style = MaterialTheme.typography.headlineMedium)
+                    Text(b.title, fontFamily = DisplayFont, color = TS.Ivory, style = MaterialTheme.typography.headlineMedium.copy(shadow = androidx.compose.ui.graphics.Shadow(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f), blurRadius = 10f)))
                     b.subtitle?.let { Text(it, color = TS.Gold, style = MaterialTheme.typography.bodyMedium) }
                     if (b.ctaLabel != null) { Spacer(Modifier.height(14.dp)); Button(onClick = { onOpen(b.ctaLink) }, colors = ButtonDefaults.buttonColors(TS.Gold, TS.Black), shape = RoundedCornerShape(12.dp)) { Text(b.ctaLabel) } }
                 }

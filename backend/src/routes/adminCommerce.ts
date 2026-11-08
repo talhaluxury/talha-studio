@@ -30,6 +30,7 @@ const bannerBody = z.object({
   title: z.string().trim().min(2).max(60), subtitle: oneLine(120).nullish().transform((v) => v || null),
   ctaLabel: oneLine(30).nullish().transform((v) => v || null),
   ctaLink: z.string().trim().max(200).nullish().transform((v) => v || null).refine((v) => v === null || (DEEP_LINK.test(v) && v.includes("/product/")), "Link must be talhastudio://product/<id>"),
+  placement: z.string().trim().regex(/^[a-z0-9-]{1,60}$/).default("top"),
   sortOrder: z.number().int().min(0).max(9999).default(0), isActive: z.boolean().default(true), startsAt: date, endsAt: date,
 }).superRefine((b, ctx) => { if (b.startsAt && b.endsAt && b.endsAt <= b.startsAt) ctx.addIssue({ code: "custom", path: ["endsAt"], message: "End must be after the start" }); });
 const storeSettingsBody = z.object({
@@ -40,7 +41,7 @@ const storeSettingsBody = z.object({
 });
 
 export const toApiCoupon = (c: import("../couponStore.js").CouponRec) => ({ id: c.id, code: c.code, type: c.type, value: c.value, minSubtotal: c.minSubtotal, maxUses: c.maxUses, usedCount: c.usedCount, startsAt: c.startsAt, endsAt: c.endsAt, isActive: c.isActive });
-export const toApiBanner = (b: import("../bannerStore.js").BannerRec, s: Storage) => ({ id: b.id, title: b.title, subtitle: b.subtitle, ctaLabel: b.ctaLabel, ctaLink: b.ctaLink, imageUrl: b.imageKey ? s.url(b.imageKey) : null, sortOrder: b.sortOrder, isActive: b.isActive, startsAt: b.startsAt, endsAt: b.endsAt });
+export const toApiBanner = (b: import("../bannerStore.js").BannerRec, s: Storage) => ({ id: b.id, title: b.title, subtitle: b.subtitle, ctaLabel: b.ctaLabel, ctaLink: b.ctaLink, imageUrl: b.imageKey ? s.url(b.imageKey) : null, placement: b.placement, sortOrder: b.sortOrder, isActive: b.isActive, startsAt: b.startsAt, endsAt: b.endsAt });
 
 export function adminCommerceRoutes(app: FastifyInstance, d: {
   coupons: CouponStore; banners: BannerStore; settings: SettingsStore; storage: Storage; images: ImageProcessor; store: Store; auth: ReturnType<typeof makeAuth>; videos?: VideoStore;

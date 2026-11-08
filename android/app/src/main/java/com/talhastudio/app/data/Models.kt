@@ -25,7 +25,7 @@ data class Product(
 }
 
 data class Category(val id: String, val slug: String, val name: String, val imageUrl: String? = null, val parentId: String? = null)
-data class HomeCollection(val slug: String, val title: String, val products: List<Product>)
+data class HomeCollection(val slug: String, val title: String, val products: List<Product>, val banners: List<Banner> = emptyList())
 data class Banner(val id: String, val title: String, val subtitle: String?, val ctaLabel: String?, val ctaLink: String?, val imageUrl: String?, val videoUrl: String? = null)
 data class HomeData(val categories: List<Category>, val collections: List<HomeCollection>, val banners: List<Banner> = emptyList(), val announcement: String? = null)
 data class PageOf<T>(val items: List<T>, val page: Int, val total: Int) { val hasMore get() = page * 20 < total }
@@ -49,6 +49,7 @@ enum class Sort(val api: String, val label: String) {
 data class Filter(
     val category: String? = null, val query: String = "", val sort: Sort = Sort.New,
     val inStockOnly: Boolean = false, val minPrice: Int? = null, val maxPrice: Int? = null,
+    val section: String? = null, val sectionTitle: String? = null,      // "View all" of a home section (New Arrivals, Featured, On Sale, or a section made in the admin app)
 ) { val activeCount get() = listOf(inStockOnly, minPrice != null || maxPrice != null, sort != Sort.New).count { it } }
 
 data class User(val id: String, val email: String, val fullName: String, val phone: String?, val role: String)
@@ -107,3 +108,7 @@ val User.contactLine get() = if (isPhoneAccount) phone.orEmpty() else email
 /** One-tap shortcut the AI assistant can offer under a reply: type is product | cart | orders | chat. */
 data class AssistantAction(val type: String, val id: String?, val label: String)
 data class AssistantReply(val text: String, val actions: List<AssistantAction>)
+
+/** The Home screen opens browse with "@<section slug>|<section title>" for a "View all"; anything else is a category slug. */
+fun parseBrowse(arg: String?): Filter =
+    if (arg != null && arg.startsWith("@")) arg.drop(1).let { Filter(section = it.substringBefore("|"), sectionTitle = it.substringAfter("|", "")) } else Filter(category = arg)

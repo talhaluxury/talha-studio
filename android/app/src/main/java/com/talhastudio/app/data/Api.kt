@@ -217,7 +217,7 @@ object Repo {
     }
     private fun parseHome(o: JSONObject): HomeData {
         return HomeData(parseCategories(o.optJSONArray("categories")),
-            o.optJSONArray("collections").mapObjects { c -> HomeCollection(c.getString("slug"), c.getString("title"), c.optJSONArray("products").mapObjects { parseProduct(it) }) },
+            o.optJSONArray("collections").mapObjects { c -> HomeCollection(c.getString("slug"), c.getString("title"), c.optJSONArray("products").mapObjects { parseProduct(it) }, c.optJSONArray("banners").mapObjects { parseBanner(it) }) },
             o.optJSONArray("banners").mapObjects { parseBanner(it) }, o.str("announcement"))
     }
     suspend fun categories() = parseCategories(Http.request("GET", "/categories").optJSONArray("items"))
@@ -226,6 +226,7 @@ object Repo {
         val q = buildList {
             add("page=$page"); add("limit=$PAGE_SIZE"); add("sort=${f.sort.api}")
             f.category?.let { add("category=${enc(it)}") }
+            f.section?.let { add("section=${enc(it)}") }
             if (f.query.isNotBlank()) add("q=${enc(f.query.trim())}")
             if (f.inStockOnly) add("inStock=true")
             f.minPrice?.let { add("minPrice=$it") }; f.maxPrice?.let { add("maxPrice=$it") }

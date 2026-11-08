@@ -1,6 +1,7 @@
 import { api, session } from "./api.js";
 import { clear, h, put } from "./ui.js";
 import { renderCategories } from "./views/categories.js";
+import { renderSections } from "./views/sections.js";
 import { renderDashboard } from "./views/dashboard.js";
 import { renderEditor } from "./views/editor.js";
 import { renderLogin } from "./views/login.js";
@@ -23,7 +24,7 @@ const NAV = [["#/dashboard", "Dashboard"], ["#/orders", "Orders"], ["#/chat", "C
 /** Menu by role: staff fulfil orders; admins also run promotions; the owner also sees settings and the audit trail. */
 const navFor = (role) => {
   if (role !== "admin" && role !== "owner") return NAV;
-  const more = [["#/banners", "Banners"], ["#/status", "Status"], ["#/whatsapp", "WhatsApp"], ["#/welcome", "Welcome screens"], ["#/coupons", "Coupons"], ["#/customers", "Customers"], ["#/campaigns", "Notifications"]];
+  const more = [["#/sections", "Home sections"], ["#/banners", "Banners"], ["#/status", "Status"], ["#/whatsapp", "WhatsApp"], ["#/welcome", "Welcome screens"], ["#/coupons", "Coupons"], ["#/customers", "Customers"], ["#/campaigns", "Notifications"]];
   return role === "owner" ? [...NAV, ...more, ["#/store", "Store settings"], ["#/email", "Email & settings"], ["#/activity", "Activity log"]] : [...NAV, ...more, ["#/email", "Email log"]];
 };
 
@@ -76,6 +77,7 @@ async function route() {
     else if (section === "activity") await renderActivity(view);
     else if (section === "email") await renderEmail(view);
     else if (section === "categories") await renderCategories(view);
+    else if (section === "sections") await renderSections(view);
     else location.hash = "#/dashboard";
   } catch (e) {
     if (mine !== token) return;

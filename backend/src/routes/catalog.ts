@@ -1,3 +1,4 @@
+import type { SectionStore } from "../sectionStore.js";
 import type { VideoStore } from "../videoStore.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
@@ -28,6 +29,7 @@ export const productQuery = z.object({
   size: z.string().max(20).optional(), color: z.string().max(30).optional(),
   inStock: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
   featured: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
+  section: z.string().regex(/^[a-z0-9-]{1,60}$/).optional(),      // "View all" of a home section: new-arrivals, featured, sale, or an owner-made section
   ids: z.string().max(2000).transform((v) => v.split(",").filter(Boolean)).pipe(z.array(z.string().uuid()).max(50)).optional(),
   onSale: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
   newArrival: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
@@ -40,13 +42,22 @@ export async function priceCfgFrom(settings: SettingsStore, cfg: Pick<Config, "M
   return { SHIPPING_FLAT_PKR: s.shipping.flat, FREE_SHIPPING_OVER_PKR: s.shipping.freeOver, MAX_COD_ORDER_PKR: cfg.MAX_COD_ORDER_PKR };
 }
 
-export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; storage: Storage; cfg: Config; settings: SettingsStore; banners: BannerStore; coupons: CouponStore; videos?: VideoStore }) {
-  const { catalog, storage, cfg, settings, banners, coupons, videos } = d;
+export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; storage: Storage; cfg: Config; settings: SettingsStore; banners: BannerStore; coupons: CouponStore; videos?: VideoStore; sections?: SectionStore }) {
+  const { catalog, storage, cfg, settings, banners, coupons, videos, sections } = d;
+  /** The product filter behind each home section, so "View all" shows exactly what the section shows. */
+  const sectionFilter = async (slug?: string): Promise<{ featured?: boolean; onSale?: boolean; newArrival?: boolean; ids?: string[] }> => {
+    if (!slug) return {};
+    if (slug === "featured") return { featured: true };
+    if (slug === "sale") return { onSale: true };
+    if (slug === "new-arrivals") { const pinned = await catalog.listProducts({ publishedOnly: true, sort: "new", page: 1, limit: 1, newArrival: true }); return pinned.total > 0 ? { newArrival: true } : {}; }
+    const s = sections ? await sections.getBySlug(slug) : null;
+    return { ids: s && s.isActive ? s.productIds : [] };
+  };
   app.get("/categories", async () => ({ items: (await catalog.listCategories(true)).map((c) => toApiCategory(c, storage)) }));
 
   app.get("/products", async (req) => {
     const f = productQuery.parse(req.query);
-    const r = await catalog.listProducts({ ...f, categorySlug: f.category, publishedOnly: true });
+    const r = await catalog.listProducts({ ...f, ...(await sectionFilter(f.section)), categorySlug: f.category, publishedOnly: true });
     return { items: r.items.map((p) => toApiProduct(p, storage)), page: f.page, limit: f.limit, total: r.total };
   });
 
@@ -66,14 +77,19 @@ export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; 
       catalog.listCategories(true), catalog.listProducts(base), catalog.listProducts({ ...base, newArrival: true }), catalog.listProducts({ ...base, featured: true }), catalog.listProducts({ ...base, onSale: true }),
       banners.live(new Date()), settings.load(),
     ]);
+    const secs = sections ? await sections.list(true) : [];
+    const customCols = await Promise.all(secs.map(async (s) => ({ slug: s.slug, title: s.title, items: s.productIds.length ? (await catalog.listProducts({ ...base, ids: s.productIds })).items : [] })));
     const bv = videos ? await videos.getMany("banner", live.map((b) => b.id)) : new Map<string, string>();
+    const known = new Set<string>(["top", "new-arrivals", "featured", "sale", ...secs.map((s) => s.slug)]);      // a banner pointing at a removed section falls back to the top carousel
+    const bannerJson = (b: (typeof live)[number]) => ({ id: b.id, title: b.title, subtitle: b.subtitle, ctaLabel: b.ctaLabel, ctaLink: b.ctaLink, imageUrl: b.imageKey ? storage.url(b.imageKey) : null, videoUrl: bv.get(b.id) ? storage.url(bv.get(b.id)!) : null });
     const news = pinned.items.length ? pinned : newest;      // products the owner marked as New Arrival, otherwise simply the newest ones
     const col = (slug: string, title: string, r: { items: Parameters<typeof toApiProduct>[0][] }) => ({ slug, title, products: r.items.map((p) => toApiProduct(p, storage)) });
     return {
       announcement: st.announcement.active && st.announcement.text ? st.announcement.text : null,
-      banners: live.map((b) => ({ id: b.id, title: b.title, subtitle: b.subtitle, ctaLabel: b.ctaLabel, ctaLink: b.ctaLink, imageUrl: b.imageKey ? storage.url(b.imageKey) : null, videoUrl: bv.get(b.id) ? storage.url(bv.get(b.id)!) : null })),
+      banners: live.filter((b) => b.placement === "top" || !known.has(b.placement)).map(bannerJson),
       categories: cats.map((c) => toApiCategory(c, storage)),
-      collections: [col("new-arrivals", "New Arrivals", news), col("featured", "Featured", featured), col("sale", "On Sale", sale)].filter((c) => c.products.length),
+      collections: [col("new-arrivals", "New Arrivals", news), col("featured", "Featured", featured), col("sale", "On Sale", sale), ...customCols.map((c) => col(c.slug, c.title, { items: c.items }))]
+        .filter((c) => c.products.length).map((c) => ({ ...c, banners: live.filter((b) => b.placement === c.slug).map(bannerJson) })),
     };
   });
 

@@ -26,7 +26,7 @@ import kotlinx.coroutines.delay
 /** Browse = categories + search + filters + sorting + paging, all against the live catalog. */
 @Composable
 fun CategoriesScreen(shop: ShopViewModel, initialCategory: String?, onOpenProduct: (String) -> Unit) {
-    var filter by remember(initialCategory) { mutableStateOf(Filter(category = initialCategory)) }
+    var filter by remember(initialCategory) { mutableStateOf(parseBrowse(initialCategory)) }
     var typed by remember { mutableStateOf("") }
     var showFilters by remember { mutableStateOf(false) }
     val cats = rememberLoad("cats") { Repo.categories() }
@@ -61,6 +61,9 @@ fun CategoriesScreen(shop: ShopViewModel, initialCategory: String?, onOpenProduc
             BadgedBox(badge = { if (filter.activeCount > 0) Badge(containerColor = TS.Gold, contentColor = TS.Black) { Text("${filter.activeCount}") } }) {
                 IconButton({ showFilters = true }) { Icon(Icons.Outlined.Tune, "Filters and sorting") }
             }
+        }
+        if (filter.section != null) Row(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+            FilterChip(true, { filter = filter.copy(section = null, sectionTitle = null) }, { Text("${filter.sectionTitle.orEmpty().ifBlank { "Section" }}  \u2715") }, colors = chipColors())
         }
         val catList = (cats.state as? Load.Ready)?.data.orEmpty()
         val mains = catList.filter { it.parentId == null }

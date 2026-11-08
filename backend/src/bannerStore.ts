@@ -1,8 +1,8 @@
 export interface BannerRec {
-  id: string; title: string; subtitle: string | null; ctaLabel: string | null; ctaLink: string | null; imageKey: string | null;
+  id: string; title: string; subtitle: string | null; ctaLabel: string | null; ctaLink: string | null; imageKey: string | null; placement: string;
   sortOrder: number; isActive: boolean; startsAt: Date | null; endsAt: Date | null;
 }
-export interface BannerInput { title: string; subtitle: string | null; ctaLabel: string | null; ctaLink: string | null; sortOrder: number; isActive: boolean; startsAt: Date | null; endsAt: Date | null }
+export interface BannerInput { placement: string; title: string; subtitle: string | null; ctaLabel: string | null; ctaLink: string | null; sortOrder: number; isActive: boolean; startsAt: Date | null; endsAt: Date | null }
 export interface BannerStore {
   list(): Promise<BannerRec[]>;
   live(now: Date): Promise<BannerRec[]>;                                   // active + inside its date window, ordered

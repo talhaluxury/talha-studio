@@ -10,8 +10,10 @@ const keepOpen = (set, id) => ({ open: set.has(id), ontoggle: (e) => (e.target.o
 /* ---------------- Banners ---------------- */
 export async function renderBanners(view) {
   const body = h("div", {}); const opened = new Set();
-  put(clear(view), h("div", { class: "pagehead" }, h("div", {}, h("h1", {}, "Home banners"), h("p", { class: "muted" }, "Shown at the top of the app home screen. Changes appear without an app update."))), body);
+  put(clear(view), h("div", { class: "pagehead" }, h("div", {}, h("h1", {}, "Home banners"), h("p", { class: "muted" }, "Shown on the app home screen, at the top or below a section (you choose when you add the banner). Changes appear without an app update."))), body);
   const products = (await api("/admin/products?limit=50")).items.filter((p) => p.isPublished);
+  const sections = (await api("/admin/sections")).items;
+  const PLACES = [["top", "Top of the home screen (slider)"], ["new-arrivals", "Below New Arrivals"], ["featured", "Below Featured"], ["sale", "Below On Sale"], ...sections.map((s) => [s.slug, `Below ${s.title}`])];
   await load();
 
   function form(b) {
@@ -19,13 +21,14 @@ export async function renderBanners(view) {
       title: h("input", { id: `t${b?.id ?? "n"}`, maxlength: 60, value: b?.title ?? "" }), subtitle: h("input", { maxlength: 120, value: b?.subtitle ?? "" }),
       cta: h("input", { maxlength: 30, value: b?.ctaLabel ?? "", placeholder: "Shop now" }),
       link: h("select", {}, h("option", { value: "" }, "Opens the app home"), products.map((p) => h("option", { value: `talhastudio://product/${p.id}`, selected: b?.ctaLink === `talhastudio://product/${p.id}` }, `Product: ${p.name}`))),
+      place: h("select", {}, PLACES.map(([v, label]) => h("option", { value: v, selected: (b?.placement ?? "top") === v }, label))),
       order: h("input", { type: "number", min: 0, max: 9999, value: b?.sortOrder ?? 0 }), active: h("input", { type: "checkbox", checked: b ? b.isActive : true }),
       from: h("input", { type: "datetime-local", value: toLocalInput(b?.startsAt) }), to: h("input", { type: "datetime-local", value: toLocalInput(b?.endsAt) }),
     };
     const el = h("form", { novalidate: true, onsubmit: async (e) => {
       e.preventDefault();
       const payload = { title: f.title.value.trim(), subtitle: f.subtitle.value.trim() || null, ctaLabel: f.cta.value.trim() || null, ctaLink: f.link.value || null,
-        sortOrder: Number(f.order.value) || 0, isActive: f.active.checked, startsAt: fromLocalInput(f.from.value), endsAt: fromLocalInput(f.to.value) };
+        placement: f.place.value, sortOrder: Number(f.order.value) || 0, isActive: f.active.checked, startsAt: fromLocalInput(f.from.value), endsAt: fromLocalInput(f.to.value) };
       try { b ? await api(`/admin/banners/${b.id}`, { method: "PUT", body: payload }) : await api("/admin/banners", { method: "POST", body: payload }); toast(b ? "Banner saved" : "Banner added. Now add its picture."); await load(); }
       catch (ex) { showFieldErrors(el, ex.fields); toast(ex.message, "error"); }
     } },
@@ -35,6 +38,7 @@ export async function renderBanners(view) {
         h("div", { class: "field" }, h("label", {}, "Button text"), f.cta, h("div", { class: "err", "data-err": "ctaLabel" })),
         h("div", { class: "field" }, h("label", {}, "Button opens"), f.link, h("div", { class: "err", "data-err": "ctaLink" })),
         h("div", { class: "field" }, h("label", {}, "Show from (optional)"), f.from), h("div", { class: "field" }, h("label", {}, "Show until (optional)"), f.to, h("div", { class: "err", "data-err": "endsAt" })),
+        h("div", { class: "field" }, h("label", {}, "Show where"), f.place, h("div", { class: "err", "data-err": "placement" })),
         h("div", { class: "field" }, h("label", {}, "Order (0 = first)"), f.order)),
       h("label", { class: "check" }, f.active, "Visible in the app"), h("div", { class: "row" }, h("button", { class: "btn gold", type: "submit" }, b ? "Save banner" : "Add banner")));
     return el;
