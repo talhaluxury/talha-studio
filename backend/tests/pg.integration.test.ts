@@ -147,8 +147,8 @@ describe.skipIf(!url)("PostgreSQL integration (real SQL)", () => {
   it("settings, banners, coupons and the admin activity log", async () => {
     const def = await settings.load(); expect(def.pages.privacy.length).toBeGreaterThan(50); await settings.save({ ...def, ownerEmail: "boss@t.test", shipping: { flat: 350, freeOver: 9000 } });
     expect(await settings.load()).toMatchObject({ ownerEmail: "boss@t.test", shipping: { flat: 350, freeOver: 9000 } });
-    const live = await banners.create({ title: "Live", subtitle: null, ctaLabel: null, ctaLink: null, sortOrder: 1, isActive: true, startsAt: null, endsAt: null });
-    await banners.create({ title: "Old", subtitle: null, ctaLabel: null, ctaLink: null, sortOrder: 0, isActive: true, startsAt: null, endsAt: new Date("2020-01-01") });
+    const live = await banners.create({ title: "Live", subtitle: null, ctaLabel: null, ctaLink: null, placement: "top", sortOrder: 1, isActive: true, startsAt: null, endsAt: null });
+    await banners.create({ title: "Old", subtitle: null, ctaLabel: null, ctaLink: null, placement: "top", sortOrder: 0, isActive: true, startsAt: null, endsAt: new Date("2020-01-01") });
     expect((await banners.live(new Date())).map((b) => b.title)).toEqual(["Live"]); expect((await banners.setImage(live.id, "banners/x.webp")).ok).toBe(true);
     await expect(coupons.create({ code: "EID10", type: "percent", value: 10, minSubtotal: 0, maxUses: null, startsAt: null, endsAt: null, isActive: true })).resolves.toBeTruthy();
     await expect(coupons.create({ code: "eid10", type: "percent", value: 10, minSubtotal: 0, maxUses: null, startsAt: null, endsAt: null, isActive: true })).rejects.toBeTruthy();   // citext uniqueness
