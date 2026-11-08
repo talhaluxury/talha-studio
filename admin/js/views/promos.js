@@ -1,4 +1,6 @@
 import { api, uploadTo } from "../api.js";
+import { cropImage } from "../crop.js";
+import { videoBox } from "../videoBox.js";
 import { clear, confirmDialog, fmtDate, fromLocalInput, h, money, put, showFieldErrors, toast, toLocalInput } from "../ui.js";
 
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -43,12 +45,14 @@ export async function renderBanners(view) {
     put(clear(body), h("div", { class: "card" }, h("h2", {}, "New banner"), form(null)), items.length ? items.map((b) => {
       const pick = h("input", { type: "file", accept: "image/jpeg,image/png,image/webp", class: "sr", id: `f${b.id}`, onchange: async (e) => {
         const file = e.target.files[0]; e.target.value = ""; if (!file) return;
-        if (file.size > MAX_BYTES) return toast("Image is larger than 8 MB.", "error");
-        try { await uploadTo(`/admin/banners/${b.id}/image`, file); toast("Picture updated"); await load(); } catch (ex) { toast(ex.message, "error"); } } });
+        const out = await cropImage(file, { aspect: 16 / 9, aspects: [["Wide 16:9", 16 / 9], ["Wide 2:1", 2], ["Wide 3:1", 3], ["Square 1:1", 1]], title: "Crop banner picture" }); if (!out) return;
+        if (out.size > MAX_BYTES) return toast("Image is larger than 8 MB.", "error");
+        try { await uploadTo(`/admin/banners/${b.id}/image`, out); toast("Picture updated"); await load(); } catch (ex) { toast(ex.message, "error"); } } });
       return h("details", { class: "card", ...keepOpen(opened, b.id) },
         h("summary", {}, h("b", {}, b.title), " ", h("span", { class: `badge ${b.isActive ? "ok" : ""}` }, b.isActive ? "Visible" : "Hidden"), b.startsAt || b.endsAt ? h("span", { class: "hint" }, `  ${b.startsAt ? "from " + fmtDate(b.startsAt) : ""} ${b.endsAt ? "until " + fmtDate(b.endsAt) : ""}`) : null),
         h("div", { class: "row" }, b.imageUrl ? h("img", { src: b.imageUrl, alt: "", class: "bannerimg" }) : h("div", { class: "empty" }, "No picture yet"),
           h("div", {}, h("label", { class: "btn ghost sm", for: `f${b.id}` }, b.imageUrl ? "Replace picture" : "Upload picture"), pick, h("p", { class: "hint" }, "Wide image (e.g. 1600x900). It is resized automatically."))),
+        h("div", {}, h("b", {}, "Video (optional)"), h("p", { class: "hint" }, "A short MP4 (up to 25 MB). When a banner has a video, the app plays it muted on a loop instead of the picture."), videoBox({ url: b.videoUrl, uploadPath: `/admin/banners/${b.id}/video`, deletePath: `/admin/banners/${b.id}/video` })),
         form(b), h("div", { class: "row end" }, h("button", { class: "btn danger sm", onclick: async () => {
           if (!(await confirmDialog(`Delete "${b.title}"?`, "The banner and its picture are removed from the app."))) return;
           try { await api(`/admin/banners/${b.id}`, { method: "DELETE" }); toast("Banner deleted"); await load(); } catch (ex) { toast(ex.message, "error"); } } }, "Delete banner")));

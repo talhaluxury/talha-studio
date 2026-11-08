@@ -1,3 +1,4 @@
+import type { VideoStore } from "../videoStore.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { notFound } from "../errors.js";
@@ -39,8 +40,8 @@ export async function priceCfgFrom(settings: SettingsStore, cfg: Pick<Config, "M
   return { SHIPPING_FLAT_PKR: s.shipping.flat, FREE_SHIPPING_OVER_PKR: s.shipping.freeOver, MAX_COD_ORDER_PKR: cfg.MAX_COD_ORDER_PKR };
 }
 
-export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; storage: Storage; cfg: Config; settings: SettingsStore; banners: BannerStore; coupons: CouponStore }) {
-  const { catalog, storage, cfg, settings, banners, coupons } = d;
+export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; storage: Storage; cfg: Config; settings: SettingsStore; banners: BannerStore; coupons: CouponStore; videos?: VideoStore }) {
+  const { catalog, storage, cfg, settings, banners, coupons, videos } = d;
   app.get("/categories", async () => ({ items: (await catalog.listCategories(true)).map((c) => toApiCategory(c, storage)) }));
 
   app.get("/products", async (req) => {
@@ -54,7 +55,8 @@ export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; 
     const p = id.success ? await catalog.getProduct(id.data, true) : null;
     if (!p) throw notFound("Product not found");
     const rel = await catalog.related(p, 6);
-    return { ...toApiProduct(p, storage), related: rel.map((x) => toApiProduct(x, storage)) };
+    const vk = videos ? (await videos.getMany("product", [p.id])).get(p.id) : undefined;
+    return { ...toApiProduct(p, storage), videoUrl: vk ? storage.url(vk) : null, related: rel.map((x) => toApiProduct(x, storage)) };
   });
 
   // Home feed. Collections are generated from live catalog data; banners arrive with admin banner management.
@@ -64,11 +66,12 @@ export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; 
       catalog.listCategories(true), catalog.listProducts(base), catalog.listProducts({ ...base, newArrival: true }), catalog.listProducts({ ...base, featured: true }), catalog.listProducts({ ...base, onSale: true }),
       banners.live(new Date()), settings.load(),
     ]);
+    const bv = videos ? await videos.getMany("banner", live.map((b) => b.id)) : new Map<string, string>();
     const news = pinned.items.length ? pinned : newest;      // products the owner marked as New Arrival, otherwise simply the newest ones
     const col = (slug: string, title: string, r: { items: Parameters<typeof toApiProduct>[0][] }) => ({ slug, title, products: r.items.map((p) => toApiProduct(p, storage)) });
     return {
       announcement: st.announcement.active && st.announcement.text ? st.announcement.text : null,
-      banners: live.map((b) => ({ id: b.id, title: b.title, subtitle: b.subtitle, ctaLabel: b.ctaLabel, ctaLink: b.ctaLink, imageUrl: b.imageKey ? storage.url(b.imageKey) : null })),
+      banners: live.map((b) => ({ id: b.id, title: b.title, subtitle: b.subtitle, ctaLabel: b.ctaLabel, ctaLink: b.ctaLink, imageUrl: b.imageKey ? storage.url(b.imageKey) : null, videoUrl: bv.get(b.id) ? storage.url(bv.get(b.id)!) : null })),
       categories: cats.map((c) => toApiCategory(c, storage)),
       collections: [col("new-arrivals", "New Arrivals", news), col("featured", "Featured", featured), col("sale", "On Sale", sale)].filter((c) => c.products.length),
     };

@@ -1,4 +1,5 @@
 import { api, session, uploadTo } from "../api.js";
+import { cropImage } from "../crop.js";
 import { clear, confirmDialog, h, showFieldErrors, toast, put } from "../ui.js";
 
 export async function renderCategories(view) {
@@ -43,7 +44,8 @@ export async function renderCategories(view) {
     const info = h("span", { class: "hint" }, c.imageUrl ? "" : "No picture yet. The app shows the first letter.");
     const pick = h("input", { type: "file", accept: "image/*", "aria-label": `Picture for ${c.name}` });
     pick.onchange = async () => {
-      const f = pick.files[0]; if (!f) return;
+      const f0 = pick.files[0]; pick.value = ""; if (!f0) return;
+      const f = await cropImage(f0, { aspect: 1, aspects: [["Square 1:1", 1], ["Portrait 3:4", 3 / 4]], title: "Crop category picture" }); if (!f) return;
       try { await uploadTo(`/admin/categories/${c.id}/image`, f, (p) => { info.textContent = `Uploading ${p}%`; }); toast("Picture saved"); await load(); }
       catch (ex) { toast(ex.message, "error"); info.textContent = ""; }
     };

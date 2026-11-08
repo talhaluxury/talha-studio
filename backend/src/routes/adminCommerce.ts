@@ -1,3 +1,4 @@
+import type { VideoStore } from "../videoStore.js";
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
@@ -42,9 +43,9 @@ export const toApiCoupon = (c: import("../couponStore.js").CouponRec) => ({ id: 
 export const toApiBanner = (b: import("../bannerStore.js").BannerRec, s: Storage) => ({ id: b.id, title: b.title, subtitle: b.subtitle, ctaLabel: b.ctaLabel, ctaLink: b.ctaLink, imageUrl: b.imageKey ? s.url(b.imageKey) : null, sortOrder: b.sortOrder, isActive: b.isActive, startsAt: b.startsAt, endsAt: b.endsAt });
 
 export function adminCommerceRoutes(app: FastifyInstance, d: {
-  coupons: CouponStore; banners: BannerStore; settings: SettingsStore; storage: Storage; images: ImageProcessor; store: Store; auth: ReturnType<typeof makeAuth>;
+  coupons: CouponStore; banners: BannerStore; settings: SettingsStore; storage: Storage; images: ImageProcessor; store: Store; auth: ReturnType<typeof makeAuth>; videos?: VideoStore;
 }) {
-  const { coupons, banners, settings, storage, images, store, auth } = d;
+  const { coupons, banners, settings, storage, images, store, auth, videos } = d;
   const manager = { preHandler: [auth.admin, auth.requireRole("admin", "owner")] };
   const owner = { preHandler: [auth.admin, auth.requireRole("owner")] };
   const log = (req: any, action: string, entity?: string, entityId?: string, meta?: unknown) => store.logActivity({ adminId: req.user.id, action, entity, entityId, meta, ip: req.ip });
@@ -68,7 +69,10 @@ export function adminCommerceRoutes(app: FastifyInstance, d: {
   });
 
   // ---- banners ----
-  app.get("/admin/banners", manager, async () => ({ items: (await banners.list()).map((b) => toApiBanner(b, storage)) }));
+  app.get("/admin/banners", manager, async () => {
+    const items = await banners.list(); const bv = videos ? await videos.getMany("banner", items.map((b) => b.id)) : new Map<string, string>();
+    return { items: items.map((b) => ({ ...toApiBanner(b, storage), videoUrl: bv.get(b.id) ? storage.url(bv.get(b.id)!) : null })) };
+  });
   app.post("/admin/banners", manager, async (req, reply) => { const b = await banners.create(bannerBody.parse(req.body)); await log(req, "banner.create", "banner", b.id); return reply.status(201).send(toApiBanner(b, storage)); });
   app.put<{ Params: { id: string } }>("/admin/banners/:id", manager, async (req) => {
     const id = idParam.parse(req.params.id); const b = await banners.update(id, bannerBody.parse(req.body)); if (!b) throw notFound("Banner not found");

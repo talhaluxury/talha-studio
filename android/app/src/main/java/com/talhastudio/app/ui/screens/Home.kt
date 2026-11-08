@@ -155,8 +155,9 @@ private fun BannerCarousel(banners: List<com.talhastudio.app.data.Banner>, onOpe
         androidx.compose.foundation.pager.HorizontalPager(pager, Modifier.fillMaxWidth().height(190.dp), contentPadding = PaddingValues(horizontal = 20.dp), pageSpacing = 12.dp) { i ->
             val b = banners[i]
             Box(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).background(TS.Black).clickable { onOpen(b.ctaLink) }) {
-                if (b.imageUrl != null) {
-                    ImageTile(b.imageUrl, b.title, Modifier.fillMaxSize())
+                if (b.imageUrl != null || b.videoUrl != null) {
+                    if (b.videoUrl != null) com.talhastudio.app.ui.components.VideoPlayer(b.videoUrl, Modifier.fillMaxSize(), autoplay = true, muted = true, loop = true, controls = false)
+                    else ImageTile(b.imageUrl, b.title, Modifier.fillMaxSize())
                     Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(TS.Black.copy(0.75f), androidx.compose.ui.graphics.Color.Transparent))))
                 }
                 Column(Modifier.padding(24.dp).align(Alignment.CenterStart).fillMaxWidth(0.7f)) {

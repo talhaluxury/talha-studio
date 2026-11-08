@@ -6,6 +6,7 @@ import { DuplicateError, InUseError, slugify, type CatalogStore, type ProductInp
 import { MAX_IMAGES_PER_PRODUCT, type ImageProcessor } from "../images.js";
 import type { makeAuth } from "../plugins/auth.js";
 import type { Storage } from "../storage.js";
+import type { VideoStore } from "../videoStore.js";
 import { productQuery, toApiCategory, toApiProduct } from "./catalog.js";
 
 const idParam = z.string().uuid();
@@ -35,9 +36,9 @@ const categoryBody = z.object({
 });
 
 export function adminCatalogRoutes(app: FastifyInstance, d: {
-  catalog: CatalogStore; storage: Storage; images: ImageProcessor; auth: ReturnType<typeof makeAuth>; log: (e: Parameters<import("../store.js").Store["logActivity"]>[0]) => Promise<void>;
+  catalog: CatalogStore; storage: Storage; images: ImageProcessor; auth: ReturnType<typeof makeAuth>; log: (e: Parameters<import("../store.js").Store["logActivity"]>[0]) => Promise<void>; videos: VideoStore;
 }) {
-  const { catalog, storage, images, auth, log } = d;
+  const { catalog, storage, images, auth, log, videos } = d;
   const read = { preHandler: [auth.admin] };
   const write = { preHandler: [auth.admin, auth.requireRole("admin", "owner")] };   // staff = read-only on catalog
   const act = (req: any, action: string, entity: string, entityId?: string, meta?: unknown) => log({ adminId: req.user.id, action, entity, entityId, meta, ip: req.ip });
@@ -179,7 +180,8 @@ export function adminCatalogRoutes(app: FastifyInstance, d: {
   });
   app.get<{ Params: { id: string } }>("/admin/products/:id", read, async (req) => {
     const p = await catalog.getProduct(idParam.parse(req.params.id), false);
-    if (!p) throw notFound("Product not found"); return toApiProduct(p, storage, true);
+    if (!p) throw notFound("Product not found");
+    const vk = (await videos.getMany("product", [p.id])).get(p.id); return { ...toApiProduct(p, storage, true), videoUrl: vk ? storage.url(vk) : null };
   });
 
   app.post("/admin/products", write, async (req, reply) => {

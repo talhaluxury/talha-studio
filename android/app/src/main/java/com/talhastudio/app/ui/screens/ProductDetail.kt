@@ -67,17 +67,19 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
     var qty by remember(p.id) { mutableIntStateOf(1) }
     val variant = p.variantFor(size, color)
     val maxQty = ((variant?.stock ?: 0)).coerceAtMost(10)
-    val pager = rememberPagerState { p.images.size.coerceAtLeast(1) }
+    val pages = p.images.size.coerceAtLeast(1) + (if (p.videoUrl != null) 1 else 0)      // photos first, the video is the last swipe
+    val pager = rememberPagerState { pages }
     var buttonCenter by remember { mutableStateOf(Offset.Zero) }
 
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         Box {
             var ratio by remember(p.id) { mutableStateOf(0.67f) }   // the first photo's own shape: whole photo, no side bars
             HorizontalPager(pager, Modifier.fillMaxWidth().aspectRatio(ratio)) { i ->
-                ImageTile(p.images.getOrNull(i)?.url, p.name, Modifier.fillMaxSize(), ContentScale.Fit,
+                if (p.videoUrl != null && i == p.images.size.coerceAtLeast(1)) Box(Modifier.fillMaxSize().background(TS.Black)) { com.talhastudio.app.ui.components.VideoPlayer(p.videoUrl, Modifier.fillMaxSize()) }
+                else ImageTile(p.images.getOrNull(i)?.url, p.name, Modifier.fillMaxSize(), ContentScale.Fit,
                     onRatio = if (i == 0) ({ r: Float -> ratio = r.coerceIn(0.5f, 1.1f) }) else null)
             }
-            if (p.images.size > 1) Text("${pager.currentPage + 1}/${p.images.size}", style = MaterialTheme.typography.labelSmall, color = TS.Ivory,
+            if (pages > 1) Text("${pager.currentPage + 1}/$pages", style = MaterialTheme.typography.labelSmall, color = TS.Ivory,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp).clip(RoundedCornerShape(50)).background(TS.Black.copy(0.7f)).padding(horizontal = 10.dp, vertical = 4.dp))
         }
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {

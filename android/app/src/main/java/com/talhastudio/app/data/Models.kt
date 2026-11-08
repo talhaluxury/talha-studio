@@ -9,7 +9,7 @@ data class Product(
     val categorySlug: String, val categoryName: String,
     val price: Int, val salePrice: Int?, val fabric: String?,
     val images: List<ImageRef>, val variants: List<Variant>, val inStock: Boolean,
-    val related: List<Product> = emptyList(),
+    val related: List<Product> = emptyList(), val videoUrl: String? = null,
 ) {
     val effectivePrice get() = salePrice ?: price
     val discountPercent: Int? get() = salePrice?.takeIf { price > 0 }?.let { ((price - it) * 100f / price).toInt() }
@@ -26,7 +26,7 @@ data class Product(
 
 data class Category(val id: String, val slug: String, val name: String, val imageUrl: String? = null, val parentId: String? = null)
 data class HomeCollection(val slug: String, val title: String, val products: List<Product>)
-data class Banner(val id: String, val title: String, val subtitle: String?, val ctaLabel: String?, val ctaLink: String?, val imageUrl: String?)
+data class Banner(val id: String, val title: String, val subtitle: String?, val ctaLabel: String?, val ctaLink: String?, val imageUrl: String?, val videoUrl: String? = null)
 data class HomeData(val categories: List<Category>, val collections: List<HomeCollection>, val banners: List<Banner> = emptyList(), val announcement: String? = null)
 data class PageOf<T>(val items: List<T>, val page: Int, val total: Int) { val hasMore get() = page * 20 < total }
 

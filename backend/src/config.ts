@@ -33,7 +33,7 @@ const schema = z.object({
   ASSISTANT_MODEL: z.string().default("claude-haiku-5-5"),
   ASSISTANT_DAILY_LIMIT: z.coerce.number().int().min(1).max(1000).default(60),   // assistant questions per customer (or IP) per day: protects your API bill
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),   // how many reverse proxies sit in front (Render = 1; Cloudflare + Render = 2)
-  MAX_OPEN_ORDERS_PER_USER: z.coerce.number().int().min(1).max(50).default(5),
+  MAX_OPEN_ORDERS_PER_USER: z.coerce.number().int().min(1).max(200).default(20),
   ALLOW_LOCAL_STORAGE: z.enum(["0", "1"]).default("0"),
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   LOCAL_MEDIA_DIR: z.string().default("./media"),

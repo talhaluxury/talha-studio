@@ -34,7 +34,7 @@ fun parseProduct(o: JSONObject): Product {
         images = o.optJSONArray("images").mapObjects { ImageRef(it.getString("url"), it.getString("thumbUrl")) },
         variants = o.optJSONArray("variants").mapObjects { Variant(it.getString("id"), it.str("size"), it.str("color"), it.getInt("stock")) },
         inStock = o.optBoolean("inStock", false),
-        related = o.optJSONArray("related").mapObjects { parseProduct(it) },
+        related = o.optJSONArray("related").mapObjects { parseProduct(it) }, videoUrl = o.str("videoUrl"),
     )
 }
 fun parseQuote(o: JSONObject) = Quote(
@@ -70,7 +70,7 @@ fun parseError(status: Int, text: String): ApiException {
 }
 fun parseNotification(o: JSONObject) = AppNotification(o.getString("id"), o.getString("title"), o.getString("body"), o.str("deepLink"), o.optString("kind", "order"), o.optBoolean("read", false), o.getString("createdAt"))
 fun parsePrefs(o: JSONObject) = NotifPrefs(o.optBoolean("orderUpdates", true), o.optBoolean("promotions", true))
-fun parseBanner(o: JSONObject) = Banner(o.getString("id"), o.getString("title"), o.str("subtitle"), o.str("ctaLabel"), o.str("ctaLink"), o.str("imageUrl"))
+fun parseBanner(o: JSONObject) = Banner(o.getString("id"), o.getString("title"), o.str("subtitle"), o.str("ctaLabel"), o.str("ctaLink"), o.str("imageUrl"), o.str("videoUrl"))
 fun parseStoreInfo(o: JSONObject) = StoreInfo(o.getString("name"), o.str("supportEmail"), o.str("supportPhone"), o.str("address"), o.str("estimatedDelivery"), o.getJSONObject("shipping").let { it.getInt("flat") to it.getInt("freeOver") }, o.optInt("returnWindowDays", 7),
     o.optJSONArray("pages").mapObjects { it.getString("slug") to it.getString("title") },
     o.optJSONArray("paymentMethods").mapObjects { PayMethod(it.getString("id"), it.getString("label"), it.optString("details", "")) })

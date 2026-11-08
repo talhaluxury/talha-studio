@@ -1,4 +1,6 @@
 import { api, session, uploadImage } from "../api.js";
+import { cropImage } from "../crop.js";
+import { videoBox } from "../videoBox.js";
 import { clear, confirmDialog, h, money, showFieldErrors, toast, put } from "../ui.js";
 
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -85,7 +87,9 @@ export async function renderEditor(view, idArg) {
   const readOnly = write ? null : h("div", { class: "card" }, "You have view-only access. Ask an admin or the owner to change products.");
 
   const imageCard = h("div", { class: "card" });
-  put(clear(view), header, readOnly, form, imageCard);
+  const videoCard = h("div", { class: "card" });
+  put(clear(view), header, readOnly, form, imageCard, videoCard);
+  if (!isNew) videoCard.append(h("h2", {}, "Video (optional)"), h("p", { class: "hint" }, "One short MP4 video, up to 25 MB (about 30 seconds). Customers see it together with the photos."), videoBox({ url: p.videoUrl, uploadPath: `/admin/products/${p.id}/video`, deletePath: `/admin/products/${p.id}/video`, canEdit: write }));
   if (isNew) { imageCard.append(h("h2", {}, "Photos"), h("p", { class: "hint" }, "Create the product first, then you can upload photos here.")); return; }
   drawImages();
   if (write) drawActions();
@@ -107,10 +111,11 @@ export async function renderEditor(view, idArg) {
 
     async function addFiles(files) {
       if (!files.length) return;
-      for (const file of files) {
-        const label = file.name || "photo";
+      for (const orig of files) {
+        let file = orig; const label = file.name || "photo";
         const okType = /^image\/(jpeg|jpg|png|webp)$/i.test(file.type) || (!/^image\//i.test(file.type) && EXT.test(file.name || "")) || (file.type === "" && !file.name);
         if (!okType) { fail(label, "only JPG, PNG or WebP photos are allowed (HEIC/other formats are not supported)."); continue; }
+        const cropped = await cropImage(file, { aspect: 3 / 4, title: "Crop product photo" }); if (!cropped) continue; file = cropped;     // admin can cancel to skip this photo
         if (file.size > MAX_BYTES) { fail(label, "is larger than 8 MB."); continue; }
         if (p.images.length >= 10) { fail(label, "not added: a product can have at most 10 photos."); break; }
         const bar = h("i", {}); const row = h("div", {}, h("span", { class: "hint" }, `Uploading ${label}...`), h("div", { class: "prog" }, bar)); queue.append(row);

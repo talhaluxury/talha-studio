@@ -12,6 +12,8 @@ import { meRoutes } from "./routes/me.js";
 import multipart from "@fastify/multipart";
 import { createReadStream } from "node:fs";
 import type { CatalogStore } from "./catalogStore.js";
+import { MemoryVideos, type VideoStore } from "./videoStore.js";
+import { videoRoutes } from "./routes/videos.js";
 import { MAX_UPLOAD_BYTES, sharpProcessor, type ImageProcessor } from "./images.js";
 import { adminCatalogRoutes } from "./routes/adminCatalog.js";
 import { catalogRoutes } from "./routes/catalog.js";
@@ -43,7 +45,7 @@ import { assistantRoutes } from "./routes/assistant.js";
 import { whatsappRoutes } from "./routes/whatsapp.js";
 import { contentRoutes } from "./routes/content.js";
 
-export interface Deps { whatsapp?: WhatsAppService; waQr?: BaileysWhatsApp; assistant?: AssistantService; chat: ChatStore; slides: SlideStore; status: StatusStore; coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
+export interface Deps { videos?: VideoStore; whatsapp?: WhatsAppService; waQr?: BaileysWhatsApp; assistant?: AssistantService; chat: ChatStore; slides: SlideStore; status: StatusStore; coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
 
 export function googleVerifier(clientId: string): GoogleVerifier {
   const client = new OAuth2Client(clientId);
@@ -62,6 +64,7 @@ export async function buildApp(cfg: Config, deps: Deps) {
   const { store, catalog, storage, orders } = deps;
   const events = deps.events ?? composeEvents(deps.email, deps.push, ...(deps.whatsapp ? [deps.whatsapp] : []));       // order emails + push are the default side effects of order events
   const images = deps.images ?? sharpProcessor;
+  const videos = deps.videos ?? new MemoryVideos();
   const google = deps.google ?? googleVerifier(cfg.GOOGLE_WEB_CLIENT_ID);
   const serverOptions: FastifyServerOptions = {
     logger: cfg.NODE_ENV === "test" ? false : { level: "info", redact: ["req.headers.authorization", "req.headers.cookie"] },
@@ -96,10 +99,11 @@ export async function buildApp(cfg: Config, deps: Deps) {
     authRoutes(v1, { store, secret: cfg.JWT_ACCESS_SECRET, google, whatsapp: deps.whatsapp });
     meRoutes(v1, { store, auth, onDelete: async (id) => { for (const k of await deps.chat.deleteForCustomer(id)) await storage.delete(k).catch(() => {}); } });
     adminRoutes(v1, { store, auth });
-    catalogRoutes(v1, { catalog, storage, cfg, settings: deps.settings, banners: deps.banners, coupons: deps.coupons });
+    catalogRoutes(v1, { catalog, storage, cfg, settings: deps.settings, banners: deps.banners, coupons: deps.coupons, videos });
+    videoRoutes(v1, { videos, catalog, banners: deps.banners, storage, store, auth });
     orderRoutes(v1, { orders, storage, auth, cfg, settings: deps.settings, events });
     adminOrderRoutes(v1, { orders, store, storage, auth, cfg, events });
-    adminCommerceRoutes(v1, { coupons: deps.coupons, banners: deps.banners, settings: deps.settings, storage, images, store, auth });
+    adminCommerceRoutes(v1, { coupons: deps.coupons, banners: deps.banners, settings: deps.settings, storage, images, store, auth, videos });
     infoRoutes(v1, { settings: deps.settings, returnWindowDays: cfg.RETURN_WINDOW_DAYS, store, orders, push: deps.pushStore, auth });
     pushRoutes(v1, { store, push: deps.pushStore, svc: deps.push, auth });
     adminEmailRoutes(v1, { cfg, email: deps.email, emails: deps.emails, settings: deps.settings, store, auth });
@@ -107,7 +111,7 @@ export async function buildApp(cfg: Config, deps: Deps) {
     assistantRoutes(v1, { assistant: deps.assistant, auth, settings: deps.settings });
     whatsappRoutes(v1, { whatsapp: deps.whatsapp, qr: deps.waQr, storage, auth, store, catalog, verifyToken: cfg.WHATSAPP_VERIFY_TOKEN, appSecret: cfg.WHATSAPP_APP_SECRET, log: app.log });
     chatRoutes(v1, { chat: deps.chat, store, storage, images, push: deps.push, auth, whatsapp: deps.whatsapp });
-    adminCatalogRoutes(v1, { catalog, storage, images, auth, log: (e) => store.logActivity(e) });
+    adminCatalogRoutes(v1, { catalog, storage, images, auth, log: (e) => store.logActivity(e), videos });
   }, { prefix: "/v1" });
   return app;
 }
