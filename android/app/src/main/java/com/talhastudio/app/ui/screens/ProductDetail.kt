@@ -1,6 +1,8 @@
 package com.talhastudio.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -13,6 +15,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.material.icons.outlined.ZoomIn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -75,14 +78,24 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
     val pages = p.images.size.coerceAtLeast(1) + (if (p.videoUrl != null) 1 else 0)      // photos first, the video is the last swipe
     val pager = rememberPagerState { pages }
     var buttonCenter by remember { mutableStateOf(Offset.Zero) }
+    var viewer by remember { mutableStateOf<Int?>(null) }                       // photo being zoomed full screen
+    val photoUrls = remember(p.id) { p.images.mapNotNull { it.url } }
+    viewer?.let { ImageViewerDialog(photoUrls, it, p.name) { viewer = null } }
 
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         Box {
             var ratio by remember(p.id) { mutableStateOf(0.67f) }   // the first photo's own shape: whole photo, no side bars
             HorizontalPager(pager, Modifier.fillMaxWidth().aspectRatio(ratio)) { i ->
                 if (p.videoUrl != null && i == p.images.size.coerceAtLeast(1)) Box(Modifier.fillMaxSize().background(TS.Black)) { com.talhastudio.app.ui.components.VideoPlayer(p.videoUrl, Modifier.fillMaxSize(), autoplay = true, muted = true, loop = true, controls = true, fit = true, play = pager.currentPage == i) }
-                else ImageTile(p.images.getOrNull(i)?.url, p.name, Modifier.fillMaxSize(), ContentScale.Fit,
-                    onRatio = if (i == 0) ({ r: Float -> ratio = r.coerceIn(0.5f, 1.1f) }) else null)
+                else ImageTile(p.images.getOrNull(i)?.url, p.name,
+                    Modifier.fillMaxSize().then(if (photoUrls.isNotEmpty()) Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { viewer = i } else Modifier),
+                    ContentScale.Fit, onRatio = if (i == 0) ({ r: Float -> ratio = r.coerceIn(0.5f, 1.1f) }) else null)
+            }
+            if (photoUrls.isNotEmpty() && !(p.videoUrl != null && pager.currentPage == p.images.size.coerceAtLeast(1))) Row(
+                Modifier.align(Alignment.BottomStart).padding(12.dp).clip(RoundedCornerShape(50)).background(TS.Black.copy(0.7f)).padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Icon(Icons.Outlined.ZoomIn, null, tint = TS.Gold, modifier = Modifier.size(16.dp))
+                Text("Tap to zoom", style = MaterialTheme.typography.labelSmall, color = TS.Ivory)
             }
             if (pages > 1) Text("${pager.currentPage + 1}/$pages", style = MaterialTheme.typography.labelSmall, color = TS.Ivory,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp).clip(RoundedCornerShape(50)).background(TS.Black.copy(0.7f)).padding(horizontal = 10.dp, vertical = 4.dp))
@@ -91,7 +104,7 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
             Text(p.name, style = MaterialTheme.typography.headlineMedium)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PriceText(p)
-                p.discountPercent?.let { Text("$it% OFF", style = MaterialTheme.typography.labelSmall, color = TS.Black, modifier = Modifier.clip(RoundedCornerShape(50)).background(TS.Gold).padding(horizontal = 8.dp, vertical = 3.dp)) }
+                p.discountPercent?.let { SaleBadge(it) }
             }
             p.fabric?.let { Text("Fabric: $it", style = MaterialTheme.typography.bodyMedium, color = TS.Gray) }
 

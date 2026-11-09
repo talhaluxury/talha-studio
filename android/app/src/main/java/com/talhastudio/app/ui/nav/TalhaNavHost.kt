@@ -158,14 +158,14 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
             else SignInRequired(onBack = { nav.popBackStack() }) { nav.navigate(Routes.auth()) }
         }
     }
-    // Sale timer: a small bar right above the bottom bar on the main tabs; tapping it lists every item on sale. It vanishes when the time is up.
+    // Sale timer: a small bar right above the bottom bar on the main tabs (not on the Cart tab, where the customer is about to pay); tapping it lists every item on sale. It vanishes when the time is up.
     val sale = shop.sale
     val saleLeft by rememberSaleRemaining(sale)
     LaunchedEffect(sale, saleLeft) { if (sale != null && saleLeft <= 0L) shop.refreshSale() }      // time is up: ask the server (the owner may have started a new sale)
     AnimatedVisibility(showBar, Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
         enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            if (route == Routes.Main && sale != null && saleLeft > 0) SaleBar(sale, saleLeft, onClick = { shop.browseRequest = "@sale|On Sale" })
+            if (route == Routes.Main && shop.currentTab != 3 && sale != null && saleLeft > 0) SaleBar(sale, saleLeft, onClick = { shop.browseRequest = "@sale|On Sale" })
             LiquidBottomBar(shellTabs, shop.currentTab, badges = mapOf(3 to shop.cartCount, 2 to shop.wishlist.size), onSelect = { goTab(it) }, pulseIndex = 3, pulse = shop.cartPulse)
         }
     }

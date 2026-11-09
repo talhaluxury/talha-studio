@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { toast } from "./ui.js";
+import { confirmDialog, toast } from "./ui.js";
 
 /** One-click WhatsApp for an order: the customer's number, the product photo and the message are prepared; the admin only presses Send in WhatsApp. */
 const STORE = "Talha Studio";
@@ -46,9 +46,18 @@ export async function sendWhatsApp(o, text, { photo = true } = {}) {
   window.open(chatUrl(phone, img ? `${text}\n\n${img}` : text), "_blank", "noopener");
 }
 
-/** List-page shortcut: load the order, then open WhatsApp with the standard confirmation. */
+/** Sends from the WhatsApp number linked in Admin > WhatsApp, straight away (same as the automatic order message). Returns true when it went out. */
+export async function sendViaStore(o, text, photo = true) {
+  try { await api(`/admin/orders/${o.id}/whatsapp`, { method: "POST", body: { text, photo } }); toast(`WhatsApp message sent to ${o.customer.name}`); return true; }
+  catch (e) { toast(e.message, "error"); return false; }
+}
+
+/** List-page shortcut: load the order, then send the standard confirmation (with the product photo) from the linked WhatsApp. */
 export async function quickWhatsApp(orderId, btn) {
   btn.disabled = true;
-  try { const o = await api(`/admin/orders/${orderId}`); await sendWhatsApp(o, orderMessage(o, "confirm"), { photo: true }); }
-  catch (e) { toast(e.message, "error"); } finally { btn.disabled = false; }
+  try {
+    const o = await api(`/admin/orders/${orderId}`);
+    if (!(await confirmDialog("Send on WhatsApp?", `Send the order confirmation with the product photo to ${o.customer.name} (${o.customer.phone}).`, "Send"))) return;
+    await sendViaStore(o, orderMessage(o, "confirm"), true);
+  } catch (e) { toast(e.message, "error"); } finally { btn.disabled = false; }
 }

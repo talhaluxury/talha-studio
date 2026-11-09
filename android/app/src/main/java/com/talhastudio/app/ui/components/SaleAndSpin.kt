@@ -4,6 +4,7 @@ import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -23,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -73,14 +75,25 @@ fun rememberSaleRemaining(sale: Sale?): State<Long> = produceState(initialValue 
 
 private val tabularNumbers @Composable get() = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum")
 
-/** The small bar that floats above the bottom bar. Tap = show every item on sale. */
+/** Frosted-glass white fill for the sale timer: translucent white that fades slightly toward the bottom, with black text on top. */
+private val glassWhite = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.95f), Color.White.copy(alpha = 0.76f)))
+
+/** The bar that floats above the bottom bar: glassy white, black text, a gold glow that breathes and a glint that sweeps across. Tap = show every item on sale. */
 @Composable
 fun SaleBar(sale: Sale, remainingMs: Long, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier.clip(RoundedCornerShape(50)).background(TS.Gold).clickable(onClick = onClick).padding(start = 14.dp, end = 8.dp, top = 7.dp, bottom = 7.dp),
+    val shape = RoundedCornerShape(50)
+    val t = rememberInfiniteTransition(label = "salebar")
+    val glow by t.animateFloat(0.25f, 0.95f, infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "glow")
+    val tick by t.animateFloat(0.9f, 1.12f, infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "tick")
+    Row(modifier.shadow(14.dp, shape, ambientColor = TS.Gold.copy(alpha = glow), spotColor = TS.Gold.copy(alpha = glow))
+        .clip(shape).background(glassWhite)
+        .border(1.dp, Brush.linearGradient(listOf(Color.White, TS.Gold.copy(alpha = 0.4f + glow * 0.6f), Color.White)), shape)
+        .shimmerSweep(TS.Gold.copy(alpha = 0.40f))
+        .clickable(onClick = onClick).padding(start = 14.dp, end = 8.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Icon(Icons.Outlined.Timer, null, tint = TS.Black, modifier = Modifier.size(18.dp))
-        Text(sale.label, style = MaterialTheme.typography.labelMedium, color = TS.Black)
-        Text(formatCountdown(remainingMs), style = tabularNumbers, color = TS.Black)
+        Icon(Icons.Outlined.Timer, null, tint = Color.Black, modifier = Modifier.size(18.dp).graphicsLayer { scaleX = tick; scaleY = tick })
+        Text(sale.label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = Color.Black, maxLines = 1)
+        Text(formatCountdown(remainingMs), style = tabularNumbers, color = Color.Black)
         Row(Modifier.clip(RoundedCornerShape(50)).background(TS.Black).padding(start = 10.dp, end = 4.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("See items", style = MaterialTheme.typography.labelSmall, color = TS.Gold)
             Icon(Icons.Outlined.ChevronRight, null, tint = TS.Gold, modifier = Modifier.size(16.dp))
@@ -88,14 +101,17 @@ fun SaleBar(sale: Sale, remainingMs: Long, onClick: () -> Unit, modifier: Modifi
     }
 }
 
-/** Smaller version for the product page: sits at the left, just above the bottom bar. */
+/** Smaller version for the product page: sits at the left, just above the bottom bar. Same glassy white look. */
 @Composable
 fun SaleChip(remainingMs: Long, modifier: Modifier = Modifier) {
-    Row(modifier.clip(RoundedCornerShape(50)).background(TS.Black.copy(alpha = 0.92f)).border(BorderStroke(1.dp, TS.Gold), RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 6.dp),
+    val shape = RoundedCornerShape(50)
+    Row(modifier.shadow(10.dp, shape, ambientColor = TS.Gold, spotColor = TS.Gold).clip(shape).background(glassWhite)
+        .border(1.dp, Brush.linearGradient(listOf(Color.White, TS.Gold, Color.White)), shape).shimmerSweep(TS.Gold.copy(alpha = 0.40f))
+        .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Icon(Icons.Outlined.Timer, null, tint = TS.Gold, modifier = Modifier.size(16.dp))
-        Text("Sale", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(0.8f))
-        Text(formatCountdown(remainingMs), style = tabularNumbers, color = TS.Gold)
+        Icon(Icons.Outlined.Timer, null, tint = Color.Black, modifier = Modifier.size(16.dp))
+        Text("Sale", style = MaterialTheme.typography.labelSmall, color = Color.Black.copy(alpha = 0.75f))
+        Text(formatCountdown(remainingMs), style = tabularNumbers, color = Color.Black)
     }
 }
 

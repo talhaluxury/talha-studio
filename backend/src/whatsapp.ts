@@ -254,6 +254,20 @@ Sab sahi hai to "YES" likh dein. Agar kuch galat hai to bas "galat hai" likh dei
     } catch (e) { this.d.log?.error({ kind: "chat", err: String(e) }, "whatsapp chat bookkeeping failed"); return "failed"; }
   }
 
+  /**
+   * The admin pressed "Send on WhatsApp" on an order: sends the text (with the first product photo) from the linked number right away, like the automatic messages.
+   * Unlike the automatic ones it may be sent again (each press is logged as its own row). Throws a readable message so the admin sees why it failed.
+   */
+  async sendOrderMessage(o: OrderRec, text: string, withPhoto: boolean): Promise<void> {
+    if (!this.configured) throw new Error("WhatsApp is not linked. Scan the QR code in Admin > WhatsApp.");
+    const to = normalizePhone(o.customer.phone); if (!to) throw new Error(`"${o.customer.phone}" is not a valid phone number.`);
+    const key = withPhoto ? o.items.find((i) => i.thumbKey)?.thumbKey : null;
+    const imageUrl = key && this.d.mediaUrl ? this.d.mediaUrl(key) : null;
+    const row = await this.d.store.claim("custom", `order:${o.id}:${randomUUID()}`, to); if (!row) throw new Error("Could not record the message. Try again.");
+    try { await this.d.provider.sendText(to, text, imageUrl ? { imageUrl } : undefined); await this.d.store.finish(row.id, "sent", null); }
+    catch (e) { const m = String((e as Error).message ?? e).slice(0, 500); await this.d.store.finish(row.id, "failed", m); this.d.log?.error({ kind: "order-manual", err: m }, "whatsapp manual order message failed"); throw new Error(m); }
+  }
+
   // ---- Admin tools (QR mode): numbers added by hand, product messages to many people, free text messages. ----
   contacts() { return this.d.store.listContacts(); }
   addContacts(phones: string[]) { return this.d.store.addContacts(phones); }

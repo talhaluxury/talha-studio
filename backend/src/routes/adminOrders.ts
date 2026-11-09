@@ -1,12 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { notFound } from "../errors.js";
+import { conflict, notFound } from "../errors.js";
 import type { Config } from "../config.js";
 import { noEvents, type OrderEvents } from "../events.js";
 import { allowedNext, ORDER_STATUSES, STATUS_LABEL } from "../orderStatus.js";
 import type { OrderRec, OrderStore } from "../orderStore.js";
 import type { makeAuth } from "../plugins/auth.js";
 import type { Storage } from "../storage.js";
+import type { WhatsAppService } from "../whatsapp.js";
 import type { Store } from "../store.js";
 import { mapOrderError, toApiOrder, toApiSummary } from "./orders.js";
 
@@ -28,7 +29,7 @@ export const ordersCsv = (os: OrderRec[]) => {
 };
 
 export function adminOrderRoutes(app: FastifyInstance, d: {
-  orders: OrderStore; store: Store; storage: Storage; auth: ReturnType<typeof makeAuth>; cfg: Config; events?: OrderEvents;
+  orders: OrderStore; store: Store; storage: Storage; auth: ReturnType<typeof makeAuth>; cfg: Config; events?: OrderEvents; whatsapp?: WhatsAppService;
 }) {
   const { orders, store, storage, auth, cfg } = d; const events = d.events ?? noEvents;
   const staff = { preHandler: [auth.admin] };
@@ -50,6 +51,17 @@ export function adminOrderRoutes(app: FastifyInstance, d: {
 
   app.get<{ Params: { id: string } }>("/admin/orders/:id", staff, async (req) => {
     const o = await orders.adminGet(idParam.parse(req.params.id)); if (!o) throw notFound("Order not found"); return withNext(o);
+  });
+
+  // "Send on WhatsApp": the message (and product photo) goes out from the number linked in Admin > WhatsApp, same as the automatic order message.
+  app.post<{ Params: { id: string } }>("/admin/orders/:id/whatsapp", { ...staff, config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req) => {
+    const id = idParam.parse(req.params.id);
+    const b = z.object({ text: z.string().trim().min(1).max(1500), photo: z.boolean().default(true) }).parse(req.body);
+    const o = await orders.adminGet(id); if (!o) throw notFound("Order not found");
+    if (!d.whatsapp?.configured) throw conflict("WhatsApp is not linked. Scan the QR code in Admin > WhatsApp.");
+    try { await d.whatsapp.sendOrderMessage(o, b.text, b.photo); } catch (e) { throw conflict((e as Error).message); }
+    await store.logActivity({ adminId: req.user!.id, action: "order.whatsapp", entity: "order", entityId: id, meta: { photo: b.photo }, ip: req.ip });
+    return { sent: true };
   });
 
   app.patch<{ Params: { id: string } }>("/admin/orders/:id/status", staff, async (req) => {

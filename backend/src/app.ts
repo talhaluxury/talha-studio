@@ -114,7 +114,7 @@ export async function buildApp(cfg: Config, deps: Deps) {
     spinRoutes(v1, { spin, coupons: deps.coupons, settings: deps.settings, auth });
     videoRoutes(v1, { videos, catalog, banners: deps.banners, storage, store, auth });
     orderRoutes(v1, { orders, storage, auth, cfg, settings: deps.settings, events });
-    adminOrderRoutes(v1, { orders, store, storage, auth, cfg, events });
+    adminOrderRoutes(v1, { orders, store, storage, auth, cfg, events, whatsapp: deps.whatsapp });
     adminCommerceRoutes(v1, { coupons: deps.coupons, banners: deps.banners, settings: deps.settings, storage, images, store, auth, videos });
     infoRoutes(v1, { settings: deps.settings, returnWindowDays: cfg.RETURN_WINDOW_DAYS, store, orders, push: deps.pushStore, auth });
     pushRoutes(v1, { store, push: deps.pushStore, svc: deps.push, auth });

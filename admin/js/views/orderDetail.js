@@ -1,5 +1,5 @@
 import { api } from "../api.js";
-import { firstImage, inApp, MESSAGE_KINDS, orderMessage, sendWhatsApp } from "../waOrder.js";
+import { firstImage, MESSAGE_KINDS, orderMessage, sendViaStore, sendWhatsApp } from "../waOrder.js";
 import { clear, confirmDialog, fmtDate, h, money, put, showFieldErrors, STATUS_LABEL, statusBadge, toast } from "../ui.js";
 
 export async function renderOrderDetail(view, id) {
@@ -19,22 +19,23 @@ export async function renderOrderDetail(view, id) {
     const photo = h("input", { type: "checkbox", id: "waphoto", checked: !!img, disabled: !img });
     const go = h("button", { class: "btn wabtn", type: "button", onclick: async () => {
       if (!text.value.trim()) { toast("Write a message first.", "error"); return; }
-      go.disabled = true; try { await sendWhatsApp(o, text.value, { photo: photo.checked }); } finally { go.disabled = false; }
-    } }, "Open WhatsApp");
+      go.disabled = true; try { await sendViaStore(o, text.value, photo.checked); } finally { go.disabled = false; }
+    } }, "Send on WhatsApp");
+    const open = h("button", { class: "btn ghost", type: "button", onclick: () => sendWhatsApp(o, text.value, { photo: photo.checked }) }, "Open in my WhatsApp");
     const mark = o.status === "pending" && o.allowedNext.includes("confirmed") ? h("button", { class: "btn ghost", type: "button", onclick: async (ev) => {
       ev.target.disabled = true;
       try { o = await api(`/admin/orders/${o.id}/status`, { method: "PATCH", body: { status: "confirmed", note: "Confirmed by admin on WhatsApp", trackingUrl: null } }); toast("Order marked Confirmed"); draw(); }
       catch (e) { toast(e.message, "error"); ev.target.disabled = false; }
     } }, "Mark order Confirmed") : null;
     return h("div", { class: "card wa" }, h("h2", {}, "WhatsApp customer"),
-      h("p", { class: aiOn === false ? "" : "muted" }, aiOn === false ? "AI auto-reply is OFF, so you confirm this order yourself: tap Open WhatsApp, press Send, then mark the order Confirmed."
+      h("p", { class: aiOn === false ? "" : "muted" }, aiOn === false ? "AI auto-reply is OFF, so you confirm this order yourself: tap Send on WhatsApp, then mark the order Confirmed."
         : "The AI messages customers automatically. Use this when you want to write to the customer yourself."),
       h("div", { class: "wahead" }, img ? h("img", { class: "wapic", src: img, alt: "" }) : null,
         h("div", {}, h("b", {}, o.customer.name), h("div", { class: "hint" }, o.customer.phone), h("div", { class: "hint" }, o.items[0]?.name ?? ""))),
       h("div", { class: "field" }, h("label", { for: "wakind" }, "Message"), kind), text,
       h("label", { class: "check", for: "waphoto" }, photo, "Attach product photo"),
-      h("p", { class: "hint" }, inApp() ? "WhatsApp opens on this customer's chat with the photo and message ready. You only press Send." : "WhatsApp opens with the message ready. With a photo, choose WhatsApp in the share list."),
-      h("div", { class: "row" }, go, mark));
+      h("p", { class: "hint" }, "Goes out from the WhatsApp number linked in the WhatsApp menu, like the automatic messages. \"Open in my WhatsApp\" is only a backup."),
+      h("div", { class: "row" }, go, mark, open));
   }
 
   function draw() {
