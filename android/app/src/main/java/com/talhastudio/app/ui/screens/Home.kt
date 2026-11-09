@@ -7,12 +7,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DonutLarge
+import androidx.compose.material.icons.outlined.MovieCreation
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.runtime.LaunchedEffect
@@ -112,13 +114,20 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                     }
                 }
                 if (d.collections.isEmpty()) item { EmptyState("New collection coming soon", "Our products will appear here as soon as they are published.") }
+                // "Watch & Shop" video cards sit right under On Sale (at the end of the collections when there is no sale section).
+                var reelsShown = false
+                fun LazyListScope.reelsRow() { if (!reelsShown && d.reels.isNotEmpty()) { reelsShown = true
+                    item(key = "h-reels") { SectionHeader("Watch & Shop") }
+                    item(key = "r-reels") { ReelRow(d.reels) { onBrowse(it) } } } }
                 d.collections.forEach { col ->
                     item(key = "h-${col.slug}") { SectionHeader(col.title, "View All") { onBrowse("@${col.slug}|${col.title}") } }
                     item(key = "r-${col.slug}") { ProductRow(shop, col.products, onOpenProduct) }
                     if (col.banners.isNotEmpty()) item(key = "b-${col.slug}") {
                         BannerCarousel(col.banners) { link -> routeFor(link)?.takeIf { it.startsWith("product/") }?.let { onOpenProduct(it.removePrefix("product/")) } ?: onBrowse(null) }
                     }
+                    if (col.slug == "sale") reelsRow()
                 }
+                reelsRow()
             }
         }
         val rec = recent.state
@@ -143,6 +152,21 @@ fun SectionHeader(title: String, action: String? = null, onAction: () -> Unit = 
 fun ProductRow(shop: ShopViewModel, list: List<Product>, onOpen: (String) -> Unit) {
     LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         items(list, key = { it.id }) { p -> ProductCard(p, shop.isWished(p.id), { onOpen(p.id) }, { shop.toggleWishlist(p.id) }, Modifier.width(168.dp)) }
+    }
+}
+
+/** Row of autoplaying video cards (muted, looping). Only the cards on screen play; a tap opens the category or section the owner linked. */
+@Composable
+private fun ReelRow(reels: List<com.talhastudio.app.data.Reel>, onOpen: (String?) -> Unit) {
+    LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        items(reels, key = { it.id }) { r ->
+            Box(Modifier.width(172.dp).height(250.dp).clip(RoundedCornerShape(24.dp)).background(TS.Black).clickable { onOpen(r.browse) }) {
+                VideoPlayer(r.videoUrl, Modifier.fillMaxSize(), autoplay = true, muted = true, loop = true, controls = false)
+                Icon(Icons.Outlined.MovieCreation, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).size(24.dp))
+                Text(r.title, color = androidx.compose.ui.graphics.Color.White, maxLines = 2, style = MaterialTheme.typography.titleMedium.copy(shadow = androidx.compose.ui.graphics.Shadow(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.7f), blurRadius = 8f)),
+                    modifier = Modifier.align(Alignment.BottomStart).padding(14.dp))
+            }
+        }
     }
 }
 

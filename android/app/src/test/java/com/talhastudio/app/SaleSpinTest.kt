@@ -1,5 +1,6 @@
 package com.talhastudio.app
 
+import com.talhastudio.app.data.parseReel
 import com.talhastudio.app.data.parseSale
 import com.talhastudio.app.data.parseSpinResult
 import com.talhastudio.app.data.parseSpinStatus
@@ -39,5 +40,11 @@ class SaleSpinTest {
         assertNull(parseSpinStatus(JSONObject("""{"active":false,"percents":[],"canSpin":false,"nextAt":null}""")).nextAt)
         val r = parseSpinResult(JSONObject("""{"index":2,"percent":15,"code":"SPINABC234","expiresAt":"2026-11-11T10:00:00.000Z"}"""))
         assertEquals(2, r.index); assertEquals(15, r.percent); assertEquals("SPINABC234", r.code)
+    }
+
+    @Test fun reelParsing() {
+        val a = parseReel(JSONObject("""{"id":"r1","title":"Winter looks","browse":"women","videoUrl":"https://m/v.mp4"}"""))
+        assertEquals("Winter looks", a.title); assertEquals("women", a.browse); assertEquals("https://m/v.mp4", a.videoUrl)
+        assertNull(parseReel(JSONObject("""{"id":"r2","title":"All","browse":null,"videoUrl":"https://m/w.mp4"}""")).browse)
     }
 }

@@ -1,5 +1,6 @@
 import type { SectionStore } from "../sectionStore.js";
 import type { VideoStore } from "../videoStore.js";
+import type { ReelStore } from "../reelStore.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { notFound } from "../errors.js";
@@ -42,8 +43,8 @@ export async function priceCfgFrom(settings: SettingsStore, cfg: Pick<Config, "M
   return { SHIPPING_FLAT_PKR: s.shipping.flat, FREE_SHIPPING_OVER_PKR: s.shipping.freeOver, MAX_COD_ORDER_PKR: cfg.MAX_COD_ORDER_PKR };
 }
 
-export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; storage: Storage; cfg: Config; settings: SettingsStore; banners: BannerStore; coupons: CouponStore; videos?: VideoStore; sections?: SectionStore }) {
-  const { catalog, storage, cfg, settings, banners, coupons, videos, sections } = d;
+export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; storage: Storage; cfg: Config; settings: SettingsStore; banners: BannerStore; coupons: CouponStore; videos?: VideoStore; sections?: SectionStore; reels?: ReelStore }) {
+  const { catalog, storage, cfg, settings, banners, coupons, videos, sections, reels } = d;
   /** The product filter behind each home section, so "View all" shows exactly what the section shows. */
   const sectionFilter = async (slug?: string): Promise<{ featured?: boolean; onSale?: boolean; newArrival?: boolean; ids?: string[] }> => {
     if (!slug) return {};
@@ -82,6 +83,9 @@ export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; 
       banners.live(new Date()), settings.load(),
     ]);
     const secs = sections ? await sections.list(true) : [];
+    const reelRows = reels ? (await reels.list(true)).filter((r) => r.videoKey) : [];
+    const titles: Record<string, string> = { "new-arrivals": "New Arrivals", featured: "Featured", sale: "On Sale", ...Object.fromEntries(secs.map((s) => [s.slug, s.title])) };
+    const browseOf = (t: string | null) => !t ? null : t.startsWith("cat:") ? t.slice(4) : `@${t.slice(4)}|${titles[t.slice(4)] ?? t.slice(4)}`;      // same text the app's "View all" uses
     const customCols = await Promise.all(secs.map(async (s) => ({ slug: s.slug, title: s.title, items: s.productIds.length ? (await catalog.listProducts({ ...base, ids: s.productIds })).items : [] })));
     const bv = videos ? await videos.getMany("banner", live.map((b) => b.id)) : new Map<string, string>();
     const known = new Set<string>(["top", "new-arrivals", "featured", "sale", ...secs.map((s) => s.slug)]);      // a banner pointing at a removed section falls back to the top carousel
@@ -90,6 +94,7 @@ export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; 
     const col = (slug: string, title: string, r: { items: Parameters<typeof toApiProduct>[0][] }) => ({ slug, title, products: r.items.map((p) => toApiProduct(p, storage)) });
     return {
       announcement: st.announcement.active && st.announcement.text ? st.announcement.text : null,
+      reels: reelRows.map((r) => ({ id: r.id, title: r.title, browse: browseOf(r.target), videoUrl: storage.url(r.videoKey!) })),
       sale: saleOf(st, new Date()), serverNow: new Date().toISOString(),
       spin: st.spin.active && st.spin.percents.length > 0,
       banners: live.filter((b) => b.placement === "top" || !known.has(b.placement)).map(bannerJson),

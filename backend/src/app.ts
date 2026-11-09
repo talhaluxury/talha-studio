@@ -48,8 +48,10 @@ import { whatsappRoutes } from "./routes/whatsapp.js";
 import { contentRoutes } from "./routes/content.js";
 import { MemorySpin, type SpinStore } from "./spinStore.js";
 import { spinRoutes } from "./routes/spin.js";
+import { MemoryReels, type ReelStore } from "./reelStore.js";
+import { reelRoutes } from "./routes/reels.js";
 
-export interface Deps { spin?: SpinStore; videos?: VideoStore; sections?: SectionStore; whatsapp?: WhatsAppService; waQr?: BaileysWhatsApp; assistant?: AssistantService; chat: ChatStore; slides: SlideStore; status: StatusStore; coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
+export interface Deps { reels?: ReelStore; spin?: SpinStore; videos?: VideoStore; sections?: SectionStore; whatsapp?: WhatsAppService; waQr?: BaileysWhatsApp; assistant?: AssistantService; chat: ChatStore; slides: SlideStore; status: StatusStore; coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
 
 export function googleVerifier(clientId: string): GoogleVerifier {
   const client = new OAuth2Client(clientId);
@@ -71,6 +73,7 @@ export async function buildApp(cfg: Config, deps: Deps) {
   const videos = deps.videos ?? new MemoryVideos();
   const sections = deps.sections ?? new MemorySections();
   const spin = deps.spin ?? new MemorySpin();
+  const reels = deps.reels ?? new MemoryReels();
   const google = deps.google ?? googleVerifier(cfg.GOOGLE_WEB_CLIENT_ID);
   const serverOptions: FastifyServerOptions = {
     logger: cfg.NODE_ENV === "test" ? false : { level: "info", redact: ["req.headers.authorization", "req.headers.cookie"] },
@@ -105,7 +108,8 @@ export async function buildApp(cfg: Config, deps: Deps) {
     authRoutes(v1, { store, secret: cfg.JWT_ACCESS_SECRET, google, whatsapp: deps.whatsapp });
     meRoutes(v1, { store, auth, onDelete: async (id) => { for (const k of await deps.chat.deleteForCustomer(id)) await storage.delete(k).catch(() => {}); } });
     adminRoutes(v1, { store, auth });
-    catalogRoutes(v1, { catalog, storage, cfg, settings: deps.settings, banners: deps.banners, coupons: deps.coupons, videos, sections });
+    catalogRoutes(v1, { catalog, storage, cfg, settings: deps.settings, banners: deps.banners, coupons: deps.coupons, videos, sections, reels });
+    reelRoutes(v1, { reels, storage, store, auth });
     sectionRoutes(v1, { sections, store, auth });
     spinRoutes(v1, { spin, coupons: deps.coupons, settings: deps.settings, auth });
     videoRoutes(v1, { videos, catalog, banners: deps.banners, storage, store, auth });

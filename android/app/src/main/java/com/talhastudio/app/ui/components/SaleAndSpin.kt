@@ -23,10 +23,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -95,16 +99,22 @@ fun SaleChip(remainingMs: Long, modifier: Modifier = Modifier) {
     }
 }
 
-/** Little wheel for the home header; it turns slowly so customers notice it. */
+/** Prize-wheel badge for the home header: polished gold rim, burgundy and cream slices that turn slowly, a gold hub and a red pointer. */
 @Composable
 fun SpinWheelButton(onClick: () -> Unit) {
     val t = rememberInfiniteTransition(label = "spinicon")
-    val deg by t.animateFloat(0f, 360f, infiniteRepeatable(tween(9000, easing = LinearEasing)), label = "deg")
-    IconButton(onClick, Modifier.semantics { contentDescription = "Spin and win a discount" }) {
-        Canvas(Modifier.size(26.dp).graphicsLayer { rotationZ = deg }) {
-            val n = 6; val sweep = 360f / n
-            for (i in 0 until n) drawArc(color = if (i % 2 == 0) TS.Gold else Color.White.copy(0.92f), startAngle = -90f + i * sweep, sweepAngle = sweep, useCenter = true)
-            drawCircle(TS.Black, radius = size.minDimension * 0.15f)
+    val deg by t.animateFloat(0f, 360f, infiniteRepeatable(tween(14000, easing = LinearEasing)), label = "deg")
+    IconButton(onClick, Modifier.size(48.dp).semantics { contentDescription = "Spin and win a discount" }) {
+        Canvas(Modifier.size(34.dp)) {
+            val r = size.minDimension / 2f
+            drawCircle(brush = Brush.sweepGradient(listOf(Color(0xFFF3DFA2), Color(0xFFB99A62), Color(0xFF8A6A32), Color(0xFFE8CC85), Color(0xFFF3DFA2))), radius = r)
+            val inner = r * 0.80f
+            rotate(deg) {
+                for (i in 0 until 8) drawArc(color = if (i % 2 == 0) Color(0xFF7A1633) else Color(0xFFFAF1D6), startAngle = -90f + i * 45f, sweepAngle = 45f, useCenter = true,
+                    topLeft = Offset(center.x - inner, center.y - inner), size = Size(inner * 2f, inner * 2f))
+            }
+            drawCircle(Color(0xFFB99A62), radius = r * 0.27f); drawCircle(Color(0xFF080808), radius = r * 0.11f)
+            drawPath(Path().apply { moveTo(center.x - r * 0.15f, 0f); lineTo(center.x + r * 0.15f, 0f); lineTo(center.x, r * 0.32f); close() }, Color(0xFFD62839))
         }
     }
 }

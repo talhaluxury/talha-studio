@@ -123,7 +123,9 @@ export function adminCatalogRoutes(app: FastifyInstance, d: {
   app.post("/admin/products/bulk-update", write, async (req) => {
     const b = z.object({
       ids: z.array(idParam).min(1).max(100),
-      set: z.object({ isFeatured: z.boolean().optional(), isNew: z.boolean().optional(), isPublished: z.boolean().optional(), categoryId: idParam.optional(), discountPercent: z.number().int().min(0).max(90).optional() })
+      set: z.object({ isFeatured: z.boolean().optional(), isNew: z.boolean().optional(), isPublished: z.boolean().optional(), categoryId: idParam.optional(), discountPercent: z.number().int().min(0).max(90).optional(),
+        // Product information: only the fields that are sent are changed on every selected product.
+        description: z.string().trim().max(5000).optional(), fabric: z.string().trim().max(60).optional(), price: z.number().int().min(1).max(10_000_000).optional(), stock: z.number().int().min(0).max(100000).optional() })
         .refine((s) => Object.values(s).some((v) => v !== undefined), "Choose what to change"),
     }).parse(req.body);
     let updated = 0; const skipped: { id: string; name: string; reason: string }[] = [];
@@ -134,9 +136,18 @@ export function adminCatalogRoutes(app: FastifyInstance, d: {
       if (s.isNew !== undefined) over.isNew = s.isNew;
       if (s.categoryId) over.categoryId = s.categoryId;
       if (s.isPublished !== undefined) over.isPublished = s.isPublished;
+      if (s.description !== undefined) over.description = s.description;
+      if (s.fabric !== undefined) over.fabric = s.fabric || null;                       // an empty box clears the fabric
+      if (s.stock !== undefined) over.variants = cur.variants.map((v) => ({ sku: v.sku, size: v.size, color: v.color, stock: s.stock! }));
+      if (s.price !== undefined) {
+        const sale = s.discountPercent === undefined ? cur.salePrice : null;           // a new price together with a new discount is judged below
+        if (sale != null && sale >= s.price) { skipped.push({ id, name: cur.name, reason: "The new price is not above its sale price" }); continue; }
+        over.price = s.price;
+      }
       if (s.discountPercent !== undefined) {
-        const sale = s.discountPercent === 0 ? null : Math.max(1, Math.round((cur.price * (100 - s.discountPercent)) / 100));
-        if (sale !== null && sale >= cur.price) { skipped.push({ id, name: cur.name, reason: "Discount too small for this price" }); continue; }
+        const base = s.price ?? cur.price;
+        const sale = s.discountPercent === 0 ? null : Math.max(1, Math.round((base * (100 - s.discountPercent)) / 100));
+        if (sale !== null && sale >= base) { skipped.push({ id, name: cur.name, reason: "Discount too small for this price" }); continue; }
         over.salePrice = sale;
       }
       try {

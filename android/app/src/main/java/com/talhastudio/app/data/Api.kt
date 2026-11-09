@@ -70,6 +70,7 @@ fun parseError(status: Int, text: String): ApiException {
 }
 fun parseNotification(o: JSONObject) = AppNotification(o.getString("id"), o.getString("title"), o.getString("body"), o.str("deepLink"), o.optString("kind", "order"), o.optBoolean("read", false), o.getString("createdAt"))
 fun parsePrefs(o: JSONObject) = NotifPrefs(o.optBoolean("orderUpdates", true), o.optBoolean("promotions", true))
+fun parseReel(o: JSONObject) = Reel(o.getString("id"), o.getString("title"), o.str("browse"), o.getString("videoUrl"))
 fun parseBanner(o: JSONObject) = Banner(o.getString("id"), o.getString("title"), o.str("subtitle"), o.str("ctaLabel"), o.str("ctaLink"), o.str("imageUrl"), o.str("videoUrl"))
 fun parseStoreInfo(o: JSONObject) = StoreInfo(o.getString("name"), o.str("supportEmail"), o.str("supportPhone"), o.str("address"), o.str("estimatedDelivery"), o.getJSONObject("shipping").let { it.getInt("flat") to it.getInt("freeOver") }, o.optInt("returnWindowDays", 7),
     o.optJSONArray("pages").mapObjects { it.getString("slug") to it.getString("title") },
@@ -227,7 +228,7 @@ object Repo {
     private fun parseHome(o: JSONObject): HomeData {
         return HomeData(parseCategories(o.optJSONArray("categories")),
             o.optJSONArray("collections").mapObjects { c -> HomeCollection(c.getString("slug"), c.getString("title"), c.optJSONArray("products").mapObjects { parseProduct(it) }, c.optJSONArray("banners").mapObjects { parseBanner(it) }) },
-            o.optJSONArray("banners").mapObjects { parseBanner(it) }, o.str("announcement"), o.optBoolean("spin", false))
+            o.optJSONArray("banners").mapObjects { parseBanner(it) }, o.str("announcement"), o.optBoolean("spin", false), o.optJSONArray("reels").mapObjects { parseReel(it) })
     }
     /** The running sale, or null when there is none. Throws ApiException when the server cannot be reached. */
     suspend fun sale(): Sale? = parseSale(Http.request("GET", "/sale"), android.os.SystemClock.elapsedRealtime())

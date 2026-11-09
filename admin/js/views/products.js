@@ -4,7 +4,7 @@ import { clear, confirmDialog, debounce, h, money, put, toast } from "../ui.js";
 const LIMIT = 15;
 const ACTIONS = {
   new_on: "Add to New Arrivals", new_off: "Remove from New Arrivals", feat_on: "Add to Featured", feat_off: "Remove from Featured",
-  sale: "Put on sale (discount %)", sale_off: "Remove sale", pub: "Publish", unpub: "Unpublish", cat: "Move to category", del: "Delete",
+  info: "Change information (description, fabric, price, stock)", sale: "Put on sale (discount %)", sale_off: "Remove sale", pub: "Publish", unpub: "Unpublish", cat: "Move to category", del: "Delete",
 };
 const SECTIONS = { "": "All sections", newArrival: "New Arrivals", featured: "Featured", onSale: "On Sale" };
 
@@ -33,7 +33,14 @@ export async function renderProducts(view) {
     const action = h("select", { "aria-label": "What to do" }, Object.entries(ACTIONS).map(([v, t]) => h("option", { value: v }, t)));
     const pct = h("input", { type: "number", min: 1, max: 90, value: 20, "aria-label": "Discount percent", style: "width:90px;display:none" });
     const to = h("select", { "aria-label": "Category", style: "display:none" }, cats.map((c) => h("option", { value: c.id }, c.name)));
-    action.onchange = () => { pct.style.display = action.value === "sale" ? "" : "none"; to.style.display = action.value === "cat" ? "" : "none"; };
+    // "Change information": fill only what should change; every selected product gets it. Empty boxes are left as they are.
+    const desc = h("textarea", { rows: 3, maxlength: 5000, placeholder: "Description (leave empty to keep each product's own)", "aria-label": "Description", style: "width:100%" });
+    const fab = h("input", { maxlength: 60, placeholder: "Fabric, e.g. Lawn", "aria-label": "Fabric" });
+    const price = h("input", { type: "number", min: 1, placeholder: "Price (Rs.)", "aria-label": "Price" });
+    const stock = h("input", { type: "number", min: 0, placeholder: "Stock for every size", "aria-label": "Stock for every size" });
+    const infoBox = h("div", { style: "display:none;flex-basis:100%;gap:8px;flex-direction:column" }, desc, h("div", { class: "grid2" }, fab, price, stock),
+      h("p", { class: "hint" }, "Only the boxes you fill in are changed, on all selected products. A product's sale price stays as it is."));
+    action.onchange = () => { pct.style.display = action.value === "sale" ? "" : "none"; to.style.display = action.value === "cat" ? "" : "none"; infoBox.style.display = action.value === "info" ? "flex" : "none"; };
     const go = h("button", { class: "btn gold", onclick: async () => {
       const ids = [...selected]; const a = action.value; let url = "/admin/products/bulk-update"; let body;
       if (a === "del") {
@@ -43,7 +50,15 @@ export async function renderProducts(view) {
         const set = { new_on: { isNew: true }, new_off: { isNew: false }, feat_on: { isFeatured: true }, feat_off: { isFeatured: false }, sale: { discountPercent: Number(pct.value) || 0 },
           sale_off: { discountPercent: 0 }, pub: { isPublished: true }, unpub: { isPublished: false }, cat: { categoryId: to.value } }[a];
         if (a === "sale" && !(set.discountPercent >= 1 && set.discountPercent <= 90)) { toast("Discount must be between 1 and 90", "error"); return; }
-        body = { ids, set };
+        if (a === "info") {
+          const info = {}; if (desc.value.trim()) info.description = desc.value.trim(); if (fab.value.trim()) info.fabric = fab.value.trim();
+          if (price.value !== "") info.price = Number(price.value); if (stock.value !== "") info.stock = Number(stock.value);
+          if (!Object.keys(info).length) { toast("Fill in at least one box to change", "error"); return; }
+          if (info.price !== undefined && !(info.price >= 1)) { toast("Price must be at least 1", "error"); return; }
+          if (info.stock !== undefined && !(info.stock >= 0)) { toast("Stock cannot be negative", "error"); return; }
+          body = { ids, set: info };
+        }
+        if (a !== "info") body = { ids, set };
       }
       try {
         const r = await api(url, { method: "POST", body });
@@ -52,7 +67,7 @@ export async function renderProducts(view) {
         selected.clear(); await load();
       } catch (e) { toast(e.message, "error"); }
     } }, "Apply");
-    put(clear(bar), h("div", { class: "row", style: "flex-wrap:wrap;gap:8px;align-items:center" }, h("b", {}, `${selected.size} selected`), action, pct, to, go,
+    put(clear(bar), h("div", { class: "row", style: "flex-wrap:wrap;gap:8px;align-items:center" }, h("b", {}, `${selected.size} selected`), action, pct, to, go, infoBox,
       h("button", { class: "btn ghost sm", onclick: () => { selected.clear(); drawBar(); load(); } }, "Clear")));
   }
 

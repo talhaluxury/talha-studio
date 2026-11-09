@@ -12,6 +12,7 @@ import { renderOrders } from "./views/orders.js";
 import { renderEmail } from "./views/email.js";
 import { renderCampaigns } from "./views/campaigns.js";
 import { renderBanners, renderCoupons } from "./views/promos.js";
+import { renderReels } from "./views/reels.js";
 import { renderStoreSettings } from "./views/storeSettings.js";
 import { renderActivity, renderCustomers } from "./views/people.js";
 import { chatUnread, renderChatInbox, renderChatThread } from "./views/chat.js";
@@ -24,7 +25,7 @@ const NAV = [["#/dashboard", "Dashboard"], ["#/orders", "Orders"], ["#/chat", "C
 /** Menu by role: staff fulfil orders; admins also run promotions; the owner also sees settings and the audit trail. */
 const navFor = (role) => {
   if (role !== "admin" && role !== "owner") return NAV;
-  const more = [["#/sections", "Home sections"], ["#/banners", "Banners"], ["#/status", "Status"], ["#/whatsapp", "WhatsApp"], ["#/welcome", "Welcome screens"], ["#/coupons", "Coupons"], ["#/customers", "Customers"], ["#/campaigns", "Notifications"]];
+  const more = [["#/sections", "Home sections"], ["#/banners", "Banners"], ["#/reels", "Video cards"], ["#/status", "Status"], ["#/whatsapp", "WhatsApp"], ["#/welcome", "Welcome screens"], ["#/coupons", "Coupons"], ["#/customers", "Customers"], ["#/campaigns", "Notifications"]];
   return role === "owner" ? [...NAV, ...more, ["#/store", "Store settings"], ["#/email", "Email & settings"], ["#/activity", "Activity log"]] : [...NAV, ...more, ["#/email", "Email log"]];
 };
 
@@ -71,6 +72,7 @@ async function route() {
     else if (section === "whatsapp") await renderWhatsapp(view);
     else if (section === "welcome") await renderWelcome(view);
     else if (section === "banners") await renderBanners(view);
+    else if (section === "reels") await renderReels(view);
     else if (section === "coupons") await renderCoupons(view);
     else if (section === "store") await renderStoreSettings(view);
     else if (section === "customers") await renderCustomers(view);
