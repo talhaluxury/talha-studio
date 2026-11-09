@@ -1,11 +1,41 @@
 import { api } from "../api.js";
+import { firstImage, inApp, MESSAGE_KINDS, orderMessage, sendWhatsApp } from "../waOrder.js";
 import { clear, confirmDialog, fmtDate, h, money, put, showFieldErrors, STATUS_LABEL, statusBadge, toast } from "../ui.js";
 
 export async function renderOrderDetail(view, id) {
   let o = await api(`/admin/orders/${id}`);
+  let aiOn = null; try { aiOn = (await api("/admin/ai-replies")).enabled; } catch { /* staff accounts cannot read it: the card still works */ }
   const root = h("div", {});
   put(clear(view), root);
   draw();
+
+
+  /** Manual WhatsApp: works whether the AI is on or off. Opens WhatsApp on this customer's chat with the message and product photo ready. */
+  function waCard() {
+    const img = firstImage(o);
+    const kind = h("select", { id: "wakind", "aria-label": "Message type" }, Object.entries(MESSAGE_KINDS).map(([v, t]) => h("option", { value: v }, t)));
+    const text = h("textarea", { id: "watext", maxlength: 1500, "aria-label": "WhatsApp message" }, orderMessage(o, "confirm"));
+    kind.addEventListener("change", () => { text.value = orderMessage(o, kind.value); });
+    const photo = h("input", { type: "checkbox", id: "waphoto", checked: !!img, disabled: !img });
+    const go = h("button", { class: "btn wabtn", type: "button", onclick: async () => {
+      if (!text.value.trim()) { toast("Write a message first.", "error"); return; }
+      go.disabled = true; try { await sendWhatsApp(o, text.value, { photo: photo.checked }); } finally { go.disabled = false; }
+    } }, "Open WhatsApp");
+    const mark = o.status === "pending" && o.allowedNext.includes("confirmed") ? h("button", { class: "btn ghost", type: "button", onclick: async (ev) => {
+      ev.target.disabled = true;
+      try { o = await api(`/admin/orders/${o.id}/status`, { method: "PATCH", body: { status: "confirmed", note: "Confirmed by admin on WhatsApp", trackingUrl: null } }); toast("Order marked Confirmed"); draw(); }
+      catch (e) { toast(e.message, "error"); ev.target.disabled = false; }
+    } }, "Mark order Confirmed") : null;
+    return h("div", { class: "card wa" }, h("h2", {}, "WhatsApp customer"),
+      h("p", { class: aiOn === false ? "" : "muted" }, aiOn === false ? "AI auto-reply is OFF, so you confirm this order yourself: tap Open WhatsApp, press Send, then mark the order Confirmed."
+        : "The AI messages customers automatically. Use this when you want to write to the customer yourself."),
+      h("div", { class: "wahead" }, img ? h("img", { class: "wapic", src: img, alt: "" }) : null,
+        h("div", {}, h("b", {}, o.customer.name), h("div", { class: "hint" }, o.customer.phone), h("div", { class: "hint" }, o.items[0]?.name ?? ""))),
+      h("div", { class: "field" }, h("label", { for: "wakind" }, "Message"), kind), text,
+      h("label", { class: "check", for: "waphoto" }, photo, "Attach product photo"),
+      h("p", { class: "hint" }, inApp() ? "WhatsApp opens on this customer's chat with the photo and message ready. You only press Send." : "WhatsApp opens with the message ready. With a photo, choose WhatsApp in the share list."),
+      h("div", { class: "row" }, go, mark));
+  }
 
   function draw() {
     const a = o.address;
@@ -33,6 +63,7 @@ export async function renderOrderDetail(view, id) {
         h("div", { class: "card" }, h("h2", {}, "Delivery address"),
           h("dl", { class: "kv" }, h("dt", {}, "Address"), h("dd", {}, [a.line1, a.line2].filter(Boolean).join(", ")), h("dt", {}, "City"), h("dd", {}, [a.city, a.province, a.postalCode].filter(Boolean).join(", ")),
             o.notes ? [h("dt", {}, "Customer note"), h("dd", {}, o.notes)] : null, o.trackingUrl ? [h("dt", {}, "Tracking"), h("dd", {}, o.trackingUrl)] : null))),
+      waCard(),
       h("div", { class: "card" }, h("h2", {}, "Items"),
         h("table", {}, h("thead", {}, h("tr", {}, ["", "Product", "Options", "Price", "Qty", "Line total"].map((t) => h("th", { scope: "col" }, t)))),
           h("tbody", {}, o.items.map((i) => h("tr", {},

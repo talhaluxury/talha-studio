@@ -17,16 +17,17 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 /* shell */
 .shell { display: grid; grid-template-columns: var(--side) 1fr; min-height: 100dvh; }
-.side { background: var(--black); color: var(--ivory); padding: 24px 16px; position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column; gap: 28px; }
+.side { background: var(--black); color: var(--ivory); padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column; gap: 20px; overflow: hidden; }
+.side .brand, .side .who { flex: none; }
 .brand { display: flex; align-items: center; gap: 12px; padding: 0 6px; }
 .brand img { width: 44px; height: 44px; border-radius: 12px; }
 .brand b { font: 500 1.1rem var(--display); letter-spacing: .22em; display: block; }
 .brand small { color: var(--gold); letter-spacing: .3em; font-size: .62rem; }
-.nav { display: grid; gap: 4px; }
+.nav { display: grid; gap: 4px; align-content: start; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; scrollbar-width: thin; scrollbar-color: #333 transparent; }
 .nav a { color: #d9d3c7; text-decoration: none; padding: 11px 14px; border-radius: 9px; display: block; }
 .nav a:hover { background: #181818; }
 .nav a[aria-current="page"] { background: #1d1a14; color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); }
-.side .who { margin-top: auto; font-size: .85rem; color: #a9a398; }
+.side .who { font-size: .85rem; color: #a9a398; border-top: 1px solid #222; padding-top: 14px; }
 .side .who button { margin-top: 10px; }
 .main { padding: 28px clamp(16px, 3vw, 40px) 64px; min-width: 0; max-width: 1180px; width: 100%; }
 .top { display: none; }
@@ -156,3 +157,13 @@ div.slideimg.empty { display: grid; place-items: center; padding: 8px; font-size
 .bubble.theirs { align-self: flex-start; border-bottom-left-radius: 4px; } .bubble.mine { align-self: flex-end; background: var(--black); color: var(--ivory); border-bottom-right-radius: 4px; }
 .bubble small { display: block; text-align: right; opacity: .6; font-size: .72rem; margin-top: 2px; } .bubble img { max-width: 100%; border-radius: 10px; display: block; margin-bottom: 4px; }
 .composer { display: flex; gap: 10px; padding: 12px; border-top: 1px solid var(--line); align-items: flex-end; background: var(--surface); } .composer textarea { min-height: 44px; max-height: 120px; resize: none; }
+
+/* WhatsApp card (order detail) */
+.wa { border-color: #cfe3d4; }
+.wa .wahead { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 14px; }
+.wa .wapic { width: 84px; aspect-ratio: 4/5; object-fit: cover; border-radius: 10px; background: var(--neutral); }
+.wa textarea { min-height: 220px; font-size: .92rem; line-height: 1.45; }
+.btn.wabtn { background: #1faa59; color: #fff; font-weight: 600; } .btn.wabtn:hover { background: #17934b; }
+.btn.wabtn.sm { min-height: 36px; padding: 6px 12px; }
+.row.acts { gap: 8px; flex-wrap: nowrap; }
+@media (max-width: 860px) { td .row.acts { flex-wrap: wrap; justify-content: flex-end; } }

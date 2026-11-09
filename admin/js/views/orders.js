@@ -1,4 +1,5 @@
 import { api, fetchText, session } from "../api.js";
+import { quickWhatsApp } from "../waOrder.js";
 import { clear, debounce, fmtDate, h, money, put, STATUS_LABEL, statusBadge, toast } from "../ui.js";
 
 const LIMIT = 20;
@@ -51,7 +52,7 @@ export async function renderOrders(view) {
           h("td", { "data-label": "Customer" }, o.customerName, h("div", { class: "hint" }, o.customerPhone)),
           h("td", { "data-label": "Items" }, `${o.itemCount}${o.firstItemName ? " · " + o.firstItemName : ""}`),
           h("td", { "data-label": "Total" }, money(o.total)), h("td", { "data-label": "Status" }, statusBadge(o.status)),
-          h("td", { "data-label": "Placed" }, fmtDate(o.createdAt)), h("td", {}, h("a", { class: "btn ghost sm", href: `#/orders/${o.id}` }, "Open")))))),
+          h("td", { "data-label": "Placed" }, fmtDate(o.createdAt)), h("td", {}, h("div", { class: "row acts" }, h("button", { class: "btn wabtn sm", type: "button", "aria-label": `WhatsApp ${o.customerName}`, onclick: (e) => quickWhatsApp(o.id, e.currentTarget) }, "WhatsApp"), h("a", { class: "btn ghost sm", href: `#/orders/${o.id}` }, "Open"))))))),
       h("div", { class: "pager" }, h("span", { class: "muted" }, `${r.total} order${r.total === 1 ? "" : "s"} · page ${state.page} of ${pages}`),
         h("div", { class: "row" }, h("button", { class: "btn ghost sm", disabled: state.page <= 1, onclick: () => { state.page--; load(); } }, "Previous"),
           h("button", { class: "btn ghost sm", disabled: state.page >= pages, onclick: () => { state.page++; load(); } }, "Next"))));

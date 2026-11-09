@@ -57,6 +57,8 @@ class MainActivity : FragmentActivity() {
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         // Fingerprint login: the page can only reach it because it only ever loads our own bundled files.
         web.addJavascriptInterface(BiometricVault(this, web), "TalhaNative")
+        // One-click WhatsApp for orders (opens the customer's chat with message + product photo ready).
+        web.addJavascriptInterface(WhatsAppBridge(this), "TalhaWA")
 
         web.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) = loader.shouldInterceptRequest(request.url)
