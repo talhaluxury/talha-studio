@@ -83,7 +83,7 @@ export async function renderOrders(view) {
           h("td", {}, h("div", { class: "row acts" },
             h("button", { class: "btn wabtn sm", type: "button", "aria-label": `WhatsApp ${o.customerName}`, onclick: (e) => quickWhatsApp(o.id, e.currentTarget) }, "Send WhatsApp"),
             h("a", { class: "btn ghost sm", href: `#/orders/${o.id}` }, "Open"),
-            write ? h("button", { class: "btn danger sm", type: "button", "aria-label": `Delete order ${o.orderNumber}`, onclick: () => deleteOne(o) }, "Delete") : null))))),
+            write ? h("button", { class: "btn danger sm", type: "button", "aria-label": `Delete order ${o.orderNumber}`, onclick: () => deleteOne(o) }, "Delete") : null)))))),
       h("div", { class: "pager" }, h("span", { class: "muted" }, `${r.total} order${r.total === 1 ? "" : "s"} · page ${state.page} of ${pages}`),
         h("div", { class: "row" }, h("button", { class: "btn ghost sm", disabled: state.page <= 1, onclick: () => { state.page--; load(); } }, "Previous"),
           h("button", { class: "btn ghost sm", disabled: state.page >= pages, onclick: () => { state.page++; load(); } }, "Next"))));
