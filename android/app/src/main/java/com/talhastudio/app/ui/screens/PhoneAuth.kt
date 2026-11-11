@@ -41,7 +41,7 @@ private fun darkFieldColors() = OutlinedTextFieldDefaults.colors(
 
 /** Sign in or sign up with a mobile number + password, then [onDone] opens the chat. */
 @Composable
-fun PhoneAuthScreen(onBack: () -> Unit, onDone: () -> Unit) {
+fun PhoneAuthScreen(onBack: () -> Unit, onDone: () -> Unit, openChat: Boolean = true) {
     var creating by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }; var phone by remember { mutableStateOf("") }; var password by remember { mutableStateOf("") }
     var show by remember { mutableStateOf(false) }; var busy by remember { mutableStateOf(false) }
@@ -71,7 +71,7 @@ fun PhoneAuthScreen(onBack: () -> Unit, onDone: () -> Unit) {
             Spacer(Modifier.height(20.dp))
             Text(if (creating) "Join with your number" else "Sign in with your number", fontFamily = DisplayFont, style = MaterialTheme.typography.headlineMedium, color = TS.Ivory,
                 modifier = Modifier.align(Alignment.CenterHorizontally))
-            Text("Chat with Talha Studio and see our daily updates.", color = TS.Ivory.copy(0.65f), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp, bottom = 24.dp))
+            Text(if (openChat) "Chat with Talha Studio and see our daily updates." else "Place orders, track them and save your addresses.", color = TS.Ivory.copy(0.65f), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp, bottom = 24.dp))
             Column(Modifier.fillMaxWidth().shadow(18.dp, RoundedCornerShape(24.dp), ambientColor = TS.Gold.copy(0.4f), spotColor = TS.Gold.copy(0.4f))
                 .clip(RoundedCornerShape(24.dp)).background(Color(0xFF151515)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (creating) OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("Your name") }, singleLine = true, colors = darkFieldColors(),
@@ -83,7 +83,7 @@ fun PhoneAuthScreen(onBack: () -> Unit, onDone: () -> Unit) {
                     isError = fieldErrors["password"] != null, supportingText = fieldErrors["password"]?.let { { Text(it) } },
                     trailingIcon = { TextButton({ show = !show }) { Text(if (show) "Hide" else "Show", color = TS.Gold) } })
                 error?.let { Text(it, color = Color(0xFFFFB4AB), style = MaterialTheme.typography.bodyMedium) }
-                TsButton(if (busy) "Please wait..." else if (creating) "Create account & open chat" else "Sign in & open chat", { submit() }, enabled = !busy)
+                TsButton(if (busy) "Please wait..." else if (creating) "Create account" + (if (openChat) " & open chat" else "") else "Sign in" + (if (openChat) " & open chat" else ""), { submit() }, enabled = !busy)
             }
             if (creating) Text("By creating an account you agree to receive WhatsApp messages about your account and orders from Talha Studio.", color = TS.Ivory.copy(0.5f),
                 style = MaterialTheme.typography.labelSmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(top = 12.dp, start = 8.dp, end = 8.dp))

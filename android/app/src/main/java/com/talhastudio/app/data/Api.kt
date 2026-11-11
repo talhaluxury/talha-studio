@@ -228,7 +228,8 @@ object Repo {
     private fun parseHome(o: JSONObject): HomeData {
         return HomeData(parseCategories(o.optJSONArray("categories")),
             o.optJSONArray("collections").mapObjects { c -> HomeCollection(c.getString("slug"), c.getString("title"), c.optJSONArray("products").mapObjects { parseProduct(it) }, c.optJSONArray("banners").mapObjects { parseBanner(it) }) },
-            o.optJSONArray("banners").mapObjects { parseBanner(it) }, o.str("announcement"), o.optBoolean("spin", false), o.optJSONArray("reels").mapObjects { parseReel(it) })
+            o.optJSONArray("banners").mapObjects { parseBanner(it) }, o.str("announcement"), o.optBoolean("spin", false), o.optJSONArray("reels").mapObjects { parseReel(it) },
+            o.optJSONObject("accessories")?.let { a -> Accessories(a.getString("slug"), a.getString("title"), parseCategories(a.optJSONArray("tiles")), a.optJSONArray("products").mapObjects { parseProduct(it) }) })
     }
     /** The running sale, or null when there is none. Throws ApiException when the server cannot be reached. */
     suspend fun sale(): Sale? = parseSale(Http.request("GET", "/sale"), android.os.SystemClock.elapsedRealtime())
@@ -318,6 +319,8 @@ object Repo {
     suspend fun unreadCount() = Http.request("GET", "/me/notifications/unread-count", auth = true).optInt("unread", 0)
     suspend fun markNotificationRead(id: String) { Http.request("POST", "/me/notifications/$id/read", JSONObject(), auth = true) }
     suspend fun markAllNotificationsRead() { Http.request("POST", "/me/notifications/read-all", JSONObject(), auth = true) }
+    suspend fun deleteNotification(id: String) { Http.request("POST", "/me/notifications/$id/delete", JSONObject(), auth = true) }
+    suspend fun clearNotifications() { Http.request("POST", "/me/notifications/clear", JSONObject(), auth = true) }
     suspend fun notifPrefs() = parsePrefs(Http.request("GET", "/me/notification-preferences", auth = true))
     suspend fun setNotifPrefs(orderUpdates: Boolean? = null, promotions: Boolean? = null) = parsePrefs(Http.request("POST", "/me/notification-preferences",
         JSONObject().apply { orderUpdates?.let { put("orderUpdates", it) }; promotions?.let { put("promotions", it) } }, auth = true))

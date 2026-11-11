@@ -167,3 +167,5 @@ div.slideimg.empty { display: grid; place-items: center; padding: 8px; font-size
 .btn.wabtn.sm { min-height: 36px; padding: 6px 12px; }
 .row.acts { gap: 8px; flex-wrap: nowrap; }
 @media (max-width: 860px) { td .row.acts { flex-wrap: wrap; justify-content: flex-end; } }
+.pctbox { width: 76px; min-height: 36px; }
+.salecell { white-space: nowrap; }

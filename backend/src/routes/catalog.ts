@@ -90,6 +90,10 @@ export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; 
     const bv = videos ? await videos.getMany("banner", live.map((b) => b.id)) : new Map<string, string>();
     const known = new Set<string>(["top", "new-arrivals", "featured", "sale", ...secs.map((s) => s.slug)]);      // a banner pointing at a removed section falls back to the top carousel
     const bannerJson = (b: (typeof live)[number]) => ({ id: b.id, title: b.title, subtitle: b.subtitle, ctaLabel: b.ctaLabel, ctaLink: b.ctaLink, imageUrl: b.imageKey ? storage.url(b.imageKey) : null, videoUrl: bv.get(b.id) ? storage.url(bv.get(b.id)!) : null });
+    // "Accessories" showcase: filled from the category whose slug is "accessories" (the owner adds accessories there, nothing else lands in it).
+    const accCat = cats.find((c) => c.slug === "accessories" && !c.parentId);
+    const accProducts = accCat ? (await catalog.listProducts({ ...base, categorySlug: accCat.slug, limit: 12 })).items : [];
+    const accessories = accCat && accProducts.length ? { slug: accCat.slug, title: accCat.name, tiles: cats.filter((c) => c.parentId === accCat.id).map((c) => toApiCategory(c, storage)), products: accProducts.map((p) => toApiProduct(p, storage)) } : null;
     const news = pinned.items.length ? pinned : newest;      // products the owner marked as New Arrival, otherwise simply the newest ones
     const col = (slug: string, title: string, r: { items: Parameters<typeof toApiProduct>[0][] }) => ({ slug, title, products: r.items.map((p) => toApiProduct(p, storage)) });
     return {
@@ -98,7 +102,7 @@ export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; 
       sale: saleOf(st, new Date()), serverNow: new Date().toISOString(),
       spin: st.spin.active && st.spin.percents.length > 0,
       banners: live.filter((b) => b.placement === "top" || !known.has(b.placement)).map(bannerJson),
-      categories: cats.map((c) => toApiCategory(c, storage)),
+      categories: cats.map((c) => toApiCategory(c, storage)), accessories,
       collections: [col("new-arrivals", "New Arrivals", news), col("featured", "Featured", featured), col("sale", "On Sale", sale), ...customCols.map((c) => col(c.slug, c.title, { items: c.items }))]
         .filter((c) => c.products.length).map((c) => ({ ...c, banners: live.filter((b) => b.placement === c.slug).map(bannerJson) })),
     };

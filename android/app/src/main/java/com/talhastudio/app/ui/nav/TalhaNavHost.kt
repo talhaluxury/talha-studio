@@ -54,6 +54,8 @@ object Routes {
     const val Settings = "settings"
     const val Chat = "chat"
     const val PhoneAuth = "phone_auth"
+    const val PhoneSignIn = "phone_signin?next={next}"
+    fun phoneSignIn(next: String = "") = "phone_signin?next=$next"
     const val Info = "info/{slug}"
     fun info(slug: String) = "info/$slug"
 }
@@ -123,6 +125,13 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
             val next = entry.arguments?.getString("next").orEmpty()
             AuthScreen(onBack = { nav.popBackStack() }, onDone = {
                 if (next == "checkout") nav.navigate(Routes.Checkout) { popUpTo(Routes.Main) } else nav.popBackStack()
+            }, onPhone = { nav.navigate(Routes.phoneSignIn(next)) })
+        }
+        // Sign in / sign up with a mobile number (for shopping; the chat sign-in above opens the chat afterwards).
+        composable(Routes.PhoneSignIn, arguments = listOf(navArgument("next") { type = NavType.StringType; defaultValue = "" })) { entry ->
+            val next = entry.arguments?.getString("next").orEmpty()
+            PhoneAuthScreen(openChat = false, onBack = { nav.popBackStack() }, onDone = {
+                if (next == "checkout") nav.navigate(Routes.Checkout) { popUpTo(Routes.Main) } else nav.popBackStack(Routes.Main, false)
             })
         }
         composable(Routes.Checkout) {
@@ -172,7 +181,7 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
     // An item was added to the cart: its picture flies into the cart tab, the icon bounces, then the cart opens.
     FlyToCartOverlay(shop.flyEvent, cartTabIndex = 3, tabCount = shellTabs.size) { shop.flyEvent = null; shop.cartPulse++; goTab(3) }
     // The floating AI assistant sits above every normal screen (not on splash, welcome, sign-in, chat or checkout) and can be dragged anywhere.
-    AssistantOverlay(visible = route != null && route !in setOf(Routes.Splash, Routes.Onboarding, Routes.Auth, Routes.PhoneAuth, Routes.Chat, Routes.Checkout)) { a ->
+    AssistantOverlay(visible = route != null && route !in setOf(Routes.Splash, Routes.Onboarding, Routes.Auth, Routes.PhoneAuth, Routes.PhoneSignIn, Routes.Chat, Routes.Checkout)) { a ->
         when (a.type) {
             "product" -> a.id?.let { nav.navigate(Routes.product(it)) }
             "cart" -> { shop.requestedTab = 3; nav.popBackStack(Routes.Main, false) }

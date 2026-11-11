@@ -45,6 +45,8 @@ export class PgPushStore implements PushStore {
   async unreadCount(userId: string) { const r = await this.q("SELECT count(*)::int AS n FROM notifications WHERE user_id = $1 AND read_at IS NULL", [userId]); return r.rows[0].n; }
   async markRead(userId: string, id: string) { const r = await this.q("UPDATE notifications SET read_at = COALESCE(read_at, now()) WHERE id = $1 AND user_id = $2", [id, userId]); return (r.rowCount ?? 0) > 0; }
   async markAllRead(userId: string) { const r = await this.q("UPDATE notifications SET read_at = now() WHERE user_id = $1 AND read_at IS NULL", [userId]); return r.rowCount ?? 0; }
+  async deleteNotification(userId: string, id: string) { const r = await this.q("DELETE FROM notifications WHERE id = $1 AND user_id = $2", [id, userId]); return (r.rowCount ?? 0) > 0; }
+  async clearNotifications(userId: string) { const r = await this.q("DELETE FROM notifications WHERE user_id = $1", [userId]); return r.rowCount ?? 0; }
 
   async promoAudience() {
     const [u, d] = await Promise.all([

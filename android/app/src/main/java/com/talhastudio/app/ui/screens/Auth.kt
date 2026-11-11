@@ -7,6 +7,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -25,7 +26,9 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.talhastudio.app.BuildConfig
 import com.talhastudio.app.data.ApiException
 import com.talhastudio.app.data.Repo
+import com.talhastudio.app.ui.components.GoogleLogo
 import com.talhastudio.app.ui.components.TsButton
+import com.talhastudio.app.ui.components.TsIconButton
 import com.talhastudio.app.ui.components.TsButtonStyle
 import com.talhastudio.app.ui.theme.TS
 import kotlinx.coroutines.launch
@@ -39,7 +42,7 @@ private suspend fun googleIdToken(ctx: Context): String? {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AuthScreen(onBack: () -> Unit, onDone: () -> Unit) {
+fun AuthScreen(onBack: () -> Unit, onDone: () -> Unit, onPhone: () -> Unit = {}) {
     var creating by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }; var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }; var password by remember { mutableStateOf("") }
@@ -76,13 +79,14 @@ fun AuthScreen(onBack: () -> Unit, onDone: () -> Unit) {
             TsButton(if (busy) "Please wait..." else if (creating) "Create account" else "Sign in", enabled = !busy, style = TsButtonStyle.Black, onClick = {
                 if (validate()) submit { if (creating) Repo.register(name.trim(), email.trim().lowercase(), password, phone.ifBlank { null }) else Repo.login(email.trim().lowercase(), password) }
             })
-            if (BuildConfig.GOOGLE_WEB_CLIENT_ID.isNotBlank()) TsButton("Continue with Google", enabled = !busy, style = TsButtonStyle.Outline, onClick = {
+            if (BuildConfig.GOOGLE_WEB_CLIENT_ID.isNotBlank()) TsIconButton("Continue with Google", icon = { GoogleLogo(22.dp) }, enabled = !busy, style = TsButtonStyle.Outline, onClick = {
                 submit {
                     val token = try { googleIdToken(ctx) } catch (e: GetCredentialCancellationException) { throw ApiException(false, if (BuildConfig.DEBUG) "Google sign-in was cancelled, or the Google Cloud Android client does not match this app (package: ${ctx.packageName}). Check the package name and SHA-1." else "Google sign-in was cancelled") }
                         catch (e: GetCredentialException) { throw ApiException(false, "Google sign-in is not available on this device right now") }
                     Repo.googleLogin(token ?: throw ApiException(false, "Google sign-in failed"))
                 }
             })
+            TsIconButton("Continue with phone number", icon = { Icon(Icons.Outlined.Phone, null, tint = TS.Gold, modifier = Modifier.size(22.dp)) }, enabled = !busy, style = TsButtonStyle.Outline, onClick = onPhone)
             TextButton({ creating = !creating; error = null; fieldErrors = emptyMap() }, Modifier.align(androidx.compose.ui.Alignment.CenterHorizontally)) {
                 Text(if (creating) "I already have an account" else "New here? Create an account", color = TS.Gold)
             }

@@ -31,6 +31,8 @@ export class MemoryPushStore implements PushStore {
   async unreadCount(userId: string) { return this.inbox.filter((n) => n.userId === userId && !n.readAt).length; }
   async markRead(userId: string, id: string) { const n = this.inbox.find((x) => x.id === id && x.userId === userId); if (!n) return false; n.readAt ??= this.now(); return true; }
   async markAllRead(userId: string) { let c = 0; for (const n of this.inbox) if (n.userId === userId && !n.readAt) { n.readAt = this.now(); c++; } return c; }
+  async deleteNotification(userId: string, id: string) { const i = this.inbox.findIndex((x) => x.id === id && x.userId === userId); if (i < 0) return false; this.inbox.splice(i, 1); return true; }
+  async clearNotifications(userId: string) { const before = this.inbox.length; this.inbox = this.inbox.filter((n) => n.userId !== userId); return before - this.inbox.length; }
 
   private audience() { return [...this.users.users.values()].filter((u) => u.role === "customer" && u.isActive && !u.deletedAt && (this.prefs.get(u.id)?.promotions ?? true)); }
   async promoAudience() { const a = this.audience().map((u) => u.id); return { users: a.length, devices: this.devices.filter((d) => a.includes(d.userId)).length }; }

@@ -20,6 +20,8 @@ export interface PushStore {
   unreadCount(userId: string): Promise<number>;
   markRead(userId: string, id: string): Promise<boolean>;
   markAllRead(userId: string): Promise<number>;
+  deleteNotification(userId: string, id: string): Promise<boolean>;      // the customer removes one notification from their inbox
+  clearNotifications(userId: string): Promise<number>;                   // ...or all of them
 
   promoAudience(): Promise<{ users: number; devices: number }>;
   addPromoInbox(n: Omit<NewNotification, "kind">): Promise<number>;                   // one inbox row per opted-in customer; returns count

@@ -44,6 +44,11 @@ export function pushRoutes(app: FastifyInstance, d: { store: Store; push: PushSt
   });
   app.get("/me/notifications/unread-count", me, async (req) => ({ unread: await push.unreadCount(req.user!.id) }));
   app.post("/me/notifications/read-all", me, async (req) => ({ updated: await push.markAllRead(req.user!.id) }));
+  app.post("/me/notifications/clear", me, async (req) => ({ deleted: await push.clearNotifications(req.user!.id) }));
+  app.post<{ Params: { id: string } }>("/me/notifications/:id/delete", me, async (req, reply) => {
+    if (!(await push.deleteNotification(req.user!.id, z.string().uuid().parse(req.params.id)))) throw notFound("Notification not found");
+    return reply.status(204).send();
+  });
   app.post<{ Params: { id: string } }>("/me/notifications/:id/read", me, async (req, reply) => {
     if (!(await push.markRead(req.user!.id, z.string().uuid().parse(req.params.id)))) throw notFound("Notification not found");
     return reply.status(204).send();

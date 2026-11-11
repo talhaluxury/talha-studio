@@ -31,7 +31,7 @@
     "@fastify/multipart": "^9.0.0",
     "sharp": "^0.35.5",
     "nodemailer": "^10.2.1",
-    "@whiskeysockets/baileys": "^6.7.18",
+    "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "qrcode": "^1.5.4",
     "pino": "^9.5.0"
   },

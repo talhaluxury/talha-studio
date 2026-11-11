@@ -13,6 +13,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -57,6 +59,12 @@ fun NotificationsScreen(shop: ShopViewModel, onBack: () -> Unit, onNavigate: (St
     val scope = rememberCoroutineScope(); val snack = remember { SnackbarHostState() }
     LaunchedEffect(prefsLoad.state) { (prefsLoad.state as? Load.Ready)?.let { if (prefs == null) prefs = it.data } }
     LaunchedEffect(Unit) { PushTokens.sync() }
+    val removed = remember { mutableStateListOf<String>() }          // notifications the customer deleted (hidden at once, removed on the server in the background)
+    var askClear by remember { mutableStateOf(false) }
+    fun delete(id: String) { removed.add(id); scope.launch { try { Repo.deleteNotification(id); shop.refreshUnread() } catch (e: ApiException) { removed.remove(id); snack.showSnackbar(e.message ?: "Could not delete") } } }
+    if (askClear) AlertDialog(onDismissRequest = { askClear = false }, title = { Text("Delete all notifications?") }, text = { Text("This removes every notification from your inbox. It cannot be undone.") },
+        confirmButton = { TextButton({ askClear = false; scope.launch { try { Repo.clearNotifications(); shop.refreshUnread(); attempt++; removed.clear() } catch (e: ApiException) { snack.showSnackbar(e.message ?: "Could not delete") } } }) { Text("Delete all", color = TS.Danger) } },
+        dismissButton = { TextButton({ askClear = false }) { Text("Cancel") } })
 
     fun setPref(o: Boolean? = null, p: Boolean? = null) { scope.launch {
         val before = prefs
@@ -66,7 +74,10 @@ fun NotificationsScreen(shop: ShopViewModel, onBack: () -> Unit, onNavigate: (St
 
     Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = {
         TopAppBar(title = { Text("Notifications") }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
-            actions = { TextButton({ scope.launch { try { Repo.markAllNotificationsRead(); shop.refreshUnread(); attempt++ } catch (e: ApiException) { snack.showSnackbar(e.message ?: "Failed") } } }) { Text("Mark all read", color = TS.Gold) } })
+            actions = {
+                TextButton({ scope.launch { try { Repo.markAllNotificationsRead(); shop.refreshUnread(); attempt++ } catch (e: ApiException) { snack.showSnackbar(e.message ?: "Failed") } } }) { Text("Mark all read", color = TS.Gold) }
+                IconButton({ askClear = true }) { Icon(Icons.Outlined.DeleteSweep, "Delete all notifications", tint = TS.Gold) }
+            })
     }) { pad ->
         LazyColumn(Modifier.padding(pad), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { EnableNotificationsCard() }
@@ -87,19 +98,28 @@ fun NotificationsScreen(shop: ShopViewModel, onBack: () -> Unit, onNavigate: (St
                 is Load.Loading -> item { SkeletonBox(Modifier.fillMaxWidth().height(90.dp)) }
                 is Load.Error -> item { ErrorState(s.message, s.offline, load.retry) }
                 is Load.Ready -> {
-                    if (s.data.items.isEmpty()) item { EmptyState("No notifications yet", "Order updates and offers will appear here.") }
-                    items(s.data.items, key = { it.id }) { n ->
+                    val shown = s.data.items.filter { it.id !in removed }
+                    if (shown.isEmpty()) item { EmptyState("No notifications yet", "Order updates and offers will appear here.") }
+                    items(shown, key = { it.id }) { n ->
                         var read by remember(n.id) { mutableStateOf(n.read) }
-                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface)
-                            .clickable { scope.launch {
-                                if (!read) { read = true; runCatching { Repo.markNotificationRead(n.id); shop.refreshUnread() } }
-                                routeFor(n.deepLink)?.let(onNavigate)
-                            } }.padding(14.dp), verticalAlignment = Alignment.Top) {
-                            Box(Modifier.padding(top = 6.dp).size(9.dp).clip(CircleShape).background(if (read) TS.Neutral else TS.Gold))
-                            Column(Modifier.padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text(n.title, style = MaterialTheme.typography.titleMedium)
-                                Text(n.body, style = MaterialTheme.typography.bodyMedium)
-                                Text(prettyDate(n.createdAt), style = MaterialTheme.typography.labelSmall, color = TS.Gray)
+                        val swipe = rememberSwipeToDismissBoxState(confirmValueChange = { v -> if (v == SwipeToDismissBoxValue.EndToStart) { delete(n.id); true } else false })
+                        SwipeToDismissBox(swipe, enableDismissFromStartToEnd = false, backgroundContent = {
+                            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(TS.Danger.copy(alpha = 0.85f)).padding(end = 22.dp), contentAlignment = Alignment.CenterEnd) {
+                                Icon(Icons.Outlined.Delete, "Delete", tint = androidx.compose.ui.graphics.Color.White)
+                            }
+                        }) {
+                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface)
+                                .clickable { scope.launch {
+                                    if (!read) { read = true; runCatching { Repo.markNotificationRead(n.id); shop.refreshUnread() } }
+                                    routeFor(n.deepLink)?.let(onNavigate)
+                                } }.padding(start = 14.dp, top = 14.dp, bottom = 14.dp, end = 4.dp), verticalAlignment = Alignment.Top) {
+                                Box(Modifier.padding(top = 6.dp).size(9.dp).clip(CircleShape).background(if (read) TS.Neutral else TS.Gold))
+                                Column(Modifier.padding(start = 12.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text(n.title, style = MaterialTheme.typography.titleMedium)
+                                    Text(n.body, style = MaterialTheme.typography.bodyMedium)
+                                    Text(prettyDate(n.createdAt), style = MaterialTheme.typography.labelSmall, color = TS.Gray)
+                                }
+                                IconButton({ delete(n.id) }) { Icon(Icons.Outlined.Delete, "Delete notification", tint = TS.Gray) }
                             }
                         }
                     }

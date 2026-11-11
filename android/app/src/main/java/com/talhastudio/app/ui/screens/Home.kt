@@ -116,6 +116,7 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                         }
                     }
                 }
+                item(key = "showcase") { AccessoriesShowcase(d.accessories, (recent.state as? Load.Ready<List<Product>>)?.data.orEmpty(), shop, onOpenProduct, onBrowse) }
                 if (d.collections.isEmpty()) item { EmptyState("New collection coming soon", "Our products will appear here as soon as they are published.") }
                 // "Watch & Shop" video cards sit right under On Sale (at the end of the collections when there is no sale section).
                 var reelsShown = false
@@ -132,11 +133,6 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                 }
                 reelsRow()
             }
-        }
-        val rec = recent.state
-        if (rec is Load.Ready && rec.data.isNotEmpty()) {
-            item(key = "h-recent") { SectionHeader("Recently Viewed") }
-            item(key = "r-recent") { ProductRow(shop, rec.data, onOpenProduct) }
         }
         item(key = "footer") { Footer(onSupport, onOpenPage) }
     }

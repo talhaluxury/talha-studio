@@ -29,3 +29,22 @@ fun TsButton(
         border = if (style == TsButtonStyle.Outline) BorderStroke(1.dp, TS.Gold) else null,
     ) { Text(text, style = MaterialTheme.typography.labelLarge) }
 }
+
+/** Same look as [TsButton] with a small picture in front of the text (Google logo, phone). */
+@Composable
+fun TsIconButton(text: String, onClick: () -> Unit, icon: @Composable () -> Unit, modifier: Modifier = Modifier, style: TsButtonStyle = TsButtonStyle.Outline, enabled: Boolean = true) {
+    val (bg, fg) = when (style) {
+        TsButtonStyle.Gold -> TS.Gold to TS.Black
+        TsButtonStyle.Black -> TS.Ivory to TS.Black
+        TsButtonStyle.Outline -> Color.Transparent to TS.Gold
+    }
+    Button(
+        onClick = onClick, enabled = enabled,
+        modifier = modifier.heightIn(min = 52.dp).fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = ButtonDefaults.buttonColors(containerColor = bg, contentColor = fg, disabledContainerColor = TS.Neutral, disabledContentColor = TS.Gray),
+        border = if (style == TsButtonStyle.Outline) BorderStroke(1.dp, TS.Gold) else null,
+    ) {
+        icon(); Spacer(Modifier.width(12.dp)); Text(text, style = MaterialTheme.typography.labelLarge)
+    }
+}

@@ -23,7 +23,7 @@ export async function renderProducts(view) {
 
   put(clear(view),
     h("div", { class: "pagehead" }, h("div", {}, h("h1", {}, "Products"), h("p", { class: "muted" }, "Everything you sell, published or draft. Tick products to change many at once.")),
-      write ? h("div", { class: "row" }, h("a", { class: "btn", href: "#/products/bulk" }, "Add many products"), h("a", { class: "btn gold", href: "#/products/new" }, "Add product")) : null),
+      write ? h("div", { class: "row" }, h("button", { class: "btn ghost", type: "button", onclick: endSaleEverywhere }, "Remove sale from all"), h("a", { class: "btn", href: "#/products/bulk" }, "Add many products"), h("a", { class: "btn gold", href: "#/products/new" }, "Add product")) : null),
     h("div", { class: "filters" }, h("div", { class: "field" }, q), h("div", { class: "field" }, cat), h("div", { class: "field" }, sec)),
     bar, list);
   await load();
@@ -71,6 +71,41 @@ export async function renderProducts(view) {
       h("button", { class: "btn ghost sm", onclick: () => { selected.clear(); drawBar(); load(); } }, "Clear")));
   }
 
+  /** One-click sale for a single product: removes it, or turns the button into a small "discount %" box. */
+  async function setSale(ids, percent) {
+    const r = await api("/admin/products/bulk-update", { method: "POST", body: { ids, set: { discountPercent: percent } } });
+    toast(percent ? `Sale ${percent}% put on ${r.updated} product${r.updated === 1 ? "" : "s"}` : `Sale removed from ${r.updated} product${r.updated === 1 ? "" : "s"}`);
+    await load();
+  }
+  function saleCell(p) {
+    const cell = h("td", { class: "salecell" });
+    const idle = () => put(clear(cell), p.salePrice
+      ? h("button", { class: "btn ghost sm", type: "button", onclick: async (e) => { e.target.disabled = true; try { await setSale([p.id], 0); } catch (err) { toast(err.message, "error"); e.target.disabled = false; } } }, "Remove sale")
+      : h("button", { class: "btn ghost sm", type: "button", onclick: ask }, "Put on sale"));
+    const ask = () => {
+      const pct = h("input", { type: "number", min: 1, max: 90, value: 20, "aria-label": `Discount percent for ${p.name}`, class: "pctbox" });
+      const ok = h("button", { class: "btn gold sm", type: "button", onclick: async () => {
+        const v = Number(pct.value); if (!(v >= 1 && v <= 90)) { toast("Discount must be between 1 and 90", "error"); return; }
+        ok.disabled = true; try { await setSale([p.id], v); } catch (err) { toast(err.message, "error"); ok.disabled = false; }
+      } }, "Apply %");
+      put(clear(cell), h("div", { class: "row acts" }, pct, ok, h("button", { class: "btn ghost sm", type: "button", onclick: idle }, "Cancel")));
+    };
+    idle(); return cell;
+  }
+  async function endSaleEverywhere() {
+    if (!(await confirmDialog("Remove the sale from ALL products?", "Every product goes back to its normal price. You can put products on sale again at any time.", "Remove sale"))) return;
+    try {
+      let total = 0;
+      for (let round = 0; round < 60; round++) {
+        const r = await api("/admin/products?page=1&limit=50&onSale=true");
+        if (!r.items.length) break;
+        const done = await api("/admin/products/bulk-update", { method: "POST", body: { ids: r.items.map((x) => x.id), set: { discountPercent: 0 } } });
+        total += done.updated; if (!done.updated) break;
+      }
+      toast(total ? `Sale removed from ${total} product${total === 1 ? "" : "s"}` : "No product was on sale"); await load();
+    } catch (e) { toast(e.message, "error"); }
+  }
+
   async function load() {
     const params = new URLSearchParams({ page: state.page, limit: LIMIT });
     if (state.q) params.set("q", state.q); if (state.category) params.set("category", state.category); if (state.section) params.set(state.section, "true");
@@ -98,11 +133,12 @@ export async function renderProducts(view) {
         h("td", { "data-label": "Price" }, p.salePrice ? h("span", {}, h("b", {}, money(p.salePrice)), " ", h("s", { class: "muted" }, money(p.price))) : money(p.price)),
         h("td", { "data-label": "Stock" }, h("span", { class: `badge ${stock === 0 ? "bad" : stock <= 5 ? "warn" : ""}` }, stock === 0 ? "Out of stock" : String(stock))),
         h("td", { "data-label": "Status" }, h("span", { class: `badge ${p.isPublished ? "ok" : ""}` }, p.isPublished ? "Published" : "Draft")),
+        write ? saleCell(p) : null,
         h("td", {}, h("a", { class: "btn ghost sm", href: `#/products/${p.id}` }, write ? "Edit" : "View")));
     });
     const pages = Math.max(1, Math.ceil(r.total / LIMIT));
     put(clear(list),
-      h("table", {}, h("thead", {}, h("tr", {}, write ? h("th", { scope: "col" }, all) : null, ...["Image", "Product", "Category", "Price", "Stock", "Status", ""].map((t) => h("th", { scope: "col" }, t)))), h("tbody", {}, rows)),
+      h("table", {}, h("thead", {}, h("tr", {}, write ? h("th", { scope: "col" }, all) : null, ...["Image", "Product", "Category", "Price", "Stock", "Status", ...(write ? ["Sale"] : []), ""].map((t) => h("th", { scope: "col" }, t)))), h("tbody", {}, rows)),
       h("div", { class: "pager" }, h("span", { class: "muted" }, `${r.total} product${r.total === 1 ? "" : "s"} · page ${state.page} of ${pages}`),
         h("div", { class: "row" },
           h("button", { class: "btn ghost sm", disabled: state.page <= 1, onclick: () => { state.page--; load(); } }, "Previous"),
