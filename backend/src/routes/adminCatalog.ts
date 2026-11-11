@@ -54,6 +54,16 @@ export function adminCatalogRoutes(app: FastifyInstance, d: {
     if (!variants.length) throw conflict("Add at least one size/color variant before publishing");
   }
 
+  /** QR code for a product: scanning it opens that product in the customer app (see /p/:id). Returns a PNG as a data URL plus the link inside it. */
+  app.get<{ Params: { id: string } }>("/admin/products/:id/qr", read, async (req) => {
+    const id = idParam.parse(req.params.id);
+    const p = await catalog.getProduct(id, false); if (!p) throw notFound("Product not found");
+    const link = `${req.protocol}://${req.hostname}/p/${id}`;
+    const QRCode = (await import("qrcode")).default;
+    const png: string = await QRCode.toDataURL(link, { width: 720, margin: 2, errorCorrectionLevel: "M", color: { dark: "#080808", light: "#ffffff" } });
+    return { link, png, name: p.name, sku: p.sku, price: p.price, salePrice: p.salePrice };
+  });
+
   app.get("/admin/stats", read, async () => catalog.stats());
   app.get("/admin/categories", read, async () => ({ items: (await catalog.listCategories(false)).map((c) => toApiCategory(c, storage)) }));
 

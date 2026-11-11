@@ -1,4 +1,5 @@
-import { api } from "../api.js";
+import { api, session } from "../api.js";
+import { refreshAlerts } from "../alerts.js";
 import { firstImage, MESSAGE_KINDS, orderMessage, sendViaStore, sendWhatsApp } from "../waOrder.js";
 import { clear, confirmDialog, fmtDate, h, money, put, showFieldErrors, STATUS_LABEL, statusBadge, toast } from "../ui.js";
 
@@ -9,6 +10,12 @@ export async function renderOrderDetail(view, id) {
   put(clear(view), root);
   draw();
 
+
+  async function deleteOrder() {
+    if (!(await confirmDialog(`Delete order ${o.orderNumber}?`, "It is removed for good. If it is still open it is cancelled first so its stock goes back on sale. The customer is not notified.", "Delete"))) return;
+    try { await api(`/admin/orders/${o.id}`, { method: "DELETE" }); toast(`Order ${o.orderNumber} deleted`); refreshAlerts(); location.hash = "#/orders"; }
+    catch (e) { toast(e.message, "error"); }
+  }
 
   /** Manual WhatsApp: works whether the AI is on or off. Opens WhatsApp on this customer's chat with the message and product photo ready. */
   function waCard() {
@@ -57,7 +64,8 @@ export async function renderOrderDetail(view, id) {
 
     put(clear(root),
       h("div", { class: "pagehead" }, h("div", {}, h("h1", {}, o.orderNumber), h("p", { class: "muted" }, [statusBadge(o.status), `  Placed ${fmtDate(o.createdAt)}`])),
-        h("a", { class: "btn ghost", href: "#/orders" }, "Back to orders")),
+        h("div", { class: "row" }, h("a", { class: "btn ghost", href: "#/orders" }, "Back to orders"),
+          session.canWrite() ? h("button", { class: "btn danger", type: "button", onclick: deleteOrder }, "Delete order") : null)),
       h("div", { class: "cols" },
         h("div", { class: "card" }, h("h2", {}, "Customer"),
           h("dl", { class: "kv" }, h("dt", {}, "Name"), h("dd", {}, o.customer.name), h("dt", {}, "Phone"), h("dd", {}, o.customer.phone), h("dt", {}, "Email"), h("dd", {}, o.customer.email))),

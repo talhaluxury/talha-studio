@@ -39,6 +39,8 @@ export interface OrderStore {
   requestReturn(userId: string, id: string, reason: string, windowDays: number): Promise<OrderRec | null>;
   adminList(f: OrderFilter): Promise<{ items: OrderSummary[]; total: number }>;
   adminGet(id: string): Promise<OrderRec | null>;
+  /** Removes an order for good. An order that is still open (pending, confirmed, processing) is cancelled first so its stock and coupon use go back. */
+  adminDelete(id: string): Promise<{ orderNumber: string } | null>;
   adminSetStatus(id: string, to: OrderStatus, note: string | null, trackingUrl: string | null, adminId: string): Promise<OrderRec | null>;
   /** Owner confirms (or un-confirms) a manual payment. */
   setPayment(id: string, status: "paid" | "unpaid", adminId: string): Promise<OrderRec | null>;

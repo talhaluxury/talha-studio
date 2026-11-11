@@ -90,10 +90,10 @@ export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; 
     const bv = videos ? await videos.getMany("banner", live.map((b) => b.id)) : new Map<string, string>();
     const known = new Set<string>(["top", "new-arrivals", "featured", "sale", ...secs.map((s) => s.slug)]);      // a banner pointing at a removed section falls back to the top carousel
     const bannerJson = (b: (typeof live)[number]) => ({ id: b.id, title: b.title, subtitle: b.subtitle, ctaLabel: b.ctaLabel, ctaLink: b.ctaLink, imageUrl: b.imageKey ? storage.url(b.imageKey) : null, videoUrl: bv.get(b.id) ? storage.url(bv.get(b.id)!) : null });
-    // "Accessories" showcase: filled from the category whose slug is "accessories" (the owner adds accessories there, nothing else lands in it).
-    const accCat = cats.find((c) => c.slug === "accessories" && !c.parentId);
+    // "Accessories" showcase: filled from the main category called Accessories (slug or name starts with "accessor"). Shown even before the first product is added.
+    const accCat = cats.find((c) => !c.parentId && (/^accessor/i.test(c.slug) || /^accessor/i.test(c.name.trim())));
     const accProducts = accCat ? (await catalog.listProducts({ ...base, categorySlug: accCat.slug, limit: 12 })).items : [];
-    const accessories = accCat && accProducts.length ? { slug: accCat.slug, title: accCat.name, tiles: cats.filter((c) => c.parentId === accCat.id).map((c) => toApiCategory(c, storage)), products: accProducts.map((p) => toApiProduct(p, storage)) } : null;
+    const accessories = accCat ? { slug: accCat.slug, title: accCat.name, imageUrl: accCat.imageKey ? storage.url(accCat.imageKey) : null, tiles: cats.filter((c) => c.parentId === accCat.id).map((c) => toApiCategory(c, storage)), products: accProducts.map((p) => toApiProduct(p, storage)) } : null;
     const news = pinned.items.length ? pinned : newest;      // products the owner marked as New Arrival, otherwise simply the newest ones
     const col = (slug: string, title: string, r: { items: Parameters<typeof toApiProduct>[0][] }) => ({ slug, title, products: r.items.map((p) => toApiProduct(p, storage)) });
     return {

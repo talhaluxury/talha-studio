@@ -113,6 +113,16 @@ export class PgOrders implements OrderStore {
     return true;
   }
 
+  async adminDelete(id: string) {
+    return this.tx(async (c) => {
+      const r = await c.query("SELECT order_number, status FROM orders WHERE id = $1 FOR UPDATE", [id]); const o = r.rows[0]; if (!o) return null;
+      if (["pending", "confirmed", "processing"].includes(o.status)) await this.applyStatus(c, id, "cancelled", "Deleted by admin", null, null);      // stock and coupon use go back first
+      await c.query("DELETE FROM return_requests WHERE order_id = $1", [id]);
+      await c.query("DELETE FROM orders WHERE id = $1", [id]);                // items and status history go with it (ON DELETE CASCADE)
+      return { orderNumber: String(o.order_number) };
+    });
+  }
+
   async setPayment(id: string, status: "paid" | "unpaid", _adminId: string) {
     const r = await this.pool.query("UPDATE orders SET payment_status = $2, updated_at = now() WHERE id = $1 AND payment_status <> 'refunded' RETURNING id", [id, status]);
     return r.rowCount ? this.adminGet(id) : null;

@@ -5,6 +5,9 @@ plugins {
     alias(libs.plugins.kotlin.android)
 }
 
+// New-order push needs app/google-services.json from your Firebase project (kept out of git; CI decodes it from the GOOGLE_SERVICES_JSON_BASE64 secret).
+if (file("google-services.json").exists()) pluginManager.apply("com.google.gms.google-services")
+
 val keystoreProps = Properties().apply {
     val f = rootProject.file("keystore.properties")
     if (f.exists()) f.inputStream().use { load(it) }
@@ -67,4 +70,6 @@ dependencies {
     implementation(libs.androidx.webkit)
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.fragment)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 }

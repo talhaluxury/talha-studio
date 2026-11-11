@@ -29,7 +29,7 @@ data class HomeCollection(val slug: String, val title: String, val products: Lis
 data class Banner(val id: String, val title: String, val subtitle: String?, val ctaLabel: String?, val ctaLink: String?, val imageUrl: String?, val videoUrl: String? = null)
 data class HomeData(val categories: List<Category>, val collections: List<HomeCollection>, val banners: List<Banner> = emptyList(), val announcement: String? = null, val spin: Boolean = false, val reels: List<Reel> = emptyList(), val accessories: Accessories? = null)
 /** The home "Accessories" showcase: the accessories category, its sub-categories as tiles and its newest products. */
-data class Accessories(val slug: String, val title: String, val tiles: List<Category>, val products: List<Product>)
+data class Accessories(val slug: String, val title: String, val tiles: List<Category>, val products: List<Product>, val imageUrl: String? = null)
 /** "Watch & Shop" video card. [browse] is what Home passes to onBrowse (a category slug or "@section|Title"); null opens the shop. */
 data class Reel(val id: String, val title: String, val browse: String?, val videoUrl: String)
 /** Sale countdown. [endsAtElapsed] is in SystemClock.elapsedRealtime() time, worked out from the server clock so a wrong phone clock does not matter. */

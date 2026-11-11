@@ -8,7 +8,7 @@ export const pkr = (n: number) => "Rs. " + n.toLocaleString("en-PK");
 const oneLine = (s: string) => s.replace(/[\r\n]+/g, " ").trim();      // blocks header injection through subjects
 const fmtDate = (d: Date, tz: string) => new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: tz }).format(d);
 
-export interface Brand { storeName: string; logoUrl: string; adminUrl: string; timezone: string }
+export interface Brand { storeName: string; logoUrl: string; adminUrl: string; timezone: string; imageUrl?: (key: string | null) => string | null }
 export interface Rendered { subject: string; html: string; text: string }
 
 /** Only these placeholders exist; unknown ones are left as typed. Values are escaped by the caller's context. */
@@ -30,12 +30,14 @@ function shell(brand: Brand, bodyHtml: string, preheader: string) {
 </table></td></tr></table></body></html>`;
 }
 
-function itemsTable(o: OrderRec) {
+function itemsTable(o: OrderRec, b?: Brand) {
   const rows = o.items.map((i) => {
     const opt = [i.color, i.size ? `Size ${i.size}` : ""].filter(Boolean).join(" · ");
-    return `<tr><td style="padding:10px 0;border-bottom:1px solid ${C.neutral}"><b>${esc(i.name)}</b>${opt ? `<br><span style="color:${C.gray};font-size:12px">${esc(opt)}</span>` : ""}<br><span style="color:${C.gray};font-size:12px">Qty ${i.qty} × ${esc(pkr(i.unitPrice))}</span></td><td align="right" style="padding:10px 0;border-bottom:1px solid ${C.neutral};white-space:nowrap">${esc(pkr(i.unitPrice * i.qty))}</td></tr>`;
+    const img = b?.imageUrl?.(i.thumbKey) ?? null;      // product photo (needs a public https link; blank when the store has none)
+    const pic = img ? `<td width="76" valign="top" style="padding:10px 12px 10px 0;border-bottom:1px solid ${C.neutral}"><img src="${esc(img)}" alt="${esc(i.name)}" width="64" height="80" style="display:block;width:64px;height:80px;object-fit:cover;border-radius:8px;border:1px solid ${C.neutral}"></td>` : "";
+    return `<tr>${pic}<td valign="top" style="padding:10px 0;border-bottom:1px solid ${C.neutral}"><b>${esc(i.name)}</b>${opt ? `<br><span style="color:${C.gray};font-size:12px">${esc(opt)}</span>` : ""}<br><span style="color:${C.gray};font-size:12px">Qty ${i.qty} × ${esc(pkr(i.unitPrice))}</span></td><td align="right" valign="top" style="padding:10px 0;border-bottom:1px solid ${C.neutral};white-space:nowrap">${esc(pkr(i.unitPrice * i.qty))}</td></tr>`;
   }).join("");
-  const line = (l: string, v: string, bold = false) => `<tr><td style="padding:3px 0;${bold ? "font-weight:bold;font-size:16px;" : `color:${C.gray};`}">${l}</td><td align="right" style="padding:3px 0;${bold ? "font-weight:bold;font-size:16px;" : ""}">${esc(v)}</td></tr>`;
+  const line = (l: string, v: string, bold = false) => `<tr><td colspan="${o.items.some((x) => b?.imageUrl?.(x.thumbKey)) ? 2 : 1}" style="padding:3px 0;${bold ? "font-weight:bold;font-size:16px;" : `color:${C.gray};`}">${l}</td><td align="right" style="padding:3px 0;${bold ? "font-weight:bold;font-size:16px;" : ""}">${esc(v)}</td></tr>`;
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}
 ${line("Subtotal", pkr(o.subtotal))}${o.discount ? line("Discount", "- " + pkr(o.discount)) : ""}${line("Delivery", o.shipping ? pkr(o.shipping) : "Free")}${line("Total", pkr(o.total), true)}</table>`;
 }
@@ -60,7 +62,7 @@ function customerEmail(kind: Extract<TemplateKey, "order_confirmation" | "status
   const track = o.trackingUrl ? sec("TRACK YOUR PARCEL", `<p style="margin:0 0 8px"><a href="${esc(o.trackingUrl)}" style="color:${C.black};font-weight:bold">${esc(o.trackingUrl)}</a></p>`) : "";
   const html = shell(b, `${h(headline)}${para(intro)}
 <div style="background:${C.ivory};border-radius:10px;padding:12px 16px;margin-bottom:8px"><b>Order ${esc(o.orderNumber)}</b><br><span style="color:${C.gray};font-size:12px">${esc(fmtDate(o.createdAt, b.timezone))} · Status: ${esc(STATUS_LABEL[o.status])}</span></div>
-${sec("YOUR ITEMS", itemsTable(o))}${sec("DELIVERY ADDRESS", `<p style="margin:0;line-height:1.6">${addressLines(o).map(esc).join("<br>")}</p>`)}
+${sec("YOUR ITEMS", itemsTable(o, b))}${sec("DELIVERY ADDRESS", `<p style="margin:0;line-height:1.6">${addressLines(o).map(esc).join("<br>")}</p>`)}
 ${sec("PAYMENT", `<p style="margin:0">${esc(payLabel(o.paymentMethod))} (${esc(o.paymentStatus)})</p>`)}
 ${est ? sec("ESTIMATED DELIVERY", `<p style="margin:0">${esc(est)}</p>`) : ""}${track}${footerHtml(s, footer)}`, intro);
   const text = [headline, "", intro, "", `Order ${o.orderNumber} - ${fmtDate(o.createdAt, b.timezone)} - Status: ${STATUS_LABEL[o.status]}`, "", itemsText(o), "",
@@ -88,7 +90,7 @@ export function renderOwnerNewOrder(o: OrderRec, s: StoreSettings, b: Brand, ale
 ${sec("CUSTOMER", `<p style="margin:0;line-height:1.6">${esc(o.customer.name)}<br>${esc(o.customer.phone)}<br>${esc(o.customer.email)}</p>`)}
 ${sec("DELIVERY ADDRESS", `<p style="margin:0;line-height:1.6">${addressLines(o).slice(1, -1).map(esc).join("<br>")}</p>`)}
 ${o.notes ? sec("CUSTOMER NOTE", `<p style="margin:0">${esc(o.notes)}</p>`) : ""}
-${sec("ITEMS", itemsTable(o))}
+${sec("ITEMS", itemsTable(o, b))}
 ${sec("PAYMENT", `<p style="margin:0">${esc(payLabel(o.paymentMethod))} · ${esc(o.paymentStatus)} · Total ${esc(pkr(o.total))}</p>`)}
 ${link ? `<p style="margin:24px 0"><a href="${esc(link)}" style="background:${C.gold};color:${C.black};padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:bold">Open order in admin</a></p>` : ""}
 <div style="height:16px"></div>`, intro);

@@ -22,6 +22,14 @@ class WhatsAppBridge(private val activity: Activity) {
     @JavascriptInterface
     fun available(): Boolean = true
 
+    /** This phone's Firebase token (empty until Firebase hands it out, or when push is not set up). The page sends it to the server. */
+    @JavascriptInterface
+    fun pushToken(): String = OrderAlerts.token(activity)
+
+    /** A notification on this phone (used while the app is open but in the background); tapping it opens [route] like admin://orders/<id>. */
+    @JavascriptInterface
+    fun showNotification(title: String, body: String, route: String) { OrderAlerts.notify(activity, title, body, route.takeIf { it.startsWith("admin://orders/") }) }
+
     /** Opens the customer's chat with the text prefilled. */
     @JavascriptInterface
     fun open(phone: String, text: String) {
@@ -39,6 +47,26 @@ class WhatsAppBridge(private val activity: Activity) {
             activity.runOnUiThread {
                 if (got == null) openChat(p, (text + "\n\n" + imageUrl).take(4000))
                 else shareImage(p, caption, got.first, got.second)
+            }
+        }.start()
+    }
+
+    /** Shares a picture given as a data: URL (the product QR label) with any app, e.g. WhatsApp, a print service or Gallery. */
+    @JavascriptInterface
+    fun shareImage(dataUrl: String, title: String) {
+        val comma = dataUrl.indexOf(',')
+        if (!dataUrl.startsWith("data:image/") || comma < 0 || dataUrl.length > 8_000_000) return toast("Could not share this image")
+        Thread {
+            val uri = try {
+                val bytes = android.util.Base64.decode(dataUrl.substring(comma + 1), android.util.Base64.DEFAULT)
+                val dir = File(activity.cacheDir, "wa").apply { mkdirs() }
+                val file = File(dir, "qr-" + System.currentTimeMillis() + ".png").also { it.writeBytes(bytes) }
+                FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
+            } catch (e: Exception) { null }
+            activity.runOnUiThread {
+                if (uri == null) { toast("Could not share this image"); return@runOnUiThread }
+                val send = Intent(Intent.ACTION_SEND).apply { type = "image/png"; putExtra(Intent.EXTRA_STREAM, uri); putExtra(Intent.EXTRA_TEXT, title.take(200)); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+                activity.startActivity(Intent.createChooser(send, "Share QR label").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
             }
         }.start()
     }

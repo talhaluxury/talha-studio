@@ -169,3 +169,26 @@ div.slideimg.empty { display: grid; place-items: center; padding: 8px; font-size
 @media (max-width: 860px) { td .row.acts { flex-wrap: wrap; justify-content: flex-end; } }
 .pctbox { width: 76px; min-height: 36px; }
 .salecell { white-space: nowrap; }
+
+/* Product QR label */
+.qrlabel { text-align: center; background: #fff; color: #080808; border: 1px solid var(--neutral); border-radius: 16px; padding: 18px; max-width: 320px; margin: 12px auto; }
+.qrlabel img { width: 100%; max-width: 260px; height: auto; display: block; margin: 8px auto; }
+.qrbrand { letter-spacing: .35em; color: #b99a62; font-size: .75rem; font-weight: 600; } .qrname { font-weight: 600; margin-top: 4px; } .qrsub { color: #555; font-size: .9rem; } .qrhint { color: #b99a62; font-size: .8rem; margin-top: 6px; }
+.qrdialog { max-width: 380px; } .qractions { flex-wrap: wrap; }
+@media print {
+  body > *:not(dialog) { display: none !important; }
+  body > dialog.qrdialog { position: static; border: 0; box-shadow: none; max-width: none; width: auto; padding: 0; }
+  .qrdialog h2, .qractions { display: none !important; }
+  .qrlabel { border: 0; max-width: 90mm; }
+}
+
+/* New-order alerts */
+.neworder { position: fixed; z-index: 60; top: calc(12px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); width: min(92vw, 420px); display: grid; gap: 2px; padding: 14px 18px;
+  border-radius: 16px; background: #080808; color: #faf8f3; border: 1px solid var(--gold); box-shadow: 0 10px 34px rgb(185 154 98 / .45); text-decoration: none; animation: orderin .35s ease-out, orderglow 1.6s ease-in-out infinite alternate; }
+.neworder b { color: var(--gold); font-size: 1.05rem; } .neworder small { color: #faf8f399; }
+@keyframes orderin { from { opacity: 0; transform: translate(-50%, -24px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes orderglow { from { box-shadow: 0 6px 20px rgb(185 154 98 / .25); } to { box-shadow: 0 10px 38px rgb(185 154 98 / .7); } }
+.orderbadge { background: #d33; color: #fff; }
+.newtag { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 99px; background: var(--gold); color: var(--black); font-size: .7rem; font-weight: 700; letter-spacing: .05em; vertical-align: middle; }
+tr.freshorder { background: rgb(185 154 98 / .12); }
+.orderbar { position: sticky; top: 0; z-index: 5; }

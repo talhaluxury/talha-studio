@@ -53,7 +53,6 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
     // Show last visit's feed instantly while fresh data loads (or when offline).
     val cachedHome = remember { Repo.cachedHome() }
     val homeState: Load<HomeData> = when (val s = home.state) { is Load.Ready -> s; else -> cachedHome?.let { Load.Ready<HomeData>(it) } ?: s }
-    val recent = rememberLoad(shop.recent.toList()) { Repo.byIds(shop.recent.toList()) }
 
     LazyColumn(contentPadding = PaddingValues(bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
         item { // Branded header + search (search opens the Browse tab)
@@ -116,7 +115,7 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                         }
                     }
                 }
-                item(key = "showcase") { AccessoriesShowcase(d.accessories, (recent.state as? Load.Ready<List<Product>>)?.data.orEmpty(), shop, onOpenProduct, onBrowse) }
+                item(key = "showcase") { AccessoriesShowcase(d.accessories, shop, onOpenProduct, onBrowse) }
                 if (d.collections.isEmpty()) item { EmptyState("New collection coming soon", "Our products will appear here as soon as they are published.") }
                 // "Watch & Shop" video cards sit right under On Sale (at the end of the collections when there is no sale section).
                 var reelsShown = false

@@ -54,6 +54,17 @@ export function pushRoutes(app: FastifyInstance, d: { store: Store; push: PushSt
     return reply.status(204).send();
   });
 
+  // ---- admin app: phones that get a push when a new order arrives ----
+  const staff = { preHandler: [auth.admin] };
+  app.post("/admin/devices", { ...staff, config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const b = z.object({ fcmToken: z.string().min(20).max(4096) }).parse(req.body);
+    await push.upsertAdminDevice(req.user!.id, b.fcmToken); return reply.status(204).send();
+  });
+  app.post("/admin/devices/unregister", staff, async (req, reply) => {
+    const b = z.object({ fcmToken: z.string().min(20).max(4096) }).parse(req.body);
+    await push.removeAdminDevice(b.fcmToken); return reply.status(204).send();
+  });
+
   // ---- admin: campaigns ----
   app.get("/admin/campaigns", manager, async (req) => {
     const q = z.object({ page: z.coerce.number().int().min(1).max(500).default(1), limit: z.coerce.number().int().min(1).max(50).default(20) }).parse(req.query);

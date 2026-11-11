@@ -15,7 +15,11 @@ export class MemoryPushStore implements PushStore {
     for (const old of mine.slice(MAX_DEVICES_PER_USER)) this.devices = this.devices.filter((d) => d !== old);
   }
   async removeDevice(userId: string, token: string) { this.devices = this.devices.filter((d) => !(d.userId === userId && d.token === token)); }
-  async deleteTokens(tokens: string[]) { this.devices = this.devices.filter((d) => !tokens.includes(d.token)); }
+  async deleteTokens(tokens: string[]) { this.devices = this.devices.filter((d) => !tokens.includes(d.token)); this.adminDevices = this.adminDevices.filter((d) => !tokens.includes(d.token)); }
+  adminDevices: { adminId: string; token: string }[] = [];
+  async upsertAdminDevice(adminId: string, token: string) { this.adminDevices = this.adminDevices.filter((d) => d.token !== token); this.adminDevices.push({ adminId, token }); }
+  async removeAdminDevice(token: string) { this.adminDevices = this.adminDevices.filter((d) => d.token !== token); }
+  async adminTokens() { return this.adminDevices.map((d) => d.token); }
   async pruneStale(days: number) { const before = this.devices.length; const cut = this.now().getTime() - days * 86400_000; this.devices = this.devices.filter((d) => d.seen.getTime() >= cut); return before - this.devices.length; }
   async tokensForUser(userId: string) { return this.devices.filter((d) => d.userId === userId).map((d) => d.token); }
   async getPrefs(userId: string) { return this.prefs.get(userId) ?? { orderUpdates: true, promotions: true }; }

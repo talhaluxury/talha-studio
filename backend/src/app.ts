@@ -30,6 +30,7 @@ import type { PushService } from "./pushService.js";
 import type { PushStore } from "./pushStore.js";
 import { pushRoutes } from "./routes/push.js";
 import { composeEvents } from "./events.js";
+import { productLinkRoutes } from "./routes/productLink.js";
 import type { EmailService } from "./emailService.js";
 import type { EmailStore } from "./emailStore.js";
 import type { SettingsStore } from "./settingsStore.js";
@@ -101,6 +102,7 @@ export async function buildApp(cfg: Config, deps: Deps) {
   }
 
   app.get("/healthz", async () => { await store.ping(); return { ok: true }; });
+  productLinkRoutes(app, { catalog, storage, storeName: cfg.STORE_NAME });
 
   legalRoutes(app, { settings: deps.settings });          // public policy pages, e.g. https://api.example.com/legal/privacy
   const auth = makeAuth(store, cfg.JWT_ACCESS_SECRET);

@@ -64,6 +64,12 @@ export class MemoryOrders implements OrderStore {
     o.status = to; o.updatedAt = new Date(); o.history.push({ status: to, note, at: o.updatedAt });
     return o;
   }
+  async adminDelete(id: string) {
+    const o = this.orders.find((x) => x.id === id); if (!o) return null;
+    if (["pending", "confirmed", "processing"].includes(o.status)) this.apply(o, "cancelled", "Deleted by admin", null);
+    this.orders = this.orders.filter((x) => x.id !== id); this.returns = this.returns.filter((x) => x.orderId !== id);
+    return { orderNumber: o.orderNumber };
+  }
   async customerCancel(userId: string, id: string) {
     const o = await this.getForUser(userId, id); if (!o) return null;
     if (!CUSTOMER_CANCELLABLE.includes(o.status)) throw new TransitionError("This order can no longer be cancelled online. Please contact support.");

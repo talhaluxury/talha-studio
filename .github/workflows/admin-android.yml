@@ -18,6 +18,31 @@ jobs:
         with: { distribution: temurin, java-version: 17 }
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: "8.9" }
+      - name: Firebase config (optional, enables new-order push)
+        env: { GSJ: "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" }
+        run: |
+          if [ -z "$GSJ" ]; then
+            echo "::warning title=ORDER PUSH OFF::Secret GOOGLE_SERVICES_JSON_BASE64 is empty or missing. The admin app still works; it just cannot receive push alerts."
+            exit 0
+          fi
+          # The secret may be the base64 text OR the plain contents of google-services.json.
+          if printf '%s' "$GSJ" | base64 -d > app/google-services.json 2>/dev/null && python3 -c 'import json;json.load(open("app/google-services.json"))' 2>/dev/null; then :
+          else printf '%s' "$GSJ" > app/google-services.json; fi
+          python3 - <<'PY'
+          import json, os
+          try:
+              j = json.load(open("app/google-services.json"))
+              pk = [c["client_info"]["android_client_info"]["package_name"] for c in j.get("client", [])]
+          except Exception as e:
+              os.remove("app/google-services.json")
+              print("::warning title=ORDER PUSH OFF::google-services.json is not complete (" + str(e) + ").")
+              raise SystemExit(0)
+          print("packages:", pk)
+          missing = [n for n in ("com.talhastudio.admin", "com.talhastudio.admin.debug") if n not in pk]
+          if missing:
+              os.remove("app/google-services.json")      # a file without one of the packages would break the build
+              print("::warning title=ORDER PUSH OFF::google-services.json has no Firebase app for " + ", ".join(missing) + ". Add those Android apps in Firebase, download the file again and update the secret.")
+          PY
       - name: Build debug APK
         run: gradle :app:assembleDebug
       - uses: actions/upload-artifact@v4

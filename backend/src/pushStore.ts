@@ -12,6 +12,9 @@ export interface PushStore {
   deleteTokens(tokens: string[]): Promise<void>;                                      // invalid-token cleanup
   pruneStale(days: number): Promise<number>;
   tokensForUser(userId: string): Promise<string[]>;
+  upsertAdminDevice(adminId: string, token: string): Promise<void>;      // a phone running the admin app (new-order alerts)
+  removeAdminDevice(token: string): Promise<void>;
+  adminTokens(): Promise<string[]>;
   getPrefs(userId: string): Promise<Prefs>;
   setPrefs(userId: string, p: Partial<Prefs>): Promise<Prefs>;
 

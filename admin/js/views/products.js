@@ -1,4 +1,5 @@
 import { api, session } from "../api.js";
+import { openQrLabel } from "../qrLabel.js";
 import { clear, confirmDialog, debounce, h, money, put, toast } from "../ui.js";
 
 const LIMIT = 15;
@@ -134,7 +135,7 @@ export async function renderProducts(view) {
         h("td", { "data-label": "Stock" }, h("span", { class: `badge ${stock === 0 ? "bad" : stock <= 5 ? "warn" : ""}` }, stock === 0 ? "Out of stock" : String(stock))),
         h("td", { "data-label": "Status" }, h("span", { class: `badge ${p.isPublished ? "ok" : ""}` }, p.isPublished ? "Published" : "Draft")),
         write ? saleCell(p) : null,
-        h("td", {}, h("a", { class: "btn ghost sm", href: `#/products/${p.id}` }, write ? "Edit" : "View")));
+        h("td", {}, h("div", { class: "row acts" }, h("button", { class: "btn ghost sm", type: "button", "aria-label": `QR code for ${p.name}`, onclick: () => openQrLabel(p.id) }, "QR"), h("a", { class: "btn ghost sm", href: `#/products/${p.id}` }, write ? "Edit" : "View"))));
     });
     const pages = Math.max(1, Math.ceil(r.total / LIMIT));
     put(clear(list),

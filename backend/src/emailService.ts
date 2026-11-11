@@ -24,12 +24,14 @@ export class EmailService implements OrderEvents {
   constructor(private d: {
     cfg: Pick<Config, "EMAIL_FROM" | "ADMIN_PUBLIC_URL" | "PUBLIC_LOGO_URL" | "STORE_NAME" | "STORE_TIMEZONE">;
     provider: EmailProvider; emails: EmailStore; settings: SettingsStore; orders: OrderStore; log?: Logger; now?: () => Date;
+    /** Turns a stored image key into a public https link so product photos can be shown inside emails. */
+    mediaUrl?: (key: string) => string;
   }) {}
 
   get configured() { return this.d.provider.configured; }
   get providerName() { return this.d.provider.name; }
   private now() { return this.d.now?.() ?? new Date(); }
-  private brand(storeName: string): Brand { const c = this.d.cfg; return { storeName: storeName || c.STORE_NAME, logoUrl: c.PUBLIC_LOGO_URL, adminUrl: c.ADMIN_PUBLIC_URL, timezone: c.STORE_TIMEZONE }; }
+  private brand(storeName: string): Brand { const c = this.d.cfg; return { storeName: storeName || c.STORE_NAME, logoUrl: c.PUBLIC_LOGO_URL, adminUrl: c.ADMIN_PUBLIC_URL, timezone: c.STORE_TIMEZONE, imageUrl: (k) => (k && this.d.mediaUrl ? this.d.mediaUrl(k) : null) }; }
 
   // ---- OrderEvents (called after the order transaction has committed) ----
   async orderPlaced(o: OrderRec) {

@@ -17,7 +17,10 @@ export class PgPushStore implements PushStore {
     await this.q(`DELETE FROM device_tokens WHERE user_id = $1 AND id NOT IN (SELECT id FROM device_tokens WHERE user_id = $1 ORDER BY last_seen_at DESC LIMIT ${MAX_DEVICES_PER_USER})`, [userId]);
   }
   async removeDevice(userId: string, token: string) { await this.q("DELETE FROM device_tokens WHERE user_id = $1 AND fcm_token = $2", [userId, token]); }
-  async deleteTokens(tokens: string[]) { if (tokens.length) await this.q("DELETE FROM device_tokens WHERE fcm_token = ANY($1::text[])", [tokens]); }
+  async deleteTokens(tokens: string[]) { if (tokens.length) { await this.q("DELETE FROM device_tokens WHERE fcm_token = ANY($1::text[])", [tokens]); await this.q("DELETE FROM admin_device_tokens WHERE fcm_token = ANY($1::text[])", [tokens]); } }
+  async upsertAdminDevice(adminId: string, token: string) { await this.q("INSERT INTO admin_device_tokens (fcm_token, admin_id) VALUES ($1,$2) ON CONFLICT (fcm_token) DO UPDATE SET admin_id = EXCLUDED.admin_id, last_seen_at = now()", [token, adminId]); }
+  async removeAdminDevice(token: string) { await this.q("DELETE FROM admin_device_tokens WHERE fcm_token = $1", [token]); }
+  async adminTokens() { const r = await this.q("SELECT fcm_token FROM admin_device_tokens WHERE last_seen_at > now() - interval '120 days'"); return r.rows.map((x: { fcm_token: string }) => x.fcm_token); }
   async pruneStale(days: number) { const r = await this.q("DELETE FROM device_tokens WHERE last_seen_at < now() - ($1::int * interval '1 day')", [days]); return r.rowCount ?? 0; }
   async tokensForUser(userId: string) { const r = await this.q("SELECT fcm_token FROM device_tokens WHERE user_id = $1", [userId]); return r.rows.map((x) => x.fcm_token); }
   async getPrefs(userId: string): Promise<Prefs> {

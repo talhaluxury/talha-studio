@@ -29,7 +29,8 @@ const store = new PgStore(cfg.DATABASE_URL);
 const orders = new PgOrders(store.db);
 const emails = new PgEmailStore(store.db);
 const settings = new PgSettings(store.db, { flat: cfg.SHIPPING_FLAT_PKR, freeOver: cfg.FREE_SHIPPING_OVER_PKR });
-const email = new EmailService({ cfg, provider: createEmailProvider(cfg), emails, settings, orders, log: { error: (o, m) => console.error(m, JSON.stringify(o)) } });
+const storage = createStorage(cfg);
+const email = new EmailService({ cfg, provider: createEmailProvider(cfg), emails, settings, orders, mediaUrl: (k) => storage.url(k), log: { error: (o, m) => console.error(m, JSON.stringify(o)) } });
 
 const pushStore = new PgPushStore(store.db);
 const push = new PushService({ store: pushStore, sender: cfg.FCM_SERVICE_ACCOUNT_JSON ? new FcmSender(JSON.parse(cfg.FCM_SERVICE_ACCOUNT_JSON)) : new NullSender(), log: { error: (o, m) => console.error(m, JSON.stringify(o)) } });
@@ -39,7 +40,6 @@ const assistant = new AssistantService({ cfg, llm: cfg.ANTHROPIC_API_KEY ? new A
 const waLog = { error: (o: object, m: string) => console.error(m, JSON.stringify(o)) };
 const waQr = cfg.WHATSAPP_DRIVER === "qr" ? new BaileysWhatsApp({ pool: store.db, storeName: cfg.STORE_NAME, tpl: { welcome: cfg.WHATSAPP_TPL_WELCOME, order: cfg.WHATSAPP_TPL_ORDER, newArrival: cfg.WHATSAPP_TPL_NEW_ARRIVAL }, log: waLog }) : undefined;
 const waProvider: WhatsAppProvider = waQr ?? createWhatsAppProvider(cfg);
-const storage = createStorage(cfg);
 const whatsapp = new WhatsAppService({ cfg, provider: waProvider, mediaUrl: (k) => storage.url(k), onConfirmed: (o) => push.orderConfirmed(o), store: new PgWhatsApp(store.db), inbound: { users: store, orders, assistant, aiEnabled: async () => (await settings.load()).aiReplies !== false }, log: { error: (o, m) => console.error(m, JSON.stringify(o)) } });
 
 const app = await buildApp(cfg, { store, catalog, orders, whatsapp, waQr, assistant, storage, emails, settings, email, push, pushStore, coupons: new PgCoupons(store.db), banners: new PgBanners(store.db), videos: new PgVideos(store.db), spin: new PgSpin(store.db), reels: new PgReels(store.db), sections: new PgSections(store.db), chat: new PgChat(store.db), slides: new PgSlides(store.db), status: new PgStatus(store.db) });

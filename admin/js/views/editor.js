@@ -1,3 +1,4 @@
+import { qrCard } from "../qrLabel.js";
 import { api, session, uploadImage } from "../api.js";
 import { cropImage } from "../crop.js";
 import { videoBox } from "../videoBox.js";
@@ -88,7 +89,7 @@ export async function renderEditor(view, idArg) {
 
   const imageCard = h("div", { class: "card" });
   const videoCard = h("div", { class: "card" });
-  put(clear(view), header, readOnly, form, imageCard, videoCard);
+  put(clear(view), header, readOnly, form, imageCard, videoCard, isNew ? null : qrCard(p.id));
   if (!isNew) videoCard.append(h("h2", {}, "Video (optional)"), h("p", { class: "hint" }, "One short MP4 video, up to 25 MB (about 30 seconds). Customers see it together with the photos."), videoBox({ url: p.videoUrl, uploadPath: `/admin/products/${p.id}/video`, deletePath: `/admin/products/${p.id}/video`, canEdit: write }));
   if (isNew) { imageCard.append(h("h2", {}, "Photos"), h("p", { class: "hint" }, "Create the product first, then you can upload photos here.")); return; }
   drawImages();

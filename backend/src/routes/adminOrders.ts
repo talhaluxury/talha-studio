@@ -64,6 +64,21 @@ export function adminOrderRoutes(app: FastifyInstance, d: {
     return { sent: true };
   });
 
+  // Delete orders for good (owner/admin). Open orders are cancelled first so their stock goes back on sale.
+  app.delete<{ Params: { id: string } }>("/admin/orders/:id", manager, async (req, reply) => {
+    const id = idParam.parse(req.params.id);
+    const r = await orders.adminDelete(id); if (!r) throw notFound("Order not found");
+    await store.logActivity({ adminId: req.user!.id, action: "order.delete", entity: "order", entityId: id, meta: { orderNumber: r.orderNumber }, ip: req.ip });
+    return reply.status(204).send();
+  });
+  app.post("/admin/orders/bulk-delete", manager, async (req) => {
+    const b = z.object({ ids: z.array(idParam).min(1).max(100) }).parse(req.body);
+    let deleted = 0; const numbers: string[] = [];
+    for (const id of new Set(b.ids)) { const r = await orders.adminDelete(id); if (r) { deleted++; numbers.push(r.orderNumber); } }
+    await store.logActivity({ adminId: req.user!.id, action: "order.bulk-delete", entity: "order", meta: { count: deleted, numbers }, ip: req.ip });
+    return { deleted };
+  });
+
   app.patch<{ Params: { id: string } }>("/admin/orders/:id/status", staff, async (req) => {
     const id = idParam.parse(req.params.id);
     const b = z.object({ status, note: z.string().trim().max(300).nullish().transform((v) => v || null),

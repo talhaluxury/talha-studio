@@ -23,7 +23,17 @@ export class PushService implements OrderEvents {
   constructor(private d: { store: PushStore; sender: PushSender; log?: Logger }) {}
   get configured() { return this.d.sender.configured; }
 
-  async orderPlaced(o: OrderRec) { await this.orderNote(o, { title: "Order confirmed", body: `Thank you! Order ${o.orderNumber} has been placed (Rs. ${o.total.toLocaleString("en-PK")}, Cash on Delivery).` }); }
+  /** Every new order also pings the phones that run the admin app (owner and staff). Best effort: never throws, never delays the order. */
+  async notifyAdmins(o: OrderRec) {
+    try {
+      if (!this.configured) return;
+      const tokens = await this.d.store.adminTokens(); if (!tokens.length) return;
+      const items = o.items.reduce((n, i) => n + i.qty, 0);
+      await this.sendTo(tokens, { title: `New order ${o.orderNumber}`, body: `${o.customer.name} · Rs. ${o.total.toLocaleString("en-PK")} · ${items} item${items === 1 ? "" : "s"}`, deepLink: `admin://orders/${o.id}`, kind: "order" });
+    } catch (e) { this.d.log?.error({ err: String(e), order: o.orderNumber }, "admin order alert failed"); }
+  }
+
+  async orderPlaced(o: OrderRec) { void this.notifyAdmins(o); await this.orderNote(o, { title: "Order confirmed", body: `Thank you! Order ${o.orderNumber} has been placed (Rs. ${o.total.toLocaleString("en-PK")}, Cash on Delivery).` }); }
   /** The customer confirmed the order themselves on WhatsApp: tell them in the app too (inbox entry + push). */
   async orderConfirmed(o: OrderRec) { await this.orderNote(o, { title: "Order confirmed ✅", body: `Shukriya ${o.customer.name.trim().split(/\s+/)[0] || ""}! Aap ka order ${o.orderNumber} confirm ho gaya hai. Hum jald dispatch karenge, update isi app mein milti rahegi.`.replace("Shukriya !", "Shukriya!") }); }
   async statusChanged(o: OrderRec, _prev: OrderStatus) { const m = ORDER_PUSH[o.status]; if (m) await this.orderNote(o, m(o)); }

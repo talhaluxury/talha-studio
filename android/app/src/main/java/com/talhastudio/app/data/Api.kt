@@ -229,7 +229,7 @@ object Repo {
         return HomeData(parseCategories(o.optJSONArray("categories")),
             o.optJSONArray("collections").mapObjects { c -> HomeCollection(c.getString("slug"), c.getString("title"), c.optJSONArray("products").mapObjects { parseProduct(it) }, c.optJSONArray("banners").mapObjects { parseBanner(it) }) },
             o.optJSONArray("banners").mapObjects { parseBanner(it) }, o.str("announcement"), o.optBoolean("spin", false), o.optJSONArray("reels").mapObjects { parseReel(it) },
-            o.optJSONObject("accessories")?.let { a -> Accessories(a.getString("slug"), a.getString("title"), parseCategories(a.optJSONArray("tiles")), a.optJSONArray("products").mapObjects { parseProduct(it) }) })
+            o.optJSONObject("accessories")?.let { a -> Accessories(a.getString("slug"), a.getString("title"), parseCategories(a.optJSONArray("tiles")), a.optJSONArray("products").mapObjects { parseProduct(it) }, a.str("imageUrl")) })
     }
     /** The running sale, or null when there is none. Throws ApiException when the server cannot be reached. */
     suspend fun sale(): Sale? = parseSale(Http.request("GET", "/sale"), android.os.SystemClock.elapsedRealtime())

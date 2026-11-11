@@ -19,6 +19,7 @@ import { chatUnread, renderChatInbox, renderChatThread } from "./views/chat.js";
 import { renderStatus } from "./views/status.js";
 import { renderWhatsapp } from "./views/whatsapp.js";
 import { renderWelcome } from "./views/welcome.js";
+import { paintBadge, startOrderAlerts, stopOrderAlerts } from "./alerts.js";
 
 const root = document.getElementById("app");
 const NAV = [["#/dashboard", "Dashboard"], ["#/orders", "Orders"], ["#/chat", "Chat"], ["#/products", "Products"], ["#/categories", "Categories"]];
@@ -43,7 +44,7 @@ function shell(active, content) {
     h("button", { class: "btn ghost sm", "aria-label": "Open menu", onclick: () => toggle(true) }, "Menu"));
   return h("div", { class: "shell" }, top, side, scrim, h("main", { class: "main", id: "main", tabindex: "-1" }, content));
 }
-function logout() { session.clear(); sessionStorage.setItem("ts_no_autologin", "1"); location.hash = "#/login"; }
+async function logout() { await stopOrderAlerts(); session.clear(); sessionStorage.setItem("ts_no_autologin", "1"); location.hash = "#/login"; }
 
 let token = 0;
 async function route() {
@@ -56,6 +57,7 @@ async function route() {
   const view = h("div", {});
   const active = `#/${section}`;
   put(clear(root), shell(active, view));
+  paintBadge(); startOrderAlerts();
   chatUnread().then((n) => { if (n && mine === token) document.querySelectorAll('.nav a[href="#/chat"]').forEach((a) => a.append(h("span", { class: "navbadge" }, n > 99 ? "99+" : String(n)))); });
   document.title = `${section[0].toUpperCase() + section.slice(1)} · Talha Studio Admin`;
   try {
