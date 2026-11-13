@@ -77,7 +77,7 @@ export async function renderOrders(view) {
           write ? h("td", {}, tick(o)) : null,
           h("td", { "data-label": "Order" }, h("a", { href: `#/orders/${o.id}` }, h("b", {}, o.orderNumber)), isFresh(o) ? h("span", { class: "newtag" }, "NEW") : null),
           h("td", { "data-label": "Customer" }, o.customerName, h("div", { class: "hint" }, o.customerPhone)),
-          h("td", { "data-label": "Items" }, `${o.itemCount}${o.firstItemName ? " · " + o.firstItemName : ""}`),
+          h("td", { "data-label": "Items" }, `${o.itemCount}${o.firstItemName ? " · " + o.firstItemName : ""}`, ...(o.brands?.length ? [h("div", {}, o.brands.map((b) => h("span", { class: "badge gold", style: "margin-right:4px" }, b.name)))] : [])),
           h("td", { "data-label": "Total" }, money(o.total)), h("td", { "data-label": "Status" }, statusBadge(o.status)),
           h("td", { "data-label": "Placed" }, fmtDate(o.createdAt)),
           h("td", {}, h("div", { class: "row acts" },

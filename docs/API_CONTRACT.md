@@ -47,7 +47,7 @@ Orders (Phase 5; **staff+** read/update, export & customers = admin/owner): `GET
 pending → confirmed → processing → shipped → delivered; cancel allowed before shipped; delivered → refund_requested → refunded.
 
 ## Deep links
-`talhastudio://order/<orderId>` · `talhastudio://product/<productId>` · `talhastudio://chat` (store replied)
+`talhastudio://order/<orderId>` · `talhastudio://product/<productId>` · `talhastudio://chat` (store replied) · `talhastudio://brand/<slug>` · `talhastudio://seller` (seller account update / new order for a seller)
 
 
 ## Phase 8 additions
@@ -67,3 +67,10 @@ pending → confirmed → processing → shipped → delivered; cancel allowed b
 ## Phase 10: WhatsApp and assistant
 `GET /assistant/enabled` → `{enabled}` · `POST /assistant {messages:[{role:"user"|"assistant",content≤1000}]≤12}` (optional bearer; signed-in customers also get their last 3 orders in the context) → `{reply, actions:[{type:"product"|"cart"|"orders"|"chat", id?, label}]}`; 429 `ASSISTANT_LIMIT`, 503 `ASSISTANT_OFF`, 502 `ASSISTANT_FAILED`.
 `GET /admin/whatsapp` (admin/owner) → `{configured, provider, items:[{id,kind,to,status:sending|sent|failed|skipped,error,createdAt}]}`. WhatsApp itself is sent by the server on phone sign-up and on order creation; see docs/WHATSAPP_AND_ASSISTANT.md.
+
+## Phase 11: sellers and brands (marketplace)
+Migration `018_brands.sql`. A seller is a normal customer account plus one `brands` row. Account status: `pending | active | rejected | suspended`. Page status: `draft | submitted | approved | rejected`. Product state (per brand product): `draft | pending | approved | rejected | archived`.
+**Public:** `GET /brands` → `{items:[{id,slug,name,tagline,style,accent,logoUrl,coverUrl}]}` (only active brands with an approved page) · `GET /brands/:slug` → `{brand:{...card,about,highlights[],instagram,website,productCount}, collections:[{id,title,products[]}], products[]}` (404 unless active and live) · `GET /seller/portal` → `{url|null}`. `GET /products/:id` adds `brand: {id,slug,name,logoUrl} | null`.
+**Seller (customer token):** `GET /seller/me` → `{brand|null, user}` · `POST /seller/apply` `{name,contactPhone,city,businessNote}` · `POST /seller/reapply` (after rejection) · `PUT /seller/brand` (replaces the draft: name, tagline, about, style `noir|ivory|gold`, accent `#RRGGBB`, highlights[≤4], instagram, website, collections[{id?,title,productIds[]}]) · `POST|DELETE /seller/brand/logo|cover` (multipart `file`) · `POST /seller/brand/submit` · `GET /seller/categories` · `GET|POST /seller/products`, `GET|PUT|DELETE /seller/products/:id`, product image upload/delete/reorder · `GET /seller/orders?status=&page=`, `GET /seller/orders/:id` (only the seller's own lines; no customer email).
+**Admin:** `GET /admin/brands?status=&pageStatus=&q=`, `GET /admin/brands/:id` (draft and live) for staff; admin/owner: `POST /admin/brands/:id/approve|reject|suspend|unsuspend`, `POST .../page/approve|page/reject`, `POST .../products/:productId/reject` (reject/suspend/page-reject need `{note}` 3-300 chars). `GET /admin/orders` adds `brands:[{id,name}]` per order; order detail items carry `brand`.
+**Rules:** products a seller creates are unpublished; approving the page publishes the pending products that have a photo and a size/colour. Suspending hides all approved products; unsuspending restores them. Sellers are notified (inbox + push, deep link `talhastudio://seller`) of approvals, rejections and new orders; admins get a push (`admin://brands`) for applications and submitted pages.

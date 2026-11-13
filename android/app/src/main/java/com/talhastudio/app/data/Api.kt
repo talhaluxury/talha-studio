@@ -35,7 +35,25 @@ fun parseProduct(o: JSONObject): Product {
         variants = o.optJSONArray("variants").mapObjects { Variant(it.getString("id"), it.str("size"), it.str("color"), it.getInt("stock")) },
         inStock = o.optBoolean("inStock", false),
         related = o.optJSONArray("related").mapObjects { parseProduct(it) }, videoUrl = o.str("videoUrl"),
+        brand = o.optJSONObject("brand")?.let { parseBrandRef(it) },
     )
+}
+fun parseBrandRef(o: JSONObject) = BrandRef(o.getString("id"), o.getString("slug"), o.getString("name"), o.str("logoUrl"))
+fun parseBrandCard(o: JSONObject) = BrandCard(o.getString("id"), o.getString("slug"), o.getString("name"), o.optString("tagline", ""),
+    o.optString("style", "noir"), o.optString("accent", "#B99A62"), o.str("logoUrl"), o.str("coverUrl"))
+fun parseBrandPage(o: JSONObject): BrandPage {
+    val b = o.getJSONObject("brand")
+    return BrandPage(
+        card = parseBrandCard(b), about = b.optString("about", ""),
+        highlights = b.optJSONArray("highlights")?.let { a -> (0 until a.length()).map(a::getString) } ?: emptyList(),
+        instagram = b.str("instagram"), website = b.str("website"), productCount = b.optInt("productCount", 0),
+        collections = o.optJSONArray("collections").mapObjects { c -> BrandCollection(c.getString("id"), c.getString("title"), c.optJSONArray("products").mapObjects { parseProduct(it) }) },
+        products = o.optJSONArray("products").mapObjects { parseProduct(it) },
+    )
+}
+fun parseSellerState(o: JSONObject): SellerState {
+    val b = o.optJSONObject("brand") ?: return SellerState(null, null, null, null)
+    return SellerState(b.optString("status").ifBlank { null }, b.str("statusNote"), b.str("pageStatus"), b.optJSONObject("draft")?.str("name"))
 }
 fun parseQuote(o: JSONObject) = Quote(
     items = o.optJSONArray("items").mapObjects { QuoteItem(it.getString("variantId"), it.getInt("unitPrice"), it.getInt("qty")) },
@@ -250,6 +268,14 @@ object Repo {
         return PageOf(o.optJSONArray("items").mapObjects { parseProduct(it) }, o.getInt("page"), o.getInt("total"))
     }
     suspend fun product(id: String) = parseProduct(Http.request("GET", "/products/$id"))
+
+    // ---- brands ----
+    suspend fun brands(): List<BrandCard> = Http.request("GET", "/brands").optJSONArray("items").mapObjects { parseBrandCard(it) }
+    suspend fun brand(slug: String) = parseBrandPage(Http.request("GET", "/brands/${enc(slug)}"))
+    /** The customer's seller application (needs sign-in). */
+    suspend fun sellerState() = parseSellerState(Http.request("GET", "/seller/me", auth = true))
+    /** Address of the seller website, or null when the store has not set one up yet. */
+    suspend fun sellerPortalUrl(): String? = Http.request("GET", "/seller/portal").str("url")?.takeIf { it.startsWith("https://") }
 
     /** Wishlist / recently viewed / cart refresh. Unpublished or deleted products simply do not come back. */
     suspend fun byIds(ids: List<String>): List<Product> {

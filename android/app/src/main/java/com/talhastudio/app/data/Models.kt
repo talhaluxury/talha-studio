@@ -10,6 +10,8 @@ data class Product(
     val price: Int, val salePrice: Int?, val fabric: String?,
     val images: List<ImageRef>, val variants: List<Variant>, val inStock: Boolean,
     val related: List<Product> = emptyList(), val videoUrl: String? = null,
+    /** The brand page this product is sold by; null for Talha Studio's own products. */
+    val brand: BrandRef? = null,
 ) {
     val effectivePrice get() = salePrice ?: price
     val discountPercent: Int? get() = salePrice?.takeIf { price > 0 }?.let { ((price - it) * 100f / price).toInt() }
@@ -122,3 +124,21 @@ data class AssistantReply(val text: String, val actions: List<AssistantAction>)
 /** The Home screen opens browse with "@<section slug>|<section title>" for a "View all"; anything else is a category slug. */
 fun parseBrowse(arg: String?): Filter =
     if (arg != null && arg.startsWith("@")) arg.drop(1).let { Filter(section = it.substringBefore("|"), sectionTitle = it.substringAfter("|", "")) } else Filter(category = arg)
+
+// ---- Brands (marketplace) ----
+/** "Sold by" tag on a product. */
+data class BrandRef(val id: String, val slug: String, val name: String, val logoUrl: String?)
+/** What the brands row shows. [style] is noir | ivory | gold, [accent] a #RRGGBB colour chosen by the seller. */
+data class BrandCard(val id: String, val slug: String, val name: String, val tagline: String, val style: String, val accent: String, val logoUrl: String?, val coverUrl: String?)
+data class BrandCollection(val id: String, val title: String, val products: List<Product>)
+data class BrandPage(
+    val card: BrandCard, val about: String, val highlights: List<String>, val instagram: String?, val website: String?,
+    val productCount: Int, val collections: List<BrandCollection>, val products: List<Product>,
+)
+/** The signed-in customer's seller application. [status] is null when they never applied; otherwise pending | active | rejected | suspended. */
+data class SellerState(val status: String?, val statusNote: String?, val pageStatus: String?, val brandName: String?)
+/** Parses "#RRGGBB"; anything else falls back to the store gold. */
+fun parseHexColor(hex: String?, fallback: Long = 0xFFB99A62): Long {
+    val h = hex?.trim()?.removePrefix("#").orEmpty()
+    return if (Regex("^[0-9A-Fa-f]{6}$").matches(h)) 0xFF000000L or h.toLong(16) else fallback
+}

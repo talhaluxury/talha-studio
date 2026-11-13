@@ -51,8 +51,13 @@ import { MemorySpin, type SpinStore } from "./spinStore.js";
 import { spinRoutes } from "./routes/spin.js";
 import { MemoryReels, type ReelStore } from "./reelStore.js";
 import { reelRoutes } from "./routes/reels.js";
+import { MemoryBrands } from "./memoryBrands.js";
+import type { BrandStore } from "./brandStore.js";
+import { SellerAlerts } from "./sellerNotify.js";
+import { sellerRoutes } from "./routes/seller.js";
+import { adminBrandRoutes, brandRoutes } from "./routes/brands.js";
 
-export interface Deps { reels?: ReelStore; spin?: SpinStore; videos?: VideoStore; sections?: SectionStore; whatsapp?: WhatsAppService; waQr?: BaileysWhatsApp; assistant?: AssistantService; chat: ChatStore; slides: SlideStore; status: StatusStore; coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
+export interface Deps { brands?: BrandStore; reels?: ReelStore; spin?: SpinStore; videos?: VideoStore; sections?: SectionStore; whatsapp?: WhatsAppService; waQr?: BaileysWhatsApp; assistant?: AssistantService; chat: ChatStore; slides: SlideStore; status: StatusStore; coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
 
 export function googleVerifier(clientId: string): GoogleVerifier {
   const client = new OAuth2Client(clientId);
@@ -69,7 +74,9 @@ export function googleVerifier(clientId: string): GoogleVerifier {
 
 export async function buildApp(cfg: Config, deps: Deps) {
   const { store, catalog, storage, orders } = deps;
-  const events = deps.events ?? composeEvents(deps.email, deps.push, ...(deps.whatsapp ? [deps.whatsapp] : []));       // order emails + push are the default side effects of order events
+  const brands = deps.brands ?? new MemoryBrands();
+  const alerts = new SellerAlerts({ brands, pushStore: deps.pushStore, push: deps.push });
+  const events = deps.events ?? composeEvents(deps.email, deps.push, alerts, ...(deps.whatsapp ? [deps.whatsapp] : []));       // order emails + push (+ the seller's own alert) are the default side effects of order events
   const images = deps.images ?? sharpProcessor;
   const videos = deps.videos ?? new MemoryVideos();
   const sections = deps.sections ?? new MemorySections();
@@ -86,9 +93,10 @@ export async function buildApp(cfg: Config, deps: Deps) {
   const app = Fastify(serverOptions) as unknown as FastifyInstance;
   installErrorHandler(app);
   // Authenticated and account responses must never be cached by browsers or proxies.
-  app.addHook("onSend", async (req, reply) => { if (/^\/v1\/(me|admin|auth|orders|cart)/.test(req.url)) reply.header("cache-control", "no-store"); });
+  app.addHook("onSend", async (req, reply) => { if (/^\/v1\/(me|admin|auth|orders|cart|seller)/.test(req.url)) reply.header("cache-control", "no-store"); });
   await app.register(helmet);
-  await app.register(cors, { origin: cfg.ADMIN_ORIGIN ? cfg.ADMIN_ORIGIN.split(",").map((o) => o.trim()).filter(Boolean) : false, methods: ["GET", "POST", "PATCH", "PUT", "DELETE"] });
+  const origins = [cfg.ADMIN_ORIGIN, cfg.SELLER_ORIGIN ?? ""].flatMap((v) => v.split(",")).map((o) => o.trim()).filter(Boolean);      // admin panel + seller portal websites
+  await app.register(cors, { origin: origins.length ? origins : false, methods: ["GET", "POST", "PATCH", "PUT", "DELETE"] });
   await app.register(multipart, { limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 5 } });
   await app.register(rateLimit, { max: 120, timeWindow: "1 minute" });
 
@@ -110,13 +118,16 @@ export async function buildApp(cfg: Config, deps: Deps) {
     authRoutes(v1, { store, secret: cfg.JWT_ACCESS_SECRET, google, whatsapp: deps.whatsapp });
     meRoutes(v1, { store, auth, onDelete: async (id) => { for (const k of await deps.chat.deleteForCustomer(id)) await storage.delete(k).catch(() => {}); } });
     adminRoutes(v1, { store, auth });
-    catalogRoutes(v1, { catalog, storage, cfg, settings: deps.settings, banners: deps.banners, coupons: deps.coupons, videos, sections, reels });
+    catalogRoutes(v1, { catalog, storage, cfg, settings: deps.settings, banners: deps.banners, coupons: deps.coupons, videos, sections, reels, brands });
+    brandRoutes(v1, { brands, catalog, storage });
+    sellerRoutes(v1, { brands, catalog, orders, storage, images, auth, cfg, alerts });
+    adminBrandRoutes(v1, { brands, catalog, storage, store, auth, alerts });
     reelRoutes(v1, { reels, storage, store, auth });
     sectionRoutes(v1, { sections, store, auth });
     spinRoutes(v1, { spin, coupons: deps.coupons, settings: deps.settings, auth });
     videoRoutes(v1, { videos, catalog, banners: deps.banners, storage, store, auth });
     orderRoutes(v1, { orders, storage, auth, cfg, settings: deps.settings, events });
-    adminOrderRoutes(v1, { orders, store, storage, auth, cfg, events, whatsapp: deps.whatsapp });
+    adminOrderRoutes(v1, { orders, store, storage, auth, cfg, events, whatsapp: deps.whatsapp, brands });
     adminCommerceRoutes(v1, { coupons: deps.coupons, banners: deps.banners, settings: deps.settings, storage, images, store, auth, videos });
     infoRoutes(v1, { settings: deps.settings, returnWindowDays: cfg.RETURN_WINDOW_DAYS, store, orders, push: deps.pushStore, auth });
     pushRoutes(v1, { store, push: deps.pushStore, svc: deps.push, auth });

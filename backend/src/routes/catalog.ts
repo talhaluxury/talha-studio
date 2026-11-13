@@ -11,6 +11,7 @@ import { priceCart, type PriceCfg } from "../pricing.js";
 import type { BannerStore } from "../bannerStore.js";
 import type { CouponStore } from "../couponStore.js";
 import type { SettingsStore } from "../settingsStore.js";
+import type { BrandStore } from "../brandStore.js";
 
 export const toApiCategory = (c: Category, s: Storage) => ({ ...c, imageUrl: c.imageKey ? s.url(c.imageKey) : null });
 export const toApiProduct = (p: ProductRec, s: Storage, admin = false) => ({
@@ -43,8 +44,8 @@ export async function priceCfgFrom(settings: SettingsStore, cfg: Pick<Config, "M
   return { SHIPPING_FLAT_PKR: s.shipping.flat, FREE_SHIPPING_OVER_PKR: s.shipping.freeOver, MAX_COD_ORDER_PKR: cfg.MAX_COD_ORDER_PKR };
 }
 
-export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; storage: Storage; cfg: Config; settings: SettingsStore; banners: BannerStore; coupons: CouponStore; videos?: VideoStore; sections?: SectionStore; reels?: ReelStore }) {
-  const { catalog, storage, cfg, settings, banners, coupons, videos, sections, reels } = d;
+export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; storage: Storage; cfg: Config; settings: SettingsStore; banners: BannerStore; coupons: CouponStore; videos?: VideoStore; sections?: SectionStore; reels?: ReelStore; brands?: BrandStore }) {
+  const { catalog, storage, cfg, settings, banners, coupons, videos, sections, reels, brands } = d;
   /** The product filter behind each home section, so "View all" shows exactly what the section shows. */
   const sectionFilter = async (slug?: string): Promise<{ featured?: boolean; onSale?: boolean; newArrival?: boolean; ids?: string[] }> => {
     if (!slug) return {};
@@ -68,7 +69,11 @@ export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; 
     if (!p) throw notFound("Product not found");
     const rel = await catalog.related(p, 6);
     const vk = videos ? (await videos.getMany("product", [p.id])).get(p.id) : undefined;
-    return { ...toApiProduct(p, storage), videoUrl: vk ? storage.url(vk) : null, related: rel.map((x) => toApiProduct(x, storage)) };
+    // "Sold by": the brand page this product belongs to (only when that page is live and the account is active).
+    const tag = brands ? (await brands.tagsForProducts([p.id])).get(p.id) : undefined;
+    const owner = tag ? await brands!.getById(tag.id) : null;
+    const brand = tag && owner && owner.status === "active" && owner.live ? { id: tag.id, slug: tag.slug, name: owner.live.name, logoUrl: owner.live.logoKey ? storage.url(owner.live.logoKey) : null } : null;
+    return { ...toApiProduct(p, storage), brand, videoUrl: vk ? storage.url(vk) : null, related: rel.map((x) => toApiProduct(x, storage)) };
   });
 
   // Sale countdown (admin sets the end time). serverNow lets the app count down correctly even if the phone clock is wrong.

@@ -9,6 +9,7 @@ import type { makeAuth } from "../plugins/auth.js";
 import type { Storage } from "../storage.js";
 import type { WhatsAppService } from "../whatsapp.js";
 import type { Store } from "../store.js";
+import type { BrandStore } from "../brandStore.js";
 import { mapOrderError, toApiOrder, toApiSummary } from "./orders.js";
 
 const status = z.enum(ORDER_STATUSES as [string, ...string[]]);
@@ -29,18 +30,28 @@ export const ordersCsv = (os: OrderRec[]) => {
 };
 
 export function adminOrderRoutes(app: FastifyInstance, d: {
-  orders: OrderStore; store: Store; storage: Storage; auth: ReturnType<typeof makeAuth>; cfg: Config; events?: OrderEvents; whatsapp?: WhatsAppService;
+  orders: OrderStore; store: Store; storage: Storage; auth: ReturnType<typeof makeAuth>; cfg: Config; events?: OrderEvents; whatsapp?: WhatsAppService; brands?: BrandStore;
 }) {
   const { orders, store, storage, auth, cfg } = d; const events = d.events ?? noEvents;
   const staff = { preHandler: [auth.admin] };
   const manager = { preHandler: [auth.admin, auth.requireRole("admin", "owner")] };
   const idParam = z.string().uuid();
   const withNext = (o: OrderRec) => ({ ...toApiOrder(o, storage), allowedNext: allowedNext(o.status) });
+  /** Adds { brand: {id,name} | null } to every item (null = the store's own product). */
+  const withBrands = async (o: OrderRec) => {
+    const base = withNext(o); if (!d.brands) return base;
+    const tags = await d.brands.tagsForProducts(o.items.flatMap((i) => (i.productId ? [i.productId] : [])));
+    return { ...base, items: base.items.map((it) => { const t = it.productId ? tags.get(it.productId) : undefined; return { ...it, brand: t ? { id: t.id, name: t.name } : null }; }) };
+  };
 
   app.get("/admin/orders", staff, async (req) => {
     const q = filter.extend({ page: z.coerce.number().int().min(1).max(1000).default(1), limit: z.coerce.number().int().min(1).max(100).default(20) }).parse(req.query);
     const r = await orders.adminList({ ...q, status: q.status as never });
-    return { items: r.items.map((o) => toApiSummary(o, storage)), page: q.page, limit: q.limit, total: r.total };
+    // Marketplace: name the seller brand(s) behind each order so the owner sees at a glance whose products were bought.
+    const pids = d.brands ? await orders.productIdsForOrders(r.items.map((o) => o.id)) : new Map<string, string[]>();
+    const tags = d.brands ? await d.brands.tagsForProducts([...new Set([...pids.values()].flat())]) : new Map();
+    const brandsOf = (id: string) => { const seen = new Map<string, string>(); for (const p of pids.get(id) ?? []) { const t = tags.get(p); if (t) seen.set(t.id, t.name); } return [...seen].map(([bid, name]) => ({ id: bid, name })); };
+    return { items: r.items.map((o) => ({ ...toApiSummary(o, storage), brands: brandsOf(o.id) })), page: q.page, limit: q.limit, total: r.total };
   });
 
   app.get("/admin/orders/export.csv", manager, async (req, reply) => {
@@ -50,7 +61,7 @@ export function adminOrderRoutes(app: FastifyInstance, d: {
   });
 
   app.get<{ Params: { id: string } }>("/admin/orders/:id", staff, async (req) => {
-    const o = await orders.adminGet(idParam.parse(req.params.id)); if (!o) throw notFound("Order not found"); return withNext(o);
+    const o = await orders.adminGet(idParam.parse(req.params.id)); if (!o) throw notFound("Order not found"); return withBrands(o);
   });
 
   // "Send on WhatsApp": the message (and product photo) goes out from the number linked in Admin > WhatsApp, same as the automatic order message.
@@ -89,7 +100,7 @@ export function adminOrderRoutes(app: FastifyInstance, d: {
       const o = await orders.adminSetStatus(id, b.status as never, b.note, b.trackingUrl, req.user!.id); if (!o) throw notFound("Order not found");
       await store.logActivity({ adminId: req.user!.id, action: "order.status", entity: "order", entityId: id, meta: { from: prevStatus, to: o.status }, ip: req.ip });
       await events.statusChanged(o, prevStatus).catch((err) => req.log.error({ err: String(err) }, "order event failed"));
-      return withNext(o);
+      return await withBrands(o);
     } catch (e) { throw mapOrderError(e); }
   });
 
@@ -98,7 +109,7 @@ export function adminOrderRoutes(app: FastifyInstance, d: {
     const b = z.object({ status: z.enum(["paid", "unpaid"]) }).parse(req.body);
     const o = await orders.setPayment(id, b.status, req.user!.id); if (!o) throw notFound("Order not found");
     await store.logActivity({ adminId: req.user!.id, action: "order.payment", entity: "order", entityId: id, meta: { status: b.status }, ip: req.ip });
-    return withNext(o);
+    return withBrands(o);
   });
 
   app.get("/admin/customers", manager, async (req) => {

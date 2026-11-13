@@ -2,6 +2,7 @@ import { PgSections } from "./sectionStore.js";
 import { PgVideos } from "./videoStore.js";
 import { PgSpin } from "./spinStore.js";
 import { PgReels } from "./reelStore.js";
+import { PgBrands } from "./pgBrands.js";
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createEmailProvider } from "./emailProvider.js";
@@ -42,7 +43,7 @@ const waQr = cfg.WHATSAPP_DRIVER === "qr" ? new BaileysWhatsApp({ pool: store.db
 const waProvider: WhatsAppProvider = waQr ?? createWhatsAppProvider(cfg);
 const whatsapp = new WhatsAppService({ cfg, provider: waProvider, mediaUrl: (k) => storage.url(k), onConfirmed: (o) => push.orderConfirmed(o), store: new PgWhatsApp(store.db), inbound: { users: store, orders, assistant, aiEnabled: async () => (await settings.load()).aiReplies !== false }, log: { error: (o, m) => console.error(m, JSON.stringify(o)) } });
 
-const app = await buildApp(cfg, { store, catalog, orders, whatsapp, waQr, assistant, storage, emails, settings, email, push, pushStore, coupons: new PgCoupons(store.db), banners: new PgBanners(store.db), videos: new PgVideos(store.db), spin: new PgSpin(store.db), reels: new PgReels(store.db), sections: new PgSections(store.db), chat: new PgChat(store.db), slides: new PgSlides(store.db), status: new PgStatus(store.db) });
+const app = await buildApp(cfg, { brands: new PgBrands(store.db), store, catalog, orders, whatsapp, waQr, assistant, storage, emails, settings, email, push, pushStore, coupons: new PgCoupons(store.db), banners: new PgBanners(store.db), videos: new PgVideos(store.db), spin: new PgSpin(store.db), reels: new PgReels(store.db), sections: new PgSections(store.db), chat: new PgChat(store.db), slides: new PgSlides(store.db), status: new PgStatus(store.db) });
 await app.listen({ port: cfg.PORT, host: "0.0.0.0" });
 if (waQr) { waQr.onMessage((from, text, id) => whatsapp.handleInbound(from, text, id)); void waQr.start(); }
 if (!push.configured) app.log.warn("FCM_SERVICE_ACCOUNT_JSON is not set: push is off (the in-app notification inbox still works).");

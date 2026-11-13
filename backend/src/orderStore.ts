@@ -48,4 +48,8 @@ export interface OrderStore {
   adminCustomers(q: string | undefined, page: number, limit: number): Promise<{ items: CustomerRow[]; total: number }>;
   analytics(days: number, tz: string): Promise<Analytics>;
   exportForUser(userId: string): Promise<OrderRec[]>;
+  /** A seller's view: newest orders that contain at least one of these products (the whole order is returned; the caller hides the other items). */
+  ordersForProducts(productIds: string[], f: { status?: OrderStatus; page: number; limit: number }): Promise<{ items: OrderRec[]; total: number }>;
+  /** For each order id, the product ids it contains (used to label orders with their brand in the admin panel). */
+  productIdsForOrders(orderIds: string[]): Promise<Map<string, string[]>>;
 }

@@ -37,7 +37,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ProductDetailScreen(shop: ShopViewModel, id: String, onBack: () -> Unit, onOpenProduct: (String) -> Unit) {
+fun ProductDetailScreen(shop: ShopViewModel, id: String, onBack: () -> Unit, onOpenProduct: (String) -> Unit, onOpenBrand: (String) -> Unit = {}) {
     val load = rememberLoad(id) { Repo.product(id) }
     val snack = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -58,7 +58,7 @@ fun ProductDetailScreen(shop: ShopViewModel, id: String, onBack: () -> Unit, onO
             when (val s = load.state) {
                 is Load.Loading -> Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { SkeletonBox(Modifier.fillMaxWidth().aspectRatio(0.85f)); SkeletonBox(Modifier.fillMaxWidth().height(28.dp)); SkeletonBox(Modifier.fillMaxWidth(0.5f).height(22.dp)) }
                 is Load.Error -> if (s.message.contains("not found", true)) EmptyState("Product not found", "It may have been removed.", "Go back", onBack) else ErrorState(s.message, s.offline, load.retry)
-                is Load.Ready -> Details(shop, s.data, snack, onOpenProduct) { msg -> scope.launch { snack.showSnackbar(msg) } }
+                is Load.Ready -> Details(shop, s.data, snack, onOpenProduct, onOpenBrand) { msg -> scope.launch { snack.showSnackbar(msg) } }
             }
             // Sale countdown for products that are on sale: small, left side, just above the bottom bar.
             if (sale != null && saleLeft > 0 && (load.state as? Load.Ready)?.data?.salePrice != null)
@@ -69,7 +69,7 @@ fun ProductDetailScreen(shop: ShopViewModel, id: String, onBack: () -> Unit, onO
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, onOpenProduct: (String) -> Unit, say: (String) -> Unit) {
+private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, onOpenProduct: (String) -> Unit, onOpenBrand: (String) -> Unit, say: (String) -> Unit) {
     var size by remember(p.id) { mutableStateOf(p.sizes.singleOrNull()) }
     var color by remember(p.id) { mutableStateOf(p.colors.singleOrNull()) }
     var qty by remember(p.id) { mutableIntStateOf(1) }
@@ -102,6 +102,11 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
         }
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text(p.name, style = MaterialTheme.typography.headlineMedium)
+            p.brand?.let { b -> Row(Modifier.clip(RoundedCornerShape(50)).clickable { onOpenBrand(b.slug) }.background(TS.Neutral.copy(alpha = 0.6f)).padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Sold by ", style = MaterialTheme.typography.labelLarge, color = TS.Gray)
+                Text(b.name, style = MaterialTheme.typography.labelLarge, color = TS.Black)
+                Text("  \u203A", style = MaterialTheme.typography.labelLarge, color = TS.Gold)
+            } }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PriceText(p)
                 p.discountPercent?.let { SaleBadge(it) }

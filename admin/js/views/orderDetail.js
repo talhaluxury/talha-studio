@@ -77,7 +77,7 @@ export async function renderOrderDetail(view, id) {
         h("table", {}, h("thead", {}, h("tr", {}, ["", "Product", "Options", "Price", "Qty", "Line total"].map((t) => h("th", { scope: "col" }, t)))),
           h("tbody", {}, o.items.map((i) => h("tr", {},
             h("td", {}, i.imageUrl ? h("img", { src: i.imageUrl, alt: "", loading: "lazy" }) : h("div", { class: "thumb", "aria-hidden": "true" }, i.name[0])),
-            h("td", { "data-label": "Product" }, h("b", {}, i.name), h("div", { class: "hint" }, i.sku)), h("td", { "data-label": "Options" }, [i.color, i.size].filter(Boolean).join(" / ") || "-"),
+            h("td", { "data-label": "Product" }, h("b", {}, i.name), h("div", { class: "hint" }, i.sku), i.brand ? h("div", {}, h("span", { class: "badge gold" }, "Brand: " + i.brand.name)) : null), h("td", { "data-label": "Options" }, [i.color, i.size].filter(Boolean).join(" / ") || "-"),
             h("td", { "data-label": "Price" }, money(i.unitPrice)), h("td", { "data-label": "Qty" }, i.qty), h("td", { "data-label": "Line total" }, money(i.unitPrice * i.qty)))))),
         h("div", { class: "sum" }, h("div", {}, h("span", {}, "Subtotal"), h("span", {}, money(o.subtotal))),
           o.discount ? h("div", {}, h("span", {}, "Discount"), h("span", {}, "- " + money(o.discount))) : null,

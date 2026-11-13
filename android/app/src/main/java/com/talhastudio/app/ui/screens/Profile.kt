@@ -17,6 +17,7 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PrivacyTip
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.outlined.SupportAgent
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -42,7 +43,7 @@ private val GoldLight = Color(0xFFE9CF98)
 private val CardEdge = TS.Gold.copy(alpha = 0.30f)
 
 @Composable
-fun ProfileScreen(onSignIn: () -> Unit, onOrders: () -> Unit, onAddresses: () -> Unit, onNotifications: () -> Unit, onSupport: () -> Unit, onSettings: () -> Unit, onOpenPage: (String) -> Unit) {
+fun ProfileScreen(onSignIn: () -> Unit, onOrders: () -> Unit, onAddresses: () -> Unit, onNotifications: () -> Unit, onSupport: () -> Unit, onSettings: () -> Unit, onOpenPage: (String) -> Unit, onSeller: () -> Unit = {}) {
     val user = Session.user
     LazyColumn(contentPadding = PaddingValues(20.dp, 12.dp, 20.dp, 130.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         item { Text("My Account", style = MaterialTheme.typography.headlineMedium, fontFamily = DisplayFont, modifier = Modifier.staggerIn(0)) }
@@ -61,6 +62,8 @@ fun ProfileScreen(onSignIn: () -> Unit, onOrders: () -> Unit, onAddresses: () ->
         }
         item {
             Column(Modifier.staggerIn(3), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                GroupLabel("SELL")
+                MenuGroup(listOf(MenuItem("Seller account", Icons.Outlined.Storefront, onSeller)))
                 GroupLabel("HELP")
                 MenuGroup(listOf(
                     MenuItem("Help & Support", Icons.Outlined.SupportAgent, onSupport),

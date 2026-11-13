@@ -179,7 +179,7 @@ fun ChatScreen(shop: ShopViewModel, onBack: () -> Unit) {
 }
 
 /** Phone photos are normally under the server's 8 MB limit and are sent untouched (the server rotates and resizes them); only huge ones are shrunk. */
-private fun readPhoto(ctx: Context, uri: Uri): ByteArray? {
+internal fun readPhoto(ctx: Context, uri: Uri): ByteArray? {
     val raw = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
     if (raw.size <= 7_000_000) return raw
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }

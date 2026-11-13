@@ -7,6 +7,8 @@ const schema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32, "JWT_ACCESS_SECRET must be >= 32 chars"),
   GOOGLE_WEB_CLIENT_ID: z.string().default(""),
   ADMIN_ORIGIN: z.string().default(""),
+  SELLER_ORIGIN: z.string().default(""),               // origin(s) of the seller portal website (CORS), comma separated, exact https:// origins
+  SELLER_PORTAL_URL: z.string().default(""),           // public address of the seller portal; the app opens it from Profile > Seller account
   SHIPPING_FLAT_PKR: z.coerce.number().int().min(0).default(299),
   FREE_SHIPPING_OVER_PKR: z.coerce.number().int().min(0).default(0),   // 0 = free shipping disabled
   MAX_COD_ORDER_PKR: z.coerce.number().int().min(1000).default(200000),   // abuse/fraud guard for Cash on Delivery
@@ -63,6 +65,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     if (d.STORAGE_DRIVER === "s3" && !d.PUBLIC_MEDIA_BASE_URL.startsWith("https://")) bad.push("PUBLIC_MEDIA_BASE_URL must be https://");
     if (!d.ADMIN_ORIGIN) bad.push("ADMIN_ORIGIN must list your admin site origin(s)");
     for (const o of d.ADMIN_ORIGIN.split(",").map((x) => x.trim()).filter(Boolean)) if (!o.startsWith("https://") || o.includes("*")) bad.push(`ADMIN_ORIGIN entry "${o}" must be an exact https:// origin`);
+    for (const o of d.SELLER_ORIGIN.split(",").map((x) => x.trim()).filter(Boolean)) if (!o.startsWith("https://") || o.includes("*")) bad.push(`SELLER_ORIGIN entry "${o}" must be an exact https:// origin`);
     if (/change-me|example/i.test(d.JWT_ACCESS_SECRET)) bad.push("JWT_ACCESS_SECRET still looks like a placeholder");
     if (bad.length) throw new Error("Invalid environment:\n" + bad.join("\n"));
   }

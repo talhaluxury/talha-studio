@@ -192,3 +192,9 @@ div.slideimg.empty { display: grid; place-items: center; padding: 8px; font-size
 .newtag { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 99px; background: var(--gold); color: var(--black); font-size: .7rem; font-weight: 700; letter-spacing: .05em; vertical-align: middle; }
 tr.freshorder { background: rgb(185 154 98 / .12); }
 .orderbar { position: sticky; top: 0; z-index: 5; }
+
+/* Brands review */
+.bpair { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-bottom: 16px; } .bcol h3 { margin: 0 0 8px; }
+.bphone { width: 100%; max-width: 380px; height: 640px; border-radius: 34px; border: 9px solid #1d1d1f; overflow: hidden auto; background: #000; overscroll-behavior: contain; }
+.reviewbar { display: flex; gap: 16px; justify-content: space-between; align-items: center; flex-wrap: wrap; border-color: var(--gold, #b99a62); }
+.banner { border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; background: #f6ecd6; border: 1px solid #e6d3a4; } .banner.bad { background: #f8dfdc; border-color: #eab5b0; }

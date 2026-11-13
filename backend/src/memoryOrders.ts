@@ -91,6 +91,16 @@ export class MemoryOrders implements OrderStore {
   }
   async adminList(f: OrderFilter) { const r = this.filtered(f); return { items: r.slice((f.page - 1) * f.limit, f.page * f.limit).map((o) => this.summary(o)), total: r.length }; }
   async adminGet(id: string) { return this.orders.find((o) => o.id === id) ?? null; }
+  async ordersForProducts(productIds: string[], f: { status?: OrderStatus; page: number; limit: number }) {
+    const set = new Set(productIds);
+    const r = this.orders.filter((o) => (!f.status || o.status === f.status) && o.items.some((i) => i.productId && set.has(i.productId)));
+    return { items: r.slice((f.page - 1) * f.limit, f.page * f.limit), total: r.length };
+  }
+  async productIdsForOrders(orderIds: string[]) {
+    const out = new Map<string, string[]>();
+    for (const o of this.orders) if (orderIds.includes(o.id)) out.set(o.id, o.items.map((i) => i.productId).filter((x): x is string => !!x));
+    return out;
+  }
   async updateDelivery(id: string, userId: string, d: { address: OrderRec["address"]; phone: string }, note: string) {
     const o = this.orders.find((x) => x.id === id && x.userId === userId); if (!o) return null;
     if (!["pending", "confirmed"].includes(o.status)) throw new TransitionError("This order is already being prepared, so the address can no longer be changed here.");

@@ -171,6 +171,23 @@ export class PgOrders implements OrderStore {
     return { items: rows.rows.map(toSummary), total: n.rows[0].n };
   }
   adminGet(id: string) { return this.load("id = $1", [id]); }
+  async ordersForProducts(productIds: string[], f: { status?: OrderStatus; page: number; limit: number }) {
+    if (!productIds.length) return { items: [], total: 0 };
+    const v: unknown[] = [productIds]; let status = ""; if (f.status) { v.push(f.status); status = `AND o.status = $${v.length}`; }
+    const cond = `FROM orders o WHERE EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = o.id AND i.product_id = ANY($1::uuid[])) ${status}`;
+    const [ids, n] = await Promise.all([
+      this.q(`SELECT o.id ${cond} ORDER BY o.created_at DESC LIMIT ${f.limit} OFFSET ${(f.page - 1) * f.limit}`, v),
+      this.q(`SELECT count(*)::int AS n ${cond}`, v),
+    ]);
+    const items: OrderRec[] = []; for (const r of ids.rows) { const o = await this.adminGet(r.id); if (o) items.push(o); }
+    return { items, total: n.rows[0].n as number };
+  }
+  async productIdsForOrders(orderIds: string[]) {
+    const out = new Map<string, string[]>(); if (!orderIds.length) return out;
+    const r = await this.q("SELECT order_id, product_id FROM order_items WHERE order_id = ANY($1::uuid[]) AND product_id IS NOT NULL", [orderIds]);
+    for (const x of r.rows) { const a = out.get(x.order_id) ?? []; a.push(x.product_id); out.set(x.order_id, a); }
+    return out;
+  }
   async updateDelivery(id: string, userId: string, d: { address: OrderRec["address"]; phone: string }, note: string) {
     const ok = await this.tx(async (c) => {
       const r = await c.query("SELECT status, user_id FROM orders WHERE id = $1 FOR UPDATE", [id]);

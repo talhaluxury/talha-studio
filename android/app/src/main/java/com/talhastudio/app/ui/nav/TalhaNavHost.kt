@@ -56,11 +56,15 @@ object Routes {
     const val PhoneAuth = "phone_auth"
     const val PhoneSignIn = "phone_signin?next={next}"
     fun phoneSignIn(next: String = "") = "phone_signin?next=$next"
+    const val Brands = "brands"
+    const val Brand = "brand/{slug}"
+    fun brand(slug: String) = "brand/$slug"
+    const val Seller = "seller"
     const val Info = "info/{slug}"
     fun info(slug: String) = "info/$slug"
 }
 
-private val barRoutes = setOf(Routes.Main, Routes.Product, Routes.Confirmation, Routes.Orders, Routes.Order, Routes.Addresses, Routes.Notifications, Routes.Support, Routes.Settings, Routes.Info)
+private val barRoutes = setOf(Routes.Main, Routes.Product, Routes.Confirmation, Routes.Orders, Routes.Order, Routes.Addresses, Routes.Notifications, Routes.Support, Routes.Settings, Routes.Info, Routes.Brands, Routes.Brand, Routes.Seller)
 
 /** [startOnMain] is true when the app was opened from a notification: skip the splash and land inside the app. */
 @Composable
@@ -115,11 +119,21 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
                 onOrders = { nav.navigate(Routes.Orders) }, onAddresses = { nav.navigate(Routes.Addresses) },
                 onNotifications = { if (Session.signedIn) nav.navigate(Routes.Notifications) else nav.navigate(Routes.auth()) },
                 onUpdates = { nav.navigate(if (Session.signedIn) Routes.Chat else Routes.PhoneAuth) },
-                onSupport = { nav.navigate(Routes.Support) }, onSettings = { nav.navigate(Routes.Settings) }, onOpenPage = { nav.navigate(Routes.info(it)) })
+                onSupport = { nav.navigate(Routes.Support) }, onSettings = { nav.navigate(Routes.Settings) }, onOpenPage = { nav.navigate(Routes.info(it)) },
+                onOpenBrand = { nav.navigate(Routes.brand(it)) }, onAllBrands = { nav.navigate(Routes.Brands) },
+                onSeller = { if (Session.signedIn) nav.navigate(Routes.Seller) else nav.navigate(Routes.auth()) })
+        }
+        composable(Routes.Brands) { AllBrandsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.brand(it)) }) }
+        composable(Routes.Brand, deepLinks = listOf(navDeepLink { uriPattern = "talhastudio://brand/{slug}" })) { entry ->
+            BrandScreen(shop, entry.arguments?.getString("slug").orEmpty(), onBack = { if (!nav.popBackStack()) nav.navigate(Routes.Main) }, onOpenProduct = { nav.navigate(Routes.product(it)) })
+        }
+        composable(Routes.Seller, deepLinks = listOf(navDeepLink { uriPattern = "talhastudio://seller" })) {
+            if (Session.signedIn) SellerScreen(shop, onBack = { if (!nav.popBackStack()) nav.navigate(Routes.Main) })
+            else SignInRequired(onBack = { nav.popBackStack() }) { nav.navigate(Routes.auth()) }
         }
         composable(Routes.Product, deepLinks = listOf(navDeepLink { uriPattern = "talhastudio://product/{id}" })) { entry ->
             val id = entry.arguments?.getString("id").orEmpty()
-            ProductDetailScreen(shop, id, onBack = { nav.popBackStack() }, onOpenProduct = { nav.navigate(Routes.product(it)) })
+            ProductDetailScreen(shop, id, onBack = { nav.popBackStack() }, onOpenProduct = { nav.navigate(Routes.product(it)) }, onOpenBrand = { nav.navigate(Routes.brand(it)) })
         }
         composable(Routes.Auth, arguments = listOf(navArgument("next") { type = NavType.StringType; defaultValue = "" })) { entry ->
             val next = entry.arguments?.getString("next").orEmpty()

@@ -26,7 +26,7 @@ internal val shellTabs = listOf(
 )
 
 @Composable
-fun MainShell(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onCheckout: () -> Unit, onSignIn: () -> Unit, onOrders: () -> Unit, onAddresses: () -> Unit, onNotifications: () -> Unit, onUpdates: () -> Unit, onSupport: () -> Unit, onSettings: () -> Unit, onOpenPage: (String) -> Unit) {
+fun MainShell(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onCheckout: () -> Unit, onSignIn: () -> Unit, onOrders: () -> Unit, onAddresses: () -> Unit, onNotifications: () -> Unit, onUpdates: () -> Unit, onSupport: () -> Unit, onSettings: () -> Unit, onOpenPage: (String) -> Unit, onOpenBrand: (String) -> Unit = {}, onAllBrands: () -> Unit = {}, onSeller: () -> Unit = {}) {
     val tab = shop.currentTab
     var browseCategory by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(shop.browseRequest) { shop.browseRequest?.let { browseCategory = it; shop.currentTab = 1; shop.browseRequest = null } }
@@ -41,11 +41,11 @@ fun MainShell(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onCheckout: 
                 (slideInHorizontally { it / 3 * dir } + fadeIn() + scaleIn(initialScale = 0.92f)) togetherWith (slideOutHorizontally { -it / 3 * dir } + fadeOut() + scaleOut(targetScale = 0.92f))
             }, label = "tab") { t ->
                 when (t) {
-                    0 -> HomeScreen(shop, onOpenProduct, onBrowse = { browseCategory = it; shop.currentTab = 1 }, onNotifications = onNotifications, onUpdates = onUpdates, onSupport = onSupport, onOpenPage = onOpenPage, onSignIn = onSignIn)
+                    0 -> HomeScreen(shop, onOpenProduct, onBrowse = { browseCategory = it; shop.currentTab = 1 }, onNotifications = onNotifications, onUpdates = onUpdates, onSupport = onSupport, onOpenPage = onOpenPage, onSignIn = onSignIn, onOpenBrand = onOpenBrand, onAllBrands = onAllBrands)
                     1 -> CategoriesScreen(shop, browseCategory, onOpenProduct)
                     2 -> WishlistScreen(shop, onOpenProduct, goShop = { shop.currentTab = 0 })
                     3 -> CartScreen(shop, goShop = { shop.currentTab = 0 }, onCheckout = onCheckout)
-                    else -> ProfileScreen(onSignIn, onOrders, onAddresses, onNotifications, onSupport, onSettings, onOpenPage)
+                    else -> ProfileScreen(onSignIn, onOrders, onAddresses, onNotifications, onSupport, onSettings, onOpenPage, onSeller)
                 }
             }
         }

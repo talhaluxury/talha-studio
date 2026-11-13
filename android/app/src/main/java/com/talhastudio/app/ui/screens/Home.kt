@@ -45,11 +45,12 @@ import com.talhastudio.app.ui.theme.DisplayFont
 import com.talhastudio.app.ui.theme.TS
 
 @Composable
-fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (category: String?) -> Unit, onNotifications: () -> Unit, onUpdates: () -> Unit, onSupport: () -> Unit, onOpenPage: (String) -> Unit, onSignIn: () -> Unit = {}) {
+fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (category: String?) -> Unit, onNotifications: () -> Unit, onUpdates: () -> Unit, onSupport: () -> Unit, onOpenPage: (String) -> Unit, onSignIn: () -> Unit = {}, onOpenBrand: (String) -> Unit = {}, onAllBrands: () -> Unit = {}) {
     LaunchedEffect(Session.user?.id) { shop.refreshUnread(); shop.refreshUpdates() }
     LaunchedEffect(Unit) { shop.refreshSale() }
     var showSpin by remember { mutableStateOf(false) }
     val home = rememberLoad("home") { Repo.home() }
+    val brands = rememberLoad("brands") { runCatching { Repo.brands() }.getOrDefault(emptyList()) }       // a failing brands row must never break the home screen
     // Show last visit's feed instantly while fresh data loads (or when offline).
     val cachedHome = remember { Repo.cachedHome() }
     val homeState: Load<HomeData> = when (val s = home.state) { is Load.Ready -> s; else -> cachedHome?.let { Load.Ready<HomeData>(it) } ?: s }
@@ -115,6 +116,7 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                         }
                     }
                 }
+                (brands.state as? Load.Ready)?.data?.takeIf { it.isNotEmpty() }?.let { list -> item(key = "brands") { BrandsRow(list, onOpenBrand, onAllBrands) } }
                 item(key = "showcase") { AccessoriesShowcase(d.accessories, shop, onOpenProduct, onBrowse) }
                 if (d.collections.isEmpty()) item { EmptyState("New collection coming soon", "Our products will appear here as soon as they are published.") }
                 // "Watch & Shop" video cards sit right under On Sale (at the end of the collections when there is no sale section).
