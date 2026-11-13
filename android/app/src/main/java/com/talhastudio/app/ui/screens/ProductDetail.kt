@@ -82,6 +82,7 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
     val photoUrls = remember(p.id) { p.images.mapNotNull { it.url } }
     viewer?.let { ImageViewerDialog(photoUrls, it, p.name) { viewer = null } }
 
+    val needsChoice = (p.sizes.isNotEmpty() && size == null) || (p.colors.isNotEmpty() && color == null)
     Column(Modifier.fillMaxSize()) {
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
         Box {
@@ -123,7 +124,6 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
                     val any = p.variants.any { it.size == s && (color == null || it.color == color) && it.stock > 0 }
                     FilterChip(size == s, { size = s; qty = 1 }, { Text(s) }, enabled = any, colors = chipColors()) } } }
 
-            val needsChoice = (p.sizes.isNotEmpty() && size == null) || (p.colors.isNotEmpty() && color == null)
             when {
                 !p.inStock -> Text("Out of stock", color = TS.Danger, style = MaterialTheme.typography.labelLarge)
                 needsChoice -> Text("Select " + listOfNotNull("a color".takeIf { p.colors.isNotEmpty() && color == null }, "a size".takeIf { p.sizes.isNotEmpty() && size == null }).joinToString(" and "), color = TS.Gray, style = MaterialTheme.typography.bodyMedium)
