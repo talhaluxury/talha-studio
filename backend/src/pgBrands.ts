@@ -1,13 +1,13 @@
 import type pg from "pg";
 import {
-  BrandDuplicateError, emptyContent, uniqueBrandSlug,
+  BrandDuplicateError, emptyContent, normalizeContent, uniqueBrandSlug,
   type BrandFilter, type BrandRec, type BrandStatus, type BrandStore, type BrandSummary, type BrandTag, type NewBrand, type PageContent, type ProductLink, type ProductState,
 } from "./brandStore.js";
 
 type Row = Record<string, any>;
 const toBrand = (r: Row): BrandRec => ({
   id: r.id, ownerId: r.owner_id, slug: r.slug, status: r.status, statusNote: r.status_note, pageStatus: r.page_status, pageNote: r.page_note,
-  contactPhone: r.contact_phone, city: r.city, businessNote: r.business_note, draft: r.draft, live: r.live ?? null,
+  contactPhone: r.contact_phone, city: r.city, businessNote: r.business_note, draft: normalizeContent(r.draft, r.slug), live: r.live ? normalizeContent(r.live, r.slug) : null,
   createdAt: r.created_at, submittedAt: r.submitted_at, approvedAt: r.approved_at, liveAt: r.live_at,
 });
 const toLink = (r: Row): ProductLink => ({ productId: r.product_id, brandId: r.brand_id, state: r.state, note: r.note, createdAt: r.created_at });
@@ -113,7 +113,7 @@ export class PgBrands implements BrandStore {
     const r = await this.q(
       `SELECT p.product_id, b.id, b.slug, b.owner_id, COALESCE(b.live, b.draft) AS content
        FROM brand_products p JOIN brands b ON b.id = p.brand_id WHERE p.product_id = ANY($1::uuid[])`, [productIds]);
-    for (const x of r.rows) out.set(x.product_id, { id: x.id, slug: x.slug, name: x.content?.name ?? x.slug, logoKey: x.content?.logoKey ?? null, ownerId: x.owner_id });
+    for (const x of r.rows) out.set(x.product_id, { id: x.id, slug: x.slug, name: x.content?.name || x.slug, logoKey: x.content?.logoKey ?? null, ownerId: x.owner_id });
     return out;
   }
 }

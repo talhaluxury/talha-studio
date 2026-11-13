@@ -29,6 +29,28 @@ export interface PageContent {
 }
 export const emptyContent = (name: string): PageContent => ({ name, tagline: "", logoKey: null, coverKey: null, instagram: null, website: null, sections: [] });
 
+/**
+ * Pages saved by an older version of the builder (about / highlights / collections / colour style, no `sections`) are converted
+ * when they are read, so an old row can never crash the app or the admin site.
+ */
+export const normalizeContent = (raw: any, fallbackName = ""): PageContent => {
+  const c = raw && typeof raw === "object" ? raw : {};
+  const str = (v: unknown) => (typeof v === "string" ? v : "");
+  const key = (v: unknown) => (typeof v === "string" && v ? v : null);
+  let sections: PageSection[] = Array.isArray(c.sections) ? c.sections.filter((s: any) => s && typeof s === "object" && typeof s.id === "string" && (SECTION_TYPES as readonly string[]).includes(s.type)) : [];
+  if (!Array.isArray(c.sections)) {
+    const legacy: PageSection[] = [];
+    if (str(c.about).trim()) legacy.push({ id: "legacy-about", hidden: false, type: "text", heading: "About", body: str(c.about), align: "start" });
+    const hl = Array.isArray(c.highlights) ? c.highlights.filter((x: unknown) => typeof x === "string" && x) : [];
+    if (hl.length) legacy.push({ id: "legacy-highlights", hidden: false, type: "features", title: "", items: hl.slice(0, 6) });
+    (Array.isArray(c.collections) ? c.collections : []).slice(0, 6).forEach((col: any, i: number) => {
+      if (col && typeof col.title === "string") legacy.push({ id: `legacy-col-${i}`, hidden: false, type: "products", title: col.title, layout: "grid", productIds: Array.isArray(col.productIds) ? col.productIds.filter((x: unknown) => typeof x === "string") : [] });
+    });
+    sections = legacy;
+  }
+  return { name: str(c.name) || fallbackName, tagline: str(c.tagline), logoKey: key(c.logoKey), coverKey: key(c.coverKey), instagram: key(c.instagram), website: key(c.website), sections: sections.slice(0, MAX_SECTIONS) };
+};
+
 export const sectionKeys = (s: PageSection): string[] => {
   switch (s.type) {
     case "banner": return s.slides.map((x) => x.imageKey);
