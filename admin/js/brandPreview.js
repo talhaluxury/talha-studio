@@ -1,10 +1,10 @@
 import { h, money } from "./ui.js";
 
 /**
- * Renders a brand page exactly the way customers see it (3D tilting logo card, parallax cover, tilting product cards).
- * Used by the seller portal's live preview and by the admin panel's review screen. Keep js/preview.js (seller) and
- * js/brandPreview.js (admin) identical: they are the same file deployed to two websites.
- *   content  = { name, tagline, about, style, accent, logoUrl, coverUrl, highlights, instagram, website, collections:[{id,title,productIds}] }
+ * Renders a brand page the way customers see it in the app: 3D tilting logo, parallax cover, then the seller's sections in order
+ * (banner slider, video, text, products, photo gallery, highlights, space). Colours are never chosen by the seller; the app's light/dark
+ * theme decides, so the preview takes a theme: renderBrandPage(content, products, { theme: "dark" | "light", scroller }).
+ *   content  = the API shape from /admin/brands/:id (draft or live): { name, tagline, logoUrl, coverUrl, instagram, website, sections:[...] }
  *   products = [{ id, name, price, salePrice, images:[{url,thumbUrl}], state? }]
  */
 const reduce = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -36,9 +36,60 @@ function productCard(p) {
   return tilt(card, 9);
 }
 
-export function renderBrandPage(content, products, opts = {}) {
+const title = (t) => (t ? h("h3", { class: "bp-title" }, t) : null);
+
+/** Banner slider: scroll-snap strip, dots, and it moves on by itself while it is on screen. */
+function banner(sec, productName) {
+  const slides = sec.slides || [];
+  if (!slides.length) return h("p", { class: "bp-empty" }, "Banner has no pictures");
+  const strip = h("div", { class: "bp-slides" }, slides.map((sl) => h("div", { class: "bp-slide" },
+    h("img", { src: sl.image?.url || "", alt: sl.title || "" }),
+    sl.title || sl.subtitle || sl.buttonLabel ? h("div", { class: "bp-slide-text" },
+      sl.title ? h("b", {}, sl.title) : null, sl.subtitle ? h("span", {}, sl.subtitle) : null,
+      sl.buttonLabel && sl.productId ? h("em", {}, sl.buttonLabel, productName(sl.productId) ? ` → ${productName(sl.productId)}` : "") : null) : null)));
+  const dots = h("div", { class: "bp-dots" }, slides.map(() => h("i", {})));
+  const mark = () => { const i = Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth)); [...dots.children].forEach((d, k) => d.classList.toggle("on", k === i)); };
+  strip.addEventListener("scroll", mark, { passive: true });
+  queueMicrotask(mark);
+  if (slides.length > 1 && !reduce()) {
+    const t = setInterval(() => {
+      if (!strip.isConnected) return clearInterval(t);
+      const i = (Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth)) + 1) % slides.length;
+      strip.scrollTo({ left: i * strip.clientWidth, behavior: "smooth" });
+    }, 4500);
+  }
+  return h("div", { class: "bp-banner" }, strip, slides.length > 1 ? dots : null);
+}
+
+function productsBlock(sec, products) {
   const byId = new Map(products.map((p) => [p.id, p]));
-  const root = h("div", { class: `bp bp-${content.style || "noir"}`, style: `--accent:${/^#[0-9a-fA-F]{6}$/.test(content.accent) ? content.accent : "#B99A62"}` });
+  const list = (sec.productIds?.length ? sec.productIds.map((id) => byId.get(id)).filter(Boolean) : products.filter((p) => p.state !== "archived").slice(0, 12));
+  if (!list.length) return h("p", { class: "bp-empty" }, "No products to show here yet");
+  return h("div", { class: `bp-prod bp-prod-${sec.layout || "grid"}` }, list.map(productCard));
+}
+
+function sectionEl(sec, products) {
+  const productName = (id) => products.find((p) => p.id === id)?.name;
+  let body;
+  switch (sec.type) {
+    case "banner": body = banner(sec, productName); break;
+    case "video": {
+      const v = h("video", { src: sec.video?.url, controls: true, playsinline: true, loop: !!sec.autoplay, autoplay: !!sec.autoplay, preload: "metadata" });
+      v.muted = true;                                          // setting it as a property is what browsers honour for autoplay
+      body = h("div", { class: "bp-video" }, title(sec.title), v, sec.caption ? h("p", { class: "bp-muted" }, sec.caption) : null); break;
+    }
+    case "text": body = h("div", { class: `bp-text${sec.align === "center" ? " c" : ""}` }, sec.heading ? h("h2", {}, sec.heading) : null, sec.body ? h("p", {}, sec.body) : null); break;
+    case "products": body = h("div", {}, title(sec.title), productsBlock(sec, products)); break;
+    case "gallery": body = h("div", {}, title(sec.title), h("div", { class: "bp-gallery" }, (sec.images || []).map((im) => tilt(h("img", { src: im.url, alt: "", loading: "lazy" }), 8)))); break;
+    case "features": body = h("div", {}, title(sec.title), h("ul", { class: "bp-chips left" }, (sec.items || []).map((x) => h("li", {}, "✓ " + x)))); break;
+    case "spacer": body = h("div", { class: `bp-space ${sec.size || "medium"}` }); break;
+    default: return null;
+  }
+  return h("section", { class: `bp-sec${sec.hidden ? " hidden" : ""}` }, sec.hidden ? h("span", { class: "bp-hiddenlabel" }, "Hidden: will not show to customers") : null, body);
+}
+
+export function renderBrandPage(content, products, opts = {}) {
+  const root = h("div", { class: `bp${opts.theme === "light" ? " bp-light" : ""}` });
   const cover = h("div", { class: "bp-cover" }, content.coverUrl ? h("img", { src: content.coverUrl, alt: "" }) : null);
   const logo = tilt(h("div", { class: "bp-logo" },
     content.logoUrl ? h("img", { src: content.logoUrl, alt: `${content.name} logo` }) : h("span", {}, initials(content.name)),
@@ -52,25 +103,9 @@ export function renderBrandPage(content, products, opts = {}) {
       h("h1", {}, content.name || "Your brand"),
       content.tagline ? h("p", { class: "bp-tag" }, content.tagline) : null,
       h("span", { class: "bp-verified" }, "✓ Verified brand"),
-      content.highlights?.length ? h("ul", { class: "bp-chips" }, content.highlights.map((x) => h("li", {}, x))) : null,
       links.length ? h("div", { class: "bp-links" }, links) : null));
-  const about = content.about ? h("section", { class: "bp-about" }, h("h3", {}, "Our story"), h("p", {}, content.about)) : null;
-
-  const groups = [{ id: "all", title: "All products", list: products.filter((p) => p.state !== "archived") }];
-  for (const c of content.collections || []) {
-    const list = c.productIds.map((id) => byId.get(id)).filter(Boolean);
-    if (list.length) groups.push({ id: c.id, title: c.title, list });
-  }
-  const grid = h("div", { class: "bp-grid" });
-  const tabs = h("nav", { class: "bp-tabs", "aria-label": "Collections" });
-  const show = (g) => {
-    grid.replaceChildren(...(g.list.length ? g.list.map(productCard) : [h("p", { class: "bp-empty" }, "No products yet")]));
-    [...tabs.children].forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.id === g.id)));
-  };
-  for (const g of groups) tabs.append(h("button", { type: "button", "data-id": g.id, onclick: () => show(g) }, g.title));
-  if (groups.length < 2) tabs.hidden = true;
-  show(groups[0]);
-  root.append(hero, about, tabs, grid);
+  const secs = (content.sections || []).map((s) => sectionEl(s, products)).filter(Boolean);
+  root.append(hero, ...(secs.length ? secs : [h("p", { class: "bp-empty" }, "No sections yet")]));
 
   // Parallax: the cover drifts slower than the content when the page scrolls.
   const scroller = opts.scroller;

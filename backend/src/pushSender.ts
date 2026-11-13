@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-export interface PushMessage { title: string; body: string; deepLink?: string | null; kind: "order" | "promo"; notificationId?: string }
+export interface PushMessage { title: string; body: string; deepLink?: string | null; imageUrl?: string | null; kind: "order" | "promo"; notificationId?: string }
 /** invalidToken: the device token is dead (uninstalled/expired) and must be deleted. transient: worth retrying later. */
 export class PushError extends Error { constructor(message: string, public invalidToken: boolean, public transient: boolean) { super(message); } }
 export interface PushSender { readonly configured: boolean; readonly name: string; send(token: string, m: PushMessage): Promise<void> }
@@ -39,8 +39,8 @@ export class FcmSender implements PushSender {
 
   async send(token: string, m: PushMessage): Promise<void> {
     const payload = { message: {
-      token, notification: { title: m.title, body: m.body },
-      data: { kind: m.kind, ...(m.deepLink ? { deepLink: m.deepLink } : {}), ...(m.notificationId ? { notificationId: m.notificationId } : {}) },
+      token, notification: { title: m.title, body: m.body, ...(m.imageUrl ? { image: m.imageUrl } : {}) },
+      data: { kind: m.kind, ...(m.deepLink ? { deepLink: m.deepLink } : {}), ...(m.imageUrl ? { imageUrl: m.imageUrl } : {}), ...(m.notificationId ? { notificationId: m.notificationId } : {}) },
       android: { priority: "HIGH", notification: { channel_id: m.kind === "order" ? "orders" : "promotions_hi" } },
     } };
     for (let attempt = 0; attempt < 2; attempt++) {

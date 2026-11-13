@@ -14,6 +14,7 @@ export interface StoreSettings {
   spin: { active: boolean; percents: number[] };            // lucky-wheel: every segment is one of these discount percentages
   pages: Record<PageSlug, string>;                          // policy / about page bodies
   paymentAccounts: { jazzcash: string; easypaisa: string; bank: string };   // where customers send money; a method is offered only when its text is not empty
+  homeLayouts: Record<string, "slider" | "grid">;          // per home section (slug): side-scrolling slider (default) or a grid that scrolls down with the page
   aiReplies: boolean;                                       // owner switch: AI answers customers on WhatsApp and in the app
 }
 
@@ -27,6 +28,7 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   spin: { active: false, percents: [5, 10, 15] },
   pages: DEFAULT_PAGES,
   aiReplies: true,
+  homeLayouts: {},
   paymentAccounts: { jazzcash: "", easypaisa: "", bank: "" },
   templates: {
     order_confirmation: { subject: "Your Talha Studio order {{orderNumber}}", intro: "Thank you for your order, {{customerName}}. We have received it and will confirm it shortly.", footer: "Questions about your order? Contact us using the details below." },
@@ -45,6 +47,7 @@ const merge = (v: Partial<StoreSettings> | null, ship: StoreSettings["shipping"]
   sale: { ...DEFAULT_SETTINGS.sale, ...(v?.sale ?? {}) },
   spin: { ...DEFAULT_SETTINGS.spin, ...(v?.spin ?? {}) },
   pages: { ...DEFAULT_SETTINGS.pages, ...(v?.pages ?? {}) },
+  homeLayouts: { ...(v?.homeLayouts ?? {}) },
   store: { ...DEFAULT_SETTINGS.store, ...(v?.store ?? {}) },
   paymentAccounts: { ...DEFAULT_SETTINGS.paymentAccounts, ...(v?.paymentAccounts ?? {}) },
   templates: {

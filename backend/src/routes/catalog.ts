@@ -109,7 +109,7 @@ export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; 
       banners: live.filter((b) => b.placement === "top" || !known.has(b.placement)).map(bannerJson),
       categories: cats.map((c) => toApiCategory(c, storage)), accessories,
       collections: [col("new-arrivals", "New Arrivals", news), col("featured", "Featured", featured), col("sale", "On Sale", sale), ...customCols.map((c) => col(c.slug, c.title, { items: c.items }))]
-        .filter((c) => c.products.length).map((c) => ({ ...c, banners: live.filter((b) => b.placement === c.slug).map(bannerJson) })),
+        .filter((c) => c.products.length).map((c) => ({ ...c, layout: st.homeLayouts[c.slug] === "grid" ? "grid" : "slider", banners: live.filter((b) => b.placement === c.slug).map(bannerJson) })),
     };
   });
 

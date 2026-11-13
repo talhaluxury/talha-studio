@@ -27,7 +27,7 @@ data class Product(
 }
 
 data class Category(val id: String, val slug: String, val name: String, val imageUrl: String? = null, val parentId: String? = null)
-data class HomeCollection(val slug: String, val title: String, val products: List<Product>, val banners: List<Banner> = emptyList())
+data class HomeCollection(val slug: String, val title: String, val products: List<Product>, val banners: List<Banner> = emptyList(), val grid: Boolean = false)
 data class Banner(val id: String, val title: String, val subtitle: String?, val ctaLabel: String?, val ctaLink: String?, val imageUrl: String?, val videoUrl: String? = null)
 data class HomeData(val categories: List<Category>, val collections: List<HomeCollection>, val banners: List<Banner> = emptyList(), val announcement: String? = null, val spin: Boolean = false, val reels: List<Reel> = emptyList(), val accessories: Accessories? = null)
 /** The home "Accessories" showcase: the accessories category, its sub-categories as tiles and its newest products. */
@@ -92,7 +92,7 @@ data class CheckoutForm(
     val city: String, val province: String, val postalCode: String, val notes: String,
 )
 
-data class AppNotification(val id: String, val title: String, val body: String, val deepLink: String?, val kind: String, val read: Boolean, val createdAt: String)
+data class AppNotification(val id: String, val title: String, val body: String, val deepLink: String?, val kind: String, val read: Boolean, val createdAt: String, val imageUrl: String? = null)
 data class NotificationsPage(val items: List<AppNotification>, val total: Int, val unread: Int)
 data class NotifPrefs(val orderUpdates: Boolean, val promotions: Boolean)
 
@@ -128,12 +128,24 @@ fun parseBrowse(arg: String?): Filter =
 // ---- Brands (marketplace) ----
 /** "Sold by" tag on a product. */
 data class BrandRef(val id: String, val slug: String, val name: String, val logoUrl: String?)
-/** What the brands row shows. [style] is noir | ivory | gold, [accent] a #RRGGBB colour chosen by the seller. */
-data class BrandCard(val id: String, val slug: String, val name: String, val tagline: String, val style: String, val accent: String, val logoUrl: String?, val coverUrl: String?)
-data class BrandCollection(val id: String, val title: String, val products: List<Product>)
+/** What the brands row shows. The page's colours always follow the app theme; sellers cannot pick colours. */
+data class BrandCard(val id: String, val slug: String, val name: String, val tagline: String, val logoUrl: String?, val coverUrl: String?)
+
+/** One block of a brand page, in the order the seller arranged them. */
+sealed interface PageSection { val id: String }
+data class BannerSlide(val imageUrl: String, val title: String, val subtitle: String, val buttonLabel: String, val productId: String?)
+data class BannerSection(override val id: String, val slides: List<BannerSlide>) : PageSection
+data class VideoSection(override val id: String, val videoUrl: String, val title: String, val caption: String, val autoplay: Boolean) : PageSection
+data class TextSection(override val id: String, val heading: String, val body: String, val centered: Boolean) : PageSection
+/** [layout] is grid | carousel | big. */
+data class ProductsSection(override val id: String, val title: String, val layout: String, val products: List<Product>) : PageSection
+data class GallerySection(override val id: String, val title: String, val images: List<String>) : PageSection
+data class FeaturesSection(override val id: String, val title: String, val items: List<String>) : PageSection
+/** [size] is small | medium | large. */
+data class SpacerSection(override val id: String, val size: String) : PageSection
+
 data class BrandPage(
-    val card: BrandCard, val about: String, val highlights: List<String>, val instagram: String?, val website: String?,
-    val productCount: Int, val collections: List<BrandCollection>, val products: List<Product>,
+    val card: BrandCard, val instagram: String?, val website: String?, val productCount: Int, val sections: List<PageSection>, val products: List<Product>,
 )
 /** The signed-in customer's seller application. [status] is null when they never applied; otherwise pending | active | rejected | suspended. */
 data class SellerState(val status: String?, val statusNote: String?, val pageStatus: String?, val brandName: String?)

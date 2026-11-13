@@ -39,15 +39,27 @@ fun parseProduct(o: JSONObject): Product {
     )
 }
 fun parseBrandRef(o: JSONObject) = BrandRef(o.getString("id"), o.getString("slug"), o.getString("name"), o.str("logoUrl"))
-fun parseBrandCard(o: JSONObject) = BrandCard(o.getString("id"), o.getString("slug"), o.getString("name"), o.optString("tagline", ""),
-    o.optString("style", "noir"), o.optString("accent", "#B99A62"), o.str("logoUrl"), o.str("coverUrl"))
+fun parseBrandCard(o: JSONObject) = BrandCard(o.getString("id"), o.getString("slug"), o.getString("name"), o.optString("tagline", ""), o.str("logoUrl"), o.str("coverUrl"))
+private fun JSONArray?.strings(): List<String> = if (this == null) emptyList() else (0 until length()).map { getString(it) }
+/** Unknown section types (from a newer server) are skipped instead of breaking the page. */
+fun parseSection(o: JSONObject): PageSection? {
+    val id = o.getString("id")
+    return when (o.getString("type")) {
+        "banner" -> BannerSection(id, o.optJSONArray("slides").mapObjects { BannerSlide(it.getString("imageUrl"), it.optString("title"), it.optString("subtitle"), it.optString("buttonLabel"), it.str("productId")) })
+        "video" -> VideoSection(id, o.getString("videoUrl"), o.optString("title"), o.optString("caption"), o.optBoolean("autoplay", true))
+        "text" -> TextSection(id, o.optString("heading"), o.optString("body"), o.optString("align") == "center")
+        "products" -> ProductsSection(id, o.optString("title"), o.optString("layout", "grid"), o.optJSONArray("products").mapObjects { parseProduct(it) })
+        "gallery" -> GallerySection(id, o.optString("title"), o.optJSONArray("images").mapObjects { it.getString("url") })
+        "features" -> FeaturesSection(id, o.optString("title"), o.optJSONArray("items").strings())
+        "spacer" -> SpacerSection(id, o.optString("size", "medium"))
+        else -> null
+    }
+}
 fun parseBrandPage(o: JSONObject): BrandPage {
     val b = o.getJSONObject("brand")
     return BrandPage(
-        card = parseBrandCard(b), about = b.optString("about", ""),
-        highlights = b.optJSONArray("highlights")?.let { a -> (0 until a.length()).map(a::getString) } ?: emptyList(),
-        instagram = b.str("instagram"), website = b.str("website"), productCount = b.optInt("productCount", 0),
-        collections = o.optJSONArray("collections").mapObjects { c -> BrandCollection(c.getString("id"), c.getString("title"), c.optJSONArray("products").mapObjects { parseProduct(it) }) },
+        card = parseBrandCard(b), instagram = b.str("instagram"), website = b.str("website"), productCount = b.optInt("productCount", 0),
+        sections = o.optJSONArray("sections").mapObjects { parseSection(it) }.filterNotNull(),
         products = o.optJSONArray("products").mapObjects { parseProduct(it) },
     )
 }
@@ -86,7 +98,7 @@ fun parseError(status: Int, text: String): ApiException {
     val issues = err.optJSONObject("details")?.optJSONArray("issues").mapObjects { QuoteIssue(it.getString("variantId"), it.getString("code"), it.getString("message"), it.intOrNull("available")) }
     return ApiException(false, err.optString("message", "Something went wrong"), status, err.str("code"), fields, issues)
 }
-fun parseNotification(o: JSONObject) = AppNotification(o.getString("id"), o.getString("title"), o.getString("body"), o.str("deepLink"), o.optString("kind", "order"), o.optBoolean("read", false), o.getString("createdAt"))
+fun parseNotification(o: JSONObject) = AppNotification(o.getString("id"), o.getString("title"), o.getString("body"), o.str("deepLink"), o.optString("kind", "order"), o.optBoolean("read", false), o.getString("createdAt"), o.str("imageUrl"))
 fun parsePrefs(o: JSONObject) = NotifPrefs(o.optBoolean("orderUpdates", true), o.optBoolean("promotions", true))
 fun parseReel(o: JSONObject) = Reel(o.getString("id"), o.getString("title"), o.str("browse"), o.getString("videoUrl"))
 fun parseBanner(o: JSONObject) = Banner(o.getString("id"), o.getString("title"), o.str("subtitle"), o.str("ctaLabel"), o.str("ctaLink"), o.str("imageUrl"), o.str("videoUrl"))
@@ -245,7 +257,7 @@ object Repo {
     }
     private fun parseHome(o: JSONObject): HomeData {
         return HomeData(parseCategories(o.optJSONArray("categories")),
-            o.optJSONArray("collections").mapObjects { c -> HomeCollection(c.getString("slug"), c.getString("title"), c.optJSONArray("products").mapObjects { parseProduct(it) }, c.optJSONArray("banners").mapObjects { parseBanner(it) }) },
+            o.optJSONArray("collections").mapObjects { c -> HomeCollection(c.getString("slug"), c.getString("title"), c.optJSONArray("products").mapObjects { parseProduct(it) }, c.optJSONArray("banners").mapObjects { parseBanner(it) }, c.optString("layout") == "grid") },
             o.optJSONArray("banners").mapObjects { parseBanner(it) }, o.str("announcement"), o.optBoolean("spin", false), o.optJSONArray("reels").mapObjects { parseReel(it) },
             o.optJSONObject("accessories")?.let { a -> Accessories(a.getString("slug"), a.getString("title"), parseCategories(a.optJSONArray("tiles")), a.optJSONArray("products").mapObjects { parseProduct(it) }, a.str("imageUrl")) })
     }

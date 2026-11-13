@@ -117,6 +117,7 @@ fun NotificationsScreen(shop: ShopViewModel, onBack: () -> Unit, onNavigate: (St
                                 Column(Modifier.padding(start = 12.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                     Text(n.title, style = MaterialTheme.typography.titleMedium)
                                     Text(n.body, style = MaterialTheme.typography.bodyMedium)
+                                    if (n.imageUrl != null) com.talhastudio.app.ui.components.ImageTile(n.imageUrl, n.title, Modifier.padding(top = 4.dp).fillMaxWidth().aspectRatio(2f).clip(RoundedCornerShape(12.dp)))
                                     Text(prettyDate(n.createdAt), style = MaterialTheme.typography.labelSmall, color = TS.Gray)
                                 }
                                 IconButton({ delete(n.id) }) { Icon(Icons.Outlined.Delete, "Delete notification", tint = TS.Gray) }

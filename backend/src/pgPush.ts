@@ -2,8 +2,8 @@ import type pg from "pg";
 import { MAX_DEVICES_PER_USER, type CampaignRec, type NewNotification, type NotificationRec, type Prefs, type PushStore } from "./pushStore.js";
 
 type Row = Record<string, any>;
-const toNote = (r: Row): NotificationRec => ({ id: r.id, userId: r.user_id, title: r.title, body: r.body, deepLink: r.deep_link, kind: r.kind, readAt: r.read_at, createdAt: r.created_at });
-const toCampaign = (r: Row): CampaignRec => ({ id: r.id, title: r.title, body: r.body, deepLink: r.deep_link, createdBy: r.created_by, sentAt: r.sent_at, recipients: r.recipients, failed: r.failed, createdAt: r.created_at });
+const toNote = (r: Row): NotificationRec => ({ id: r.id, userId: r.user_id, title: r.title, body: r.body, deepLink: r.deep_link, imageUrl: r.image_url ?? null, kind: r.kind, readAt: r.read_at, createdAt: r.created_at });
+const toCampaign = (r: Row): CampaignRec => ({ id: r.id, title: r.title, body: r.body, deepLink: r.deep_link, imageUrl: r.image_url ?? null, createdBy: r.created_by, sentAt: r.sent_at, recipients: r.recipients, failed: r.failed, createdAt: r.created_at });
 const AUDIENCE = `FROM users u LEFT JOIN notification_preferences p ON p.user_id = u.id
   WHERE u.role = 'customer' AND u.is_active AND u.deleted_at IS NULL AND COALESCE(p.promotions, true)`;
 
@@ -35,7 +35,7 @@ export class PgPushStore implements PushStore {
   }
 
   async addNotification(userId: string, n: NewNotification) {
-    const r = await this.q("INSERT INTO notifications (user_id, title, body, deep_link, kind) VALUES ($1,$2,$3,$4,$5) RETURNING *", [userId, n.title, n.body, n.deepLink, n.kind]);
+    const r = await this.q("INSERT INTO notifications (user_id, title, body, deep_link, kind, image_url) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *", [userId, n.title, n.body, n.deepLink, n.kind, n.imageUrl ?? null]);
     return toNote(r.rows[0]);
   }
   async listNotifications(userId: string, page: number, limit: number) {
@@ -59,8 +59,8 @@ export class PgPushStore implements PushStore {
     ]);
     return { users: u.rows[0].n, devices: d.rows[0].n };
   }
-  async addPromoInbox(n: { title: string; body: string; deepLink: string | null }) {
-    const r = await this.q(`INSERT INTO notifications (user_id, title, body, deep_link, kind) SELECT u.id, $1::text, $2::text, $3::text, 'promo' ${AUDIENCE}`, [n.title, n.body, n.deepLink]);
+  async addPromoInbox(n: { title: string; body: string; deepLink: string | null; imageUrl?: string | null }) {
+    const r = await this.q(`INSERT INTO notifications (user_id, title, body, deep_link, kind, image_url) SELECT u.id, $1::text, $2::text, $3::text, 'promo', $4::text ${AUDIENCE}`, [n.title, n.body, n.deepLink, n.imageUrl ?? null]);
     return r.rowCount ?? 0;
   }
   async promoTokens() {
@@ -68,8 +68,8 @@ export class PgPushStore implements PushStore {
       WHERE u.role = 'customer' AND u.is_active AND u.deleted_at IS NULL AND COALESCE(p.promotions, true)`);
     return r.rows.map((x) => x.fcm_token);
   }
-  async createCampaign(c: { title: string; body: string; deepLink: string | null; createdBy: string }) {
-    const r = await this.q("INSERT INTO notification_campaigns (title, body, deep_link, created_by) VALUES ($1,$2,$3,$4) RETURNING *", [c.title, c.body, c.deepLink, c.createdBy]);
+  async createCampaign(c: { title: string; body: string; deepLink: string | null; imageUrl?: string | null; createdBy: string }) {
+    const r = await this.q("INSERT INTO notification_campaigns (title, body, deep_link, image_url, created_by) VALUES ($1,$2,$3,$4,$5) RETURNING *", [c.title, c.body, c.deepLink, c.imageUrl ?? null, c.createdBy]);
     return toCampaign(r.rows[0]);
   }
   async finishCampaign(id: string, r: { recipients: number; failed: number }) { await this.q("UPDATE notification_campaigns SET sent_at = now(), recipients = $2, failed = $3 WHERE id = $1", [id, r.recipients, r.failed]); }

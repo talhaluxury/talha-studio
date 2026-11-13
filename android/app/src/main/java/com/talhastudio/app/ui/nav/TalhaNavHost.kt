@@ -64,7 +64,7 @@ object Routes {
     fun info(slug: String) = "info/$slug"
 }
 
-private val barRoutes = setOf(Routes.Main, Routes.Product, Routes.Confirmation, Routes.Orders, Routes.Order, Routes.Addresses, Routes.Notifications, Routes.Support, Routes.Settings, Routes.Info, Routes.Brands, Routes.Brand, Routes.Seller)
+private val barRoutes = setOf(Routes.Main, Routes.Confirmation, Routes.Orders, Routes.Order, Routes.Addresses, Routes.Notifications, Routes.Support, Routes.Settings, Routes.Info, Routes.Brands, Routes.Brand, Routes.Seller)
 
 /** [startOnMain] is true when the app was opened from a notification: skip the splash and land inside the app. */
 @Composable

@@ -50,7 +50,12 @@ async function detail(view, id) {
   }
   const allProducts = b.products;
   const review = b.pageStatus === "submitted" && b.status === "active";
-  const phone = (content, title) => h("div", { class: "bcol" }, h("h3", {}, title), (() => { const p = h("div", { class: "bphone" }); p.append(renderBrandPage(content, allProducts, { scroller: p })); return p; })());
+  // The app decides the colours (light or dark), so the review has a switch to see the page in both.
+  let theme = "dark"; const pages = [];
+  const phone = (content, title) => h("div", { class: "bcol" }, h("h3", {}, title), (() => {
+    const p = h("div", { class: "bphone" }); const mount = () => p.replaceChildren(renderBrandPage(content, allProducts, { scroller: p, theme }));
+    mount(); pages.push(mount); return p; })());
+  const themeBtn = h("button", { class: "btn ghost", onclick: (e) => { theme = theme === "dark" ? "light" : "dark"; e.currentTarget.textContent = `App theme: ${theme === "dark" ? "Dark" : "Light"} (tap to switch)`; pages.forEach((m) => m()); } }, "App theme: Dark (tap to switch)");
   put(clear(view),
     h("a", { href: "#/brands" }, "← All brands"),
     h("div", { class: "pagehead", style: "margin-top:8px" }, h("div", {}, h("h1", {}, b.draft.name), h("div", { class: "row" }, badge(ACCOUNT, b.status), badge(PAGE, b.pageStatus))), h("div", { class: "row" }, actions)),
@@ -60,6 +65,7 @@ async function detail(view, id) {
       write ? h("div", { class: "row" }, h("button", { class: "btn gold", onclick: () => act("page/approve", undefined, "Page approved and published") }, "Approve & publish"),
         h("button", { class: "btn danger", onclick: async () => { const n = await askNote("Send the page back with changes?", "Send back"); if (n) act("page/reject", { note: n }, "Sent back to the seller"); } }, "Send back")) : null) : null,
     b.pageStatus === "rejected" && b.pageNote ? h("div", { class: "banner bad" }, `Sent back: ${b.pageNote}`) : null,
+    h("div", { class: "row" }, themeBtn),
     h("div", { class: "bpair" }, phone(b.draft, "Seller's draft (what you would publish)"), b.live ? phone(b.live, "Currently live") : h("div", { class: "bcol" }, h("h3", {}, "Currently live"), h("p", { class: "muted" }, "Nothing is live yet."))),
     h("div", { class: "card" }, h("h2", {}, `Products (${allProducts.length})`),
       allProducts.length ? h("div", { class: "table-wrap" }, h("table", {}, h("thead", {}, h("tr", {}, ["", "Product", "Price", "Stock", "State", ""].map((t) => h("th", { scope: "col" }, t)))),

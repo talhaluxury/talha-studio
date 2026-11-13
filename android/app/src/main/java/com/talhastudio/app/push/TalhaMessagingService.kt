@@ -21,6 +21,6 @@ class TalhaMessagingService : FirebaseMessagingService() {
     /** Called when the message arrives while the app is in the foreground. */
     override fun onMessageReceived(m: RemoteMessage) {
         val n = m.notification ?: return
-        showNotification(applicationContext, n.title.orEmpty(), n.body.orEmpty(), m.data["deepLink"], m.data["kind"] ?: "promo", (m.data["notificationId"] ?: m.messageId ?: "0").hashCode())
+        showNotification(applicationContext, n.title.orEmpty(), n.body.orEmpty(), m.data["deepLink"], m.data["kind"] ?: "promo", (m.data["notificationId"] ?: m.messageId ?: "0").hashCode(), m.data["imageUrl"] ?: n.imageUrl?.toString())
     }
 }

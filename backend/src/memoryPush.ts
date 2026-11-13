@@ -40,9 +40,9 @@ export class MemoryPushStore implements PushStore {
 
   private audience() { return [...this.users.users.values()].filter((u) => u.role === "customer" && u.isActive && !u.deletedAt && (this.prefs.get(u.id)?.promotions ?? true)); }
   async promoAudience() { const a = this.audience().map((u) => u.id); return { users: a.length, devices: this.devices.filter((d) => a.includes(d.userId)).length }; }
-  async addPromoInbox(n: { title: string; body: string; deepLink: string | null }) { const a = this.audience(); for (const u of a) await this.addNotification(u.id, { ...n, kind: "promo" }); return a.length; }
+  async addPromoInbox(n: { title: string; body: string; deepLink: string | null; imageUrl?: string | null }) { const a = this.audience(); for (const u of a) await this.addNotification(u.id, { ...n, kind: "promo" }); return a.length; }
   async promoTokens() { const a = new Set(this.audience().map((u) => u.id)); return this.devices.filter((d) => a.has(d.userId)).map((d) => d.token); }
-  async createCampaign(c: { title: string; body: string; deepLink: string | null; createdBy: string }) {
+  async createCampaign(c: { title: string; body: string; deepLink: string | null; imageUrl?: string | null; createdBy: string }) {
     const r: CampaignRec = { id: randomUUID(), ...c, sentAt: null, recipients: null, failed: 0, createdAt: this.now() }; this.campaigns.unshift(r); return r;
   }
   async finishCampaign(id: string, r: { recipients: number; failed: number }) { const c = this.campaigns.find((x) => x.id === id)!; Object.assign(c, { sentAt: this.now(), ...r }); }

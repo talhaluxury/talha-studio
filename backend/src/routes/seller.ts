@@ -2,9 +2,10 @@ import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
-  BRAND_STYLES, BrandDuplicateError, contentKeys,
-  type BrandRec, type BrandStore, type PageContent, type ProductLink,
+  BrandDuplicateError, MAX_SECTIONS, contentKeys, sectionKeys, withoutProduct,
+  type BrandRec, type BrandStore, type PageContent, type PageSection, type ProductLink,
 } from "../brandStore.js";
+import { MAX_VIDEO_BYTES } from "./videos.js";
 import { DuplicateError, type CatalogStore, type ProductRec } from "../catalogStore.js";
 import type { Config } from "../config.js";
 import { AppError, conflict, forbidden, notFound } from "../errors.js";
@@ -28,22 +29,30 @@ export const applyBody = z.object({
   businessNote: z.string().trim().max(500).default(""),
 });
 
+/** Files the seller uploaded for this page live under brands/<brandId>/m/ (checked again against the brand when the page is saved). */
+const mediaKey = z.string().regex(/^brands\/[0-9a-f-]{36}\/m\/[A-Za-z0-9-]{36}\.(webp|mp4)$/, "Upload the file again");
+const secBase = { id: z.string().regex(/^[A-Za-z0-9-]{1,40}$/).optional(), hidden: z.boolean().default(false) };
+const slideBody = z.object({
+  imageKey: mediaKey, title: oneLine(60).default(""), subtitle: oneLine(120).default(""), buttonLabel: oneLine(24).default(""),
+  productId: idParam.nullish().transform((v) => v ?? null),
+});
+export const sectionBody = z.discriminatedUnion("type", [
+  z.object({ ...secBase, type: z.literal("banner"), slides: z.array(slideBody).min(1, "Add at least one banner picture").max(6) }),
+  z.object({ ...secBase, type: z.literal("video"), videoKey: mediaKey, title: oneLine(60).default(""), caption: oneLine(160).default(""), autoplay: z.boolean().default(true) }),
+  z.object({ ...secBase, type: z.literal("text"), heading: oneLine(80).default(""), body: z.string().trim().max(2000).default(""), align: z.enum(["start", "center"]).default("start") }),
+  z.object({ ...secBase, type: z.literal("products"), title: oneLine(60).default(""), layout: z.enum(["grid", "carousel", "big"]).default("grid"), productIds: z.array(idParam).max(24).default([]) }),
+  z.object({ ...secBase, type: z.literal("gallery"), title: oneLine(60).default(""), imageKeys: z.array(mediaKey).min(1, "Add at least one picture").max(8) }),
+  z.object({ ...secBase, type: z.literal("features"), title: oneLine(60).default(""), items: z.array(oneLine(60).refine((x) => x.length > 0, "Empty")).min(1, "Add at least one point").max(6) }),
+  z.object({ ...secBase, type: z.literal("spacer"), size: z.enum(["small", "medium", "large"]).default("medium") }),
+]);
 export const contentBody = z.object({
   name: oneLine(60).refine((s) => s.length >= 2, "Write the brand name"),
   tagline: oneLine(90).default(""),
-  about: z.string().trim().max(2000).default(""),
-  style: z.enum(BRAND_STYLES).default("noir"),
-  accent: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "Pick a colour").default("#B99A62"),
-  highlights: z.array(oneLine(50).refine((s) => s.length > 0, "Empty")).max(4).default([]),
   instagram: z.string().trim().max(31).nullish().transform((v) => v || null)
     .refine((v) => v === null || /^@?[A-Za-z0-9._]{1,30}$/.test(v), "Instagram username only, for example talhastudio")
     .transform((v) => (v ? v.replace(/^@/, "") : null)),
   website: z.string().trim().max(200).nullish().transform((v) => v || null).refine((v) => v === null || /^https:\/\/[^\s]{3,190}$/.test(v), "Must start with https://"),
-  collections: z.array(z.object({
-    id: z.string().regex(/^[A-Za-z0-9-]{1,40}$/).optional(),
-    title: oneLine(40).refine((s) => s.length >= 2, "Write a name"),
-    productIds: z.array(idParam).max(100).default([]),
-  })).max(8).default([]),
+  sections: z.array(sectionBody).max(MAX_SECTIONS).default([]),
 });
 
 const variantBody = z.object({ id: idParam.optional(), size: nullableText(20), color: nullableText(30), stock: z.number().int().min(0).max(100000) });
@@ -58,10 +67,23 @@ export const sellerProductBody = z.object({
   p.variants.forEach((v, i) => { const k = `${(v.size ?? "").toLowerCase()}|${(v.color ?? "").toLowerCase()}`; if (seen.has(k)) ctx.addIssue({ code: "custom", path: ["variants", i, "size"], message: "Same size and colour twice" }); seen.add(k); });
 });
 
+const media = (key: string, s: Storage) => ({ key, url: s.url(key) });
+/** A section as the seller and the admin see it: every setting, with pictures/videos as {key,url}. Products are listed by id. */
+export function toApiSection(sec: PageSection, s: Storage) {
+  const base = { id: sec.id, type: sec.type, hidden: sec.hidden };
+  switch (sec.type) {
+    case "banner": return { ...base, slides: sec.slides.map((x) => ({ image: media(x.imageKey, s), title: x.title, subtitle: x.subtitle, buttonLabel: x.buttonLabel, productId: x.productId })) };
+    case "video": return { ...base, video: media(sec.videoKey, s), title: sec.title, caption: sec.caption, autoplay: sec.autoplay };
+    case "text": return { ...base, heading: sec.heading, body: sec.body, align: sec.align };
+    case "products": return { ...base, title: sec.title, layout: sec.layout, productIds: sec.productIds };
+    case "gallery": return { ...base, title: sec.title, images: sec.imageKeys.map((k) => media(k, s)) };
+    case "features": return { ...base, title: sec.title, items: sec.items };
+    case "spacer": return { ...base, size: sec.size };
+  }
+}
 export const toApiContent = (c: PageContent, s: Storage) => ({
-  name: c.name, tagline: c.tagline, about: c.about, style: c.style, accent: c.accent,
-  logoUrl: c.logoKey ? s.url(c.logoKey) : null, coverUrl: c.coverKey ? s.url(c.coverKey) : null,
-  highlights: c.highlights, instagram: c.instagram, website: c.website, collections: c.collections,
+  name: c.name, tagline: c.tagline, logoUrl: c.logoKey ? s.url(c.logoKey) : null, coverUrl: c.coverKey ? s.url(c.coverKey) : null,
+  instagram: c.instagram, website: c.website, sections: c.sections.map((x) => toApiSection(x, s)),
 });
 export const toSellerBrand = (b: BrandRec, s: Storage) => ({
   id: b.id, slug: b.slug, status: b.status, statusNote: b.statusNote, pageStatus: b.pageStatus, pageNote: b.pageNote,
@@ -142,12 +164,41 @@ export function sellerRoutes(app: FastifyInstance, d: {
   app.put("/seller/brand", pre, async (req) => {
     const b = await activeBrand(req); const body = contentBody.parse(req.body);
     const own = new Set(await ownProductIds(b));
-    const next: PageContent = {
-      name: body.name, tagline: body.tagline, about: body.about, style: body.style, accent: body.accent.toUpperCase(),
-      logoKey: b.draft.logoKey, coverKey: b.draft.coverKey, highlights: body.highlights, instagram: body.instagram, website: body.website,
-      collections: body.collections.map((c) => ({ id: c.id ?? randomUUID(), title: c.title, productIds: [...new Set(c.productIds)].filter((id) => own.has(id)) })),
-    };
-    return toSellerBrand((await brands.saveDraft(b.id, next))!, storage);
+    const prefix = `brands/${b.id}/m/`;
+    const sections: PageSection[] = body.sections.map((x) => {
+      const sec = { ...x, id: x.id ?? randomUUID() } as PageSection;
+      if (sectionKeys(sec).some((k) => !k.startsWith(prefix))) throw new AppError(400, "BAD_MEDIA", "A picture or video does not belong to your brand. Upload it again.");
+      if (sec.type === "products") return { ...sec, productIds: [...new Set(sec.productIds)].filter((id) => own.has(id)) };
+      if (sec.type === "banner") return { ...sec, slides: sec.slides.map((sl) => ({ ...sl, productId: sl.productId && own.has(sl.productId) ? sl.productId : null })) };
+      return sec;
+    });
+    if (new Set(sections.map((x) => x.id)).size !== sections.length) throw new AppError(400, "BAD_SECTIONS", "Each section needs its own id");
+    const next: PageContent = { name: body.name, tagline: body.tagline, logoKey: b.draft.logoKey, coverKey: b.draft.coverKey, instagram: body.instagram, website: body.website, sections };
+    const before = contentKeys(b.draft); const shown = contentKeys(b.live);        // read first: an in-memory store hands out the very object it then updates
+    const saved = (await brands.saveDraft(b.id, next))!;
+    const keep = new Set([...contentKeys(next), ...shown]);
+    await purge(before.filter((k) => !keep.has(k)), req);                // files the seller removed from the draft and the live page does not show
+    return toSellerBrand(saved, storage);
+  });
+
+  /** Uploads one picture (JPG/PNG/WebP) or one short MP4 for a section. The file is only kept once a saved page uses it. */
+  app.post("/seller/brand/media", { ...pre, config: { rateLimit: { max: 40, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const b = await activeBrand(req);
+    const type = z.enum(["image", "video"]).parse((req.query as { type?: string }).type);
+    if ((await storage.list(`brands/${b.id}/m/`)).length >= 80) throw conflict("You have uploaded a lot of files. Remove unused pictures or videos from your page first.");
+    const file = await (req as any).file(type === "video" ? { limits: { fileSize: MAX_VIDEO_BYTES } } : undefined);
+    if (!file) throw new AppError(400, "NO_FILE", "Choose a file to upload");
+    const buf: Buffer = await file.toBuffer();
+    if (file.file.truncated) throw new AppError(413, "TOO_LARGE", type === "video" ? `Video is larger than ${MAX_VIDEO_BYTES / 1024 / 1024} MB. Keep it short (under 30 seconds) or compress it.` : "Image is larger than 8 MB");
+    const id = randomUUID();
+    if (type === "video") {
+      if (!(buf.length > 12 && buf.subarray(4, 8).toString("latin1") === "ftyp")) throw new AppError(400, "BAD_VIDEO", "Please upload an MP4 video (H.264).");
+      const key = `brands/${b.id}/m/${id}.mp4`; await storage.put(key, buf, "video/mp4");
+      return reply.status(201).send({ key, url: storage.url(key) });
+    }
+    const out = await images.process(buf);
+    const key = `brands/${b.id}/m/${id}.webp`; await storage.put(key, out.full, "image/webp");
+    return reply.status(201).send({ key, url: storage.url(key) });
   });
 
   async function setImage(req: any, kind: "logo" | "cover") {
@@ -243,8 +294,7 @@ export function sellerRoutes(app: FastifyInstance, d: {
   app.delete<{ Params: { id: string } }>("/seller/products/:id", pre, async (req, reply) => {
     const id = idParam.parse(req.params.id); const { b } = await ownProduct(req, id);
     await catalog.setPublished(id, false); await brands.setProductState(id, "archived", null);
-    const draft = { ...b.draft, collections: b.draft.collections.map((c) => ({ ...c, productIds: c.productIds.filter((x) => x !== id) })) };
-    await brands.saveDraft(b.id, draft);
+    await brands.saveDraft(b.id, withoutProduct(b.draft, id));
     return reply.status(204).send();
   });
 

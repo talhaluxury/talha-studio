@@ -5,14 +5,17 @@ import type { makeAuth } from "../plugins/auth.js";
 import type { PushService } from "../pushService.js";
 import type { NotificationRec, PushStore } from "../pushStore.js";
 import type { Store } from "../store.js";
+import type { Storage } from "../storage.js";
+import type { ImageProcessor } from "../images.js";
+import { randomUUID } from "node:crypto";
 
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 export const DEEP_LINK = new RegExp(`^talhastudio://(order|product)/${UUID}$`);
 const token = z.string().min(20).max(4096);
-const toApi = (n: NotificationRec) => ({ id: n.id, title: n.title, body: n.body, deepLink: n.deepLink, kind: n.kind, read: !!n.readAt, createdAt: n.createdAt });
+const toApi = (n: NotificationRec) => ({ id: n.id, title: n.title, body: n.body, deepLink: n.deepLink, imageUrl: n.imageUrl ?? null, kind: n.kind, read: !!n.readAt, createdAt: n.createdAt });
 
-export function pushRoutes(app: FastifyInstance, d: { store: Store; push: PushStore; svc: PushService; auth: ReturnType<typeof makeAuth> }) {
-  const { store, push, svc, auth } = d;
+export function pushRoutes(app: FastifyInstance, d: { store: Store; storage: Storage; images: ImageProcessor; push: PushStore; svc: PushService; auth: ReturnType<typeof makeAuth> }) {
+  const { store, storage, images, push, svc, auth } = d;
   const me = { preHandler: auth.customer };
   const manager = { preHandler: [auth.admin, auth.requireRole("admin", "owner")] };
 
@@ -69,13 +72,22 @@ export function pushRoutes(app: FastifyInstance, d: { store: Store; push: PushSt
   app.get("/admin/campaigns", manager, async (req) => {
     const q = z.object({ page: z.coerce.number().int().min(1).max(500).default(1), limit: z.coerce.number().int().min(1).max(50).default(20) }).parse(req.query);
     const [r, audience] = await Promise.all([push.listCampaigns(q.page, q.limit), push.promoAudience()]);
-    return { items: r.items.map((c) => ({ id: c.id, title: c.title, body: c.body, deepLink: c.deepLink, sentAt: c.sentAt, recipients: c.recipients, failed: c.failed, createdAt: c.createdAt })),
+    return { items: r.items.map((c) => ({ id: c.id, title: c.title, body: c.body, deepLink: c.deepLink, imageUrl: c.imageUrl ?? null, sentAt: c.sentAt, recipients: c.recipients, failed: c.failed, createdAt: c.createdAt })),
       page: q.page, limit: q.limit, total: r.total, audience, pushConfigured: svc.configured };
+  });
+  // Picture for a notification (uploaded from the phone or computer). Wide, so it fills the big-picture notification.
+  app.post("/admin/campaigns/image", { ...manager, config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req) => {
+    const file = await req.file(); if (!file) throw new AppError(400, "NO_FILE", "Choose an image to upload");
+    const buf = await file.toBuffer(); if (file.file.truncated) throw new AppError(413, "TOO_LARGE", "Image is larger than 8 MB");
+    const out = await images.process(buf);
+    const key = `campaigns/${randomUUID()}.webp`; await storage.put(key, out.full, "image/webp");
+    return { url: storage.url(key) };
   });
   app.post("/admin/campaigns", { ...manager, config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (req, reply) => {
     const b = z.object({
       title: z.string().trim().min(2).max(65), body: z.string().trim().min(2).max(240),
       deepLink: z.string().trim().max(200).nullish().transform((v) => v || null).refine((v) => v === null || DEEP_LINK.test(v), "Link must be talhastudio://product/<id> or talhastudio://order/<id>"),
+      imageUrl: z.string().trim().max(500).nullish().transform((v) => v || null).refine((v) => v === null || v.startsWith(storage.url("")), "Use a picture from this store"),
     }).parse(req.body);
     if (await push.hasRecentCampaign(b.title, b.body, 60_000)) throw conflict("This exact message was just sent. Wait a minute if you really want to send it again.");
     const c = await push.createCampaign({ ...b, createdBy: req.user!.id });

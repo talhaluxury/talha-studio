@@ -63,14 +63,16 @@ object PushTokens {
 }
 
 /** Shows a notification while the app is open (when closed, FCM shows it by itself). Tapping opens the deep link. */
-fun showNotification(ctx: Context, title: String, body: String, deepLink: String?, kind: String, id: Int) {
+fun showNotification(ctx: Context, title: String, body: String, deepLink: String?, kind: String, id: Int, imageUrl: String? = null) {
     if (!notificationsAllowed(ctx)) return
     val open = Intent(Intent.ACTION_VIEW, Uri.parse(deepLink?.takeIf { routeFor(it) != null } ?: "talhastudio://order/none"), ctx, MainActivity::class.java)
         .apply { if (routeFor(deepLink) == null) { data = null; action = Intent.ACTION_MAIN; addCategory(Intent.CATEGORY_LAUNCHER) }; flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP }
     val pi = PendingIntentCompat.getActivity(ctx, id, open, 0, false)
+    // A picture makes it a "big picture" notification (like big shopping apps); if it cannot be downloaded the text notification is still shown.
+    val bmp = imageUrl?.takeIf { it.startsWith("https://") }?.let { u -> runCatching { java.net.URL(u).openConnection().apply { connectTimeout = 8000; readTimeout = 8000 }.getInputStream().use { android.graphics.BitmapFactory.decodeStream(it) } }.getOrNull() }
     val n = NotificationCompat.Builder(ctx, if (kind == "order") Channels.ORDERS else Channels.PROMOTIONS)
         .setSmallIcon(R.drawable.ic_stat_talha).setColor(0xFFB99A62.toInt()).setContentTitle(title).setContentText(body)
-        .setStyle(NotificationCompat.BigTextStyle().bigText(body)).setAutoCancel(true).setContentIntent(pi)
+        .setStyle(if (bmp != null) NotificationCompat.BigPictureStyle().bigPicture(bmp).bigLargeIcon(null as android.graphics.Bitmap?).setSummaryText(body) else NotificationCompat.BigTextStyle().bigText(body)).apply { if (bmp != null) setLargeIcon(bmp) }.setAutoCancel(true).setContentIntent(pi)
         .setPriority(NotificationCompat.PRIORITY_HIGH).build()
     runCatching { NotificationManagerCompat.from(ctx).notify(id, n) }
 }

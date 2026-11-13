@@ -22,7 +22,7 @@ class InboxSyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(
         val seen = prefs.getStringSet("seen", emptySet()).orEmpty().toMutableSet()
         val firstRun = !prefs.getBoolean("baselined", false)   // don't spam old messages the first time
         for (n in page.items.filter { !it.read && it.id !in seen }.reversed()) {
-            if (!firstRun) showNotification(ctx, n.title, n.body, n.deepLink, n.kind, n.id.hashCode())
+            if (!firstRun) showNotification(ctx, n.title, n.body, n.deepLink, n.kind, n.id.hashCode(), n.imageUrl)
             seen += n.id
         }
         prefs.edit().putStringSet("seen", seen.toList().takeLast(200).toSet()).putBoolean("baselined", true).apply()

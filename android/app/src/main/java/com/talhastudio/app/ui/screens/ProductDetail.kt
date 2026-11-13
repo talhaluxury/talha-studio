@@ -62,7 +62,7 @@ fun ProductDetailScreen(shop: ShopViewModel, id: String, onBack: () -> Unit, onO
             }
             // Sale countdown for products that are on sale: small, left side, just above the bottom bar.
             if (sale != null && saleLeft > 0 && (load.state as? Load.Ready)?.data?.salePrice != null)
-                SaleChip(saleLeft, Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 8.dp))
+                SaleChip(saleLeft, Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 88.dp))
         }
     }
 }
@@ -82,7 +82,8 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
     val photoUrls = remember(p.id) { p.images.mapNotNull { it.url } }
     viewer?.let { ImageViewerDialog(photoUrls, it, p.name) { viewer = null } }
 
-    Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
+    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
         Box {
             var ratio by remember(p.id) { mutableStateOf(0.67f) }   // the first photo's own shape: whole photo, no side bars
             HorizontalPager(pager, Modifier.fillMaxWidth().aspectRatio(ratio)) { i ->
@@ -136,6 +137,13 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
                 Text("$qty", Modifier.widthIn(min = 28.dp), style = MaterialTheme.typography.titleMedium)
                 IconButton({ if (qty < maxQty) qty++ }, enabled = qty < maxQty) { Icon(Icons.Outlined.Add, "Increase quantity") }
             }
+            if (p.description.isNotBlank()) { Text("Description", style = MaterialTheme.typography.titleMedium); Text(p.description, style = MaterialTheme.typography.bodyLarge) }
+        }
+        if (p.related.isNotEmpty()) { SectionHeader("You may also like"); Spacer(Modifier.height(12.dp)); ProductRow(shop, p.related, onOpenProduct) }
+    }
+    // Fixed bar at the bottom (replaces the tab bar on this screen): the Add to Cart button is always in reach.
+    Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
+        Column(Modifier.navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)) {
             Box(Modifier.onGloballyPositioned { c -> val o = c.positionInRoot(); buttonCenter = Offset(o.x + c.size.width / 2f, o.y + c.size.height / 2f) }) {
                 TsButton("Add to Cart", style = TsButtonStyle.Black, enabled = p.inStock, onClick = {
                     when {
@@ -147,9 +155,8 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
                     }
                 })
             }
-            if (p.description.isNotBlank()) { Text("Description", style = MaterialTheme.typography.titleMedium); Text(p.description, style = MaterialTheme.typography.bodyLarge) }
         }
-        if (p.related.isNotEmpty()) { SectionHeader("You may also like"); Spacer(Modifier.height(12.dp)); ProductRow(shop, p.related, onOpenProduct) }
+    }
     }
 }
 

@@ -57,7 +57,7 @@ describe("seller application and review", () => {
     expect((await call(null, "GET", "/v1/brands")).json().items).toEqual([]);
     expect((await call(buyer, "POST", `/v1/admin/brands/${b.id}/approve`)).statusCode).toBe(401);          // customers cannot use admin routes
     expect((await call(admin, "POST", `/v1/admin/brands/${b.id}/approve`)).statusCode).toBe(200);
-    expect((await call(seller, "PUT", "/v1/seller/brand", { name: "Noor Atelier", accent: "#112233", website: "https://noor.test" })).statusCode).toBe(200);
+    expect((await call(seller, "PUT", "/v1/seller/brand", { name: "Noor Atelier", website: "https://noor.test", sections: [{ type: "text", heading: "Our story", body: "Hand finished" }, { type: "spacer", size: "small" }] })).statusCode).toBe(200);
     expect((await call(null, "GET", "/v1/brands")).json().items).toEqual([]);                              // approved account, but no approved page yet
     expect((await call(null, "GET", "/v1/brands/noor-atelier")).statusCode).toBe(404);
   });
@@ -65,7 +65,9 @@ describe("seller application and review", () => {
   it("validates the page and never lets a seller publish or feature a product", async () => {
     const b = (await call(seller, "POST", "/v1/seller/apply", { name: "Noor Atelier", contactPhone: "+92 300 1234567", city: "Lahore" })).json();
     await call(admin, "POST", `/v1/admin/brands/${b.id}/approve`);
-    expect((await call(seller, "PUT", "/v1/seller/brand", { name: "Noor", accent: "red" })).statusCode).toBe(400);
+    expect((await call(seller, "PUT", "/v1/seller/brand", { name: "Noor", sections: [{ type: "banner", slides: [] }] })).statusCode).toBe(400);     // a banner needs a picture
+    expect((await call(seller, "PUT", "/v1/seller/brand", { name: "Noor", sections: [{ type: "video", videoKey: "brands/00000000-0000-0000-0000-000000000000/m/11111111-1111-1111-1111-111111111111.mp4" }] })).statusCode).toBe(400);   // somebody else's file
+    expect((await call(seller, "PUT", "/v1/seller/brand", { name: "Noor", sections: [{ type: "unknown" }] })).statusCode).toBe(400);
     expect((await call(seller, "PUT", "/v1/seller/brand", { name: "Noor", website: "http://insecure.test" })).statusCode).toBe(400);
     expect((await call(seller, "POST", "/v1/seller/brand/submit")).statusCode).toBe(409);                    // no logo, no products
     const p = (await call(seller, "POST", "/v1/seller/products", productBody({ isPublished: true, isFeatured: true }))).json();

@@ -123,14 +123,14 @@ export async function buildApp(cfg: Config, deps: Deps) {
     sellerRoutes(v1, { brands, catalog, orders, storage, images, auth, cfg, alerts });
     adminBrandRoutes(v1, { brands, catalog, storage, store, auth, alerts });
     reelRoutes(v1, { reels, storage, store, auth });
-    sectionRoutes(v1, { sections, store, auth });
+    sectionRoutes(v1, { sections, settings: deps.settings, store, auth });
     spinRoutes(v1, { spin, coupons: deps.coupons, settings: deps.settings, auth });
     videoRoutes(v1, { videos, catalog, banners: deps.banners, storage, store, auth });
     orderRoutes(v1, { orders, storage, auth, cfg, settings: deps.settings, events });
     adminOrderRoutes(v1, { orders, store, storage, auth, cfg, events, whatsapp: deps.whatsapp, brands });
     adminCommerceRoutes(v1, { coupons: deps.coupons, banners: deps.banners, settings: deps.settings, storage, images, store, auth, videos });
     infoRoutes(v1, { settings: deps.settings, returnWindowDays: cfg.RETURN_WINDOW_DAYS, store, orders, push: deps.pushStore, auth });
-    pushRoutes(v1, { store, push: deps.pushStore, svc: deps.push, auth });
+    pushRoutes(v1, { store, storage, images, push: deps.pushStore, svc: deps.push, auth });
     adminEmailRoutes(v1, { cfg, email: deps.email, emails: deps.emails, settings: deps.settings, store, auth });
     contentRoutes(v1, { slides: deps.slides, status: deps.status, storage, images, store, auth });
     assistantRoutes(v1, { assistant: deps.assistant, auth, settings: deps.settings });

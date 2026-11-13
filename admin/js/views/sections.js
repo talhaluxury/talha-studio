@@ -11,8 +11,21 @@ export async function renderSections(view) {
 
   async function load() {
     const { items } = await api("/admin/sections");
-    put(clear(body), write ? h("div", { class: "card" }, h("h2", {}, "New section"), newForm()) : null,
+    const lay = (await api("/admin/home-layouts")).layouts;
+    put(clear(body), layoutCard(items, lay), write ? h("div", { class: "card" }, h("h2", {}, "New section"), newForm()) : null,
       items.length ? items.map(card) : h("div", { class: "empty" }, h("h2", {}, "No sections of your own yet"), h("p", {}, "Add one above, then choose its products.")));
+  }
+
+  /** Per section: "Slider" (swipes sideways) or "Grid" (two columns, scrolls down with the page). */
+  function layoutCard(items, lay) {
+    const rows = [{ slug: "new-arrivals", title: "New Arrivals" }, { slug: "featured", title: "Featured" }, { slug: "sale", title: "On Sale" }, ...items.map((s) => ({ slug: s.slug, title: s.title }))];
+    const sel = {}; rows.forEach((r) => { sel[r.slug] = h("select", { "aria-label": `Layout of ${r.title}`, disabled: !write }, h("option", { value: "slider", selected: lay[r.slug] !== "grid" }, "Slider (swipe sideways)"), h("option", { value: "grid", selected: lay[r.slug] === "grid" }, "Grid (scrolls down)")); });
+    return h("div", { class: "card" }, h("h2", {}, "How each section looks in the app"), h("p", { class: "muted" }, "Choose a sideways slider or a grid that scrolls down with the page, for every section."),
+      rows.map((r) => h("div", { class: "field" }, h("label", {}, r.title), sel[r.slug])),
+      write ? h("button", { class: "btn gold", type: "button", onclick: async () => {
+        try { const layouts = {}; rows.forEach((r) => { if (sel[r.slug].value === "grid") layouts[r.slug] = "grid"; }); await api("/admin/home-layouts", { method: "PUT", body: { layouts } }); toast("Saved. The app shows it on the next refresh."); }
+        catch (ex) { toast(ex.message, "error"); }
+      } }, "Save layouts") : null);
   }
 
   function newForm() {

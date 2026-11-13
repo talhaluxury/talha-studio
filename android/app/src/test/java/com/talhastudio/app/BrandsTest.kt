@@ -16,14 +16,26 @@ class BrandsTest {
         assertEquals("noor-atelier", p.brand?.slug); assertEquals("Noor Atelier", p.brand?.name); assertNull(p.brand?.logoUrl)
     }
 
-    @Test fun parsesBrandPage() {
-        val o = JSONObject("""{"brand":{"id":"b1","slug":"noor","name":"Noor","tagline":"Lawn","style":"gold","accent":"#C9A24B","logoUrl":"https://m/l.webp","coverUrl":null,
-            "about":"About us","highlights":["Handmade","Since 2010"],"instagram":"noor.pk","website":null,"productCount":1},
-            "collections":[{"id":"c1","title":"Summer","products":[$prod]}],"products":[$prod]}""")
+    @Test fun parsesBrandPageSectionsAndSkipsUnknownOnes() {
+        val o = JSONObject("""{"brand":{"id":"b1","slug":"noor","name":"Noor","tagline":"Lawn","logoUrl":"https://m/l.webp","coverUrl":null,"instagram":"noor.pk","website":null,"productCount":1},
+            "sections":[
+              {"id":"s1","type":"banner","slides":[{"imageUrl":"https://m/b.webp","title":"New","subtitle":"","buttonLabel":"Shop","productId":"p1"},{"imageUrl":"https://m/c.webp","title":"","subtitle":"","buttonLabel":"","productId":null}]},
+              {"id":"s2","type":"video","videoUrl":"https://m/v.mp4","title":"Behind","caption":"","autoplay":false},
+              {"id":"s3","type":"text","heading":"Story","body":"Hello","align":"center"},
+              {"id":"s4","type":"products","title":"Best","layout":"carousel","products":[$prod]},
+              {"id":"s5","type":"gallery","title":"","images":[{"url":"https://m/g1.webp"}]},
+              {"id":"s6","type":"features","title":"Why","items":["Pure cotton"]},
+              {"id":"s7","type":"spacer","size":"large"},
+              {"id":"s8","type":"hologram"}],
+            "products":[$prod]}""")
         val b = parseBrandPage(o)
-        assertEquals("Noor", b.card.name); assertEquals("gold", b.card.style); assertNull(b.card.coverUrl)
-        assertEquals(listOf("Handmade", "Since 2010"), b.highlights); assertNull(b.website)
-        assertEquals(1, b.collections.size); assertEquals("p1", b.collections[0].products[0].id); assertEquals(1, b.products.size)
+        assertEquals("Noor", b.card.name); assertNull(b.card.coverUrl); assertNull(b.website); assertEquals("noor.pk", b.instagram)
+        assertEquals(7, b.sections.size, "unknown section type is skipped")
+        val banner = b.sections[0] as BannerSection; assertEquals(2, banner.slides.size); assertEquals("p1", banner.slides[0].productId); assertNull(banner.slides[1].productId)
+        assertFalse((b.sections[1] as VideoSection).autoplay); assertTrue((b.sections[2] as TextSection).centered)
+        val ps = b.sections[3] as ProductsSection; assertEquals("carousel", ps.layout); assertEquals("p1", ps.products[0].id)
+        assertEquals(listOf("https://m/g1.webp"), (b.sections[4] as GallerySection).images); assertEquals(listOf("Pure cotton"), (b.sections[5] as FeaturesSection).items)
+        assertEquals("large", (b.sections[6] as SpacerSection).size); assertEquals(1, b.products.size)
     }
 
     @Test fun parsesSellerState() {
@@ -58,14 +70,25 @@ class BrandsTest {
     }
 
     @Test fun parsesSellerBrandAndBuildsPreview() {
-        val c = """{"name":"Noor","tagline":"","about":"","style":"ivory","accent":"#8E1B2D","logoUrl":null,"coverUrl":null,"highlights":["Handmade"],"instagram":null,"website":null,
-            "collections":[{"id":"c-1","title":"Summer","productIds":["p1","gone"]}]}"""
+        val c = """{"name":"Noor","tagline":"","logoUrl":null,"coverUrl":null,"instagram":null,"website":null,"sections":[
+            {"id":"a","type":"banner","hidden":false,"slides":[{"image":{"key":"brands/b/m/1.webp","url":"https://m/1.webp"},"title":"Hi","subtitle":"","buttonLabel":"Go","productId":"p1"},
+                                                              {"image":{"key":"brands/b/m/2.webp","url":"https://m/2.webp"},"title":"","subtitle":"","buttonLabel":"","productId":"gone"}]},
+            {"id":"b","type":"video","hidden":false,"video":{"key":"brands/b/m/v.mp4","url":"https://m/v.mp4"},"title":"T","caption":"C","autoplay":true},
+            {"id":"c","type":"products","hidden":false,"title":"All","layout":"big","productIds":[]},
+            {"id":"d","type":"products","hidden":false,"title":"Some","layout":"grid","productIds":["p1","gone"]},
+            {"id":"e","type":"text","hidden":true,"heading":"Secret","body":"x","align":"start"}]}"""
         val b = parseSellerBrand(JSONObject("""{"id":"b1","slug":"noor","status":"active","statusNote":null,"pageStatus":"draft","pageNote":null,"draft":$c,"live":null}"""))
-        assertEquals("active", b.status); assertNull(b.live); assertEquals("ivory", b.draft.style)
+        assertEquals("active", b.status); assertNull(b.live); assertEquals(5, b.draft.sections.size)
         val page = b.previewPage(listOf(parseSellerProduct(JSONObject(sellerProduct))))
-        assertEquals(1, page.products.size); assertTrue(page.products[0].inStock)
-        assertEquals(listOf("p1"), page.collections[0].products.map { it.id })       // unknown product ids are dropped
-        val back = b.draft.toJson(); assertEquals("c-1", back.getJSONArray("collections").getJSONObject(0).getString("id")); assertTrue(back.isNull("instagram"))
+        assertEquals(4, page.sections.size, "hidden section is not previewed")
+        val banner = page.sections[0] as BannerSection; assertEquals("p1", banner.slides[0].productId); assertNull(banner.slides[1].productId)
+        assertEquals("https://m/v.mp4", (page.sections[1] as VideoSection).videoUrl)
+        assertEquals(1, (page.sections[2] as ProductsSection).products.size)               // empty list = all products
+        assertEquals(listOf("p1"), (page.sections[3] as ProductsSection).products.map { it.id })   // unknown ids are dropped
+        val back = b.draft.toJson(); val sec = back.getJSONArray("sections")
+        assertEquals("brands/b/m/1.webp", sec.getJSONObject(0).getJSONArray("slides").getJSONObject(0).getString("imageKey"))
+        assertTrue(sec.getJSONObject(0).getJSONArray("slides").getJSONObject(1).has("productId")); assertEquals("brands/b/m/v.mp4", sec.getJSONObject(1).getString("videoKey"))
+        assertEquals("C", sec.getJSONObject(1).getString("caption")); assertTrue(sec.getJSONObject(4).getBoolean("hidden")); assertTrue(back.isNull("instagram"))
     }
 
     @Test fun parsesSellerOrderWithoutEmail() {

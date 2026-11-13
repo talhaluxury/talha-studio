@@ -77,11 +77,11 @@ export class PushService implements OrderEvents {
 
   /** Admin campaign: inbox rows go to every opted-in customer immediately; pushes are sent in the background. */
   async startCampaign(c: CampaignRec): Promise<{ recipients: number; devices: number; pushConfigured: boolean }> {
-    const recipients = await this.d.store.addPromoInbox({ title: c.title, body: c.body, deepLink: c.deepLink });
+    const recipients = await this.d.store.addPromoInbox({ title: c.title, body: c.body, deepLink: c.deepLink, imageUrl: c.imageUrl });
     const tokens = await this.d.store.promoTokens();
     const job = (async () => {
       let failed = 0;
-      if (this.configured && tokens.length) failed = (await this.sendTo(tokens, { title: c.title, body: c.body, deepLink: c.deepLink, kind: "promo" })).failed;
+      if (this.configured && tokens.length) failed = (await this.sendTo(tokens, { title: c.title, body: c.body, deepLink: c.deepLink, imageUrl: c.imageUrl, kind: "promo" })).failed;
       await this.d.store.finishCampaign(c.id, { recipients, failed });
     })().catch((e) => this.d.log?.error({ err: String(e), campaign: c.id }, "campaign failed"));
     this.pending.add(job); void job.finally(() => this.pending.delete(job));

@@ -1,8 +1,8 @@
 export type NotificationKind = "order" | "promo";
-export interface NotificationRec { id: string; userId: string; title: string; body: string; deepLink: string | null; kind: NotificationKind; readAt: Date | null; createdAt: Date }
+export interface NotificationRec { id: string; userId: string; title: string; body: string; deepLink: string | null; imageUrl?: string | null; kind: NotificationKind; readAt: Date | null; createdAt: Date }
 export interface Prefs { orderUpdates: boolean; promotions: boolean }
-export interface CampaignRec { id: string; title: string; body: string; deepLink: string | null; createdBy: string | null; sentAt: Date | null; recipients: number | null; failed: number; createdAt: Date }
-export interface NewNotification { title: string; body: string; deepLink: string | null; kind: NotificationKind }
+export interface CampaignRec { id: string; title: string; body: string; deepLink: string | null; imageUrl?: string | null; createdBy: string | null; sentAt: Date | null; recipients: number | null; failed: number; createdAt: Date }
+export interface NewNotification { title: string; body: string; deepLink: string | null; imageUrl?: string | null; kind: NotificationKind }
 
 export const MAX_DEVICES_PER_USER = 5;
 
@@ -29,7 +29,7 @@ export interface PushStore {
   promoAudience(): Promise<{ users: number; devices: number }>;
   addPromoInbox(n: Omit<NewNotification, "kind">): Promise<number>;                   // one inbox row per opted-in customer; returns count
   promoTokens(): Promise<string[]>;
-  createCampaign(c: { title: string; body: string; deepLink: string | null; createdBy: string }): Promise<CampaignRec>;
+  createCampaign(c: { title: string; body: string; deepLink: string | null; imageUrl?: string | null; createdBy: string }): Promise<CampaignRec>;
   finishCampaign(id: string, r: { recipients: number; failed: number }): Promise<void>;
   listCampaigns(page: number, limit: number): Promise<{ items: CampaignRec[]; total: number }>;
   hasRecentCampaign(title: string, body: string, sinceMs: number): Promise<boolean>;

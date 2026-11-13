@@ -126,7 +126,8 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                     item(key = "r-reels") { ReelRow(d.reels) { onBrowse(it) } } } }
                 d.collections.forEach { col ->
                     item(key = "h-${col.slug}") { SectionHeader(col.title, "View All") { onBrowse("@${col.slug}|${col.title}") } }
-                    item(key = "r-${col.slug}") { ProductRow(shop, col.products, onOpenProduct) }
+                    if (col.grid) item(key = "r-${col.slug}") { ProductGrid(shop, col.products, onOpenProduct) }
+                    else item(key = "r-${col.slug}") { ProductRow(shop, col.products, onOpenProduct) }
                     if (col.banners.isNotEmpty()) item(key = "b-${col.slug}") {
                         BannerCarousel(col.banners) { link -> routeFor(link)?.takeIf { it.startsWith("product/") }?.let { onOpenProduct(it.removePrefix("product/")) } ?: onBrowse(null) }
                     }
@@ -157,6 +158,19 @@ fun ProductRow(shop: ShopViewModel, list: List<Product>, onOpen: (String) -> Uni
     AutoScroll(state, enabled = list.size > 2)
     LazyRow(state = state, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         items(list, key = { it.id }) { p -> ProductCard(p, shop.isWished(p.id), { onOpen(p.id) }, { shop.toggleWishlist(p.id) }, Modifier.width(172.dp).carousel3d(state, p.id)) }
+    }
+}
+
+/** Two-column grid that scrolls down with the page (the owner picks this layout per section instead of the sideways slider). */
+@Composable
+fun ProductGrid(shop: ShopViewModel, list: List<Product>, onOpen: (String) -> Unit) {
+    Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        list.chunked(2).forEach { pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                pair.forEach { p -> ProductCard(p, shop.isWished(p.id), { onOpen(p.id) }, { shop.toggleWishlist(p.id) }, Modifier.weight(1f)) }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
     }
 }
 

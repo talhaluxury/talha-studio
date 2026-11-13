@@ -7,20 +7,47 @@ import { slugify } from "./catalogStore.js";
 export type BrandStatus = "pending" | "active" | "rejected" | "suspended";
 export type PageStatus = "draft" | "submitted" | "approved" | "rejected";
 export type ProductState = "draft" | "pending" | "approved" | "rejected" | "archived";
-export const BRAND_STYLES = ["noir", "ivory", "gold"] as const;
-export type BrandStyle = (typeof BRAND_STYLES)[number];
+/** One block of the brand page. Pictures and videos are storage keys, never URLs. The page's colours always follow the app's theme. */
+export interface BannerSlide { imageKey: string; title: string; subtitle: string; buttonLabel: string; productId: string | null }
+interface SectionBase { id: string; hidden: boolean }
+export type PageSection = SectionBase & (
+  | { type: "banner"; slides: BannerSlide[] }
+  | { type: "video"; videoKey: string; title: string; caption: string; autoplay: boolean }
+  | { type: "text"; heading: string; body: string; align: "start" | "center" }
+  | { type: "products"; title: string; layout: "grid" | "carousel" | "big"; productIds: string[] }
+  | { type: "gallery"; title: string; imageKeys: string[] }
+  | { type: "features"; title: string; items: string[] }
+  | { type: "spacer"; size: "small" | "medium" | "large" }
+);
+export const SECTION_TYPES = ["banner", "video", "text", "products", "gallery", "features", "spacer"] as const;
+export const MAX_SECTIONS = 20;
 
-export interface BrandCollection { id: string; title: string; productIds: string[] }
-/** Everything a seller can design on the page. Image fields are storage keys, never URLs. */
+/** Everything a seller can design on the page: a header (logo, cover, name, tagline, links) and an ordered list of sections. */
 export interface PageContent {
-  name: string; tagline: string; about: string; style: BrandStyle; accent: string;
-  logoKey: string | null; coverKey: string | null; highlights: string[];
-  instagram: string | null; website: string | null; collections: BrandCollection[];
+  name: string; tagline: string; logoKey: string | null; coverKey: string | null;
+  instagram: string | null; website: string | null; sections: PageSection[];
 }
-export const emptyContent = (name: string): PageContent => ({
-  name, tagline: "", about: "", style: "noir", accent: "#B99A62", logoKey: null, coverKey: null, highlights: [], instagram: null, website: null, collections: [],
+export const emptyContent = (name: string): PageContent => ({ name, tagline: "", logoKey: null, coverKey: null, instagram: null, website: null, sections: [] });
+
+export const sectionKeys = (s: PageSection): string[] => {
+  switch (s.type) {
+    case "banner": return s.slides.map((x) => x.imageKey);
+    case "video": return [s.videoKey];
+    case "gallery": return s.imageKeys;
+    default: return [];
+  }
+};
+/** Every stored file the page uses (so replaced ones can be deleted once nothing shows them). */
+export const contentKeys = (c: PageContent | null): string[] =>
+  c ? [c.logoKey, c.coverKey, ...c.sections.flatMap(sectionKeys)].filter((k): k is string => !!k) : [];
+/** The page without a product that was deleted (it also leaves banner buttons and product lists). */
+export const withoutProduct = (c: PageContent, productId: string): PageContent => ({
+  ...c,
+  sections: c.sections.map((s) =>
+    s.type === "products" ? { ...s, productIds: s.productIds.filter((x) => x !== productId) }
+    : s.type === "banner" ? { ...s, slides: s.slides.map((x) => (x.productId === productId ? { ...x, productId: null } : x)) }
+    : s),
 });
-export const contentKeys = (c: PageContent | null): string[] => (c ? [c.logoKey, c.coverKey].filter((k): k is string => !!k) : []);
 
 export interface BrandRec {
   id: string; ownerId: string; slug: string;

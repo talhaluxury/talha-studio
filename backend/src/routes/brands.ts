@@ -15,7 +15,7 @@ const note = z.string().trim().min(3, "Write a short reason for the seller").max
 
 /** Public card for the brands row on the app home. */
 const toCard = (b: BrandRec, c: PageContent, s: Storage) => ({
-  id: b.id, slug: b.slug, name: c.name, tagline: c.tagline, style: c.style, accent: c.accent,
+  id: b.id, slug: b.slug, name: c.name, tagline: c.tagline,
   logoUrl: c.logoKey ? s.url(c.logoKey) : null, coverUrl: c.coverKey ? s.url(c.coverKey) : null,
 });
 
@@ -32,12 +32,23 @@ export function brandRoutes(app: FastifyInstance, d: { brands: BrandStore; catal
     const approved = (await brands.productLinks(b.id, ["approved"])).map((l) => l.productId);
     const recs = approved.length ? (await catalog.listProducts({ ids: approved, publishedOnly: true, sort: "new", page: 1, limit: 100 })).items : [];
     const byId = new Map(recs.map((p) => [p.id, toApiProduct(p, storage)]));
-    const collections = b.live.collections
-      .map((c) => ({ id: c.id, title: c.title, products: c.productIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])) }))
-      .filter((c) => c.products.length);
+    // Sections are resolved for the app: product lists become real products (an empty list means "all products"), hidden sections are left out.
+    const pick = (ids: string[]) => (ids.length ? ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])) : [...byId.values()].slice(0, 12));
+    const sections = b.live.sections.filter((x) => !x.hidden).flatMap((x): object[] => {
+      const base = { id: x.id, type: x.type };
+      switch (x.type) {
+        case "banner": return [{ ...base, slides: x.slides.map((sl) => ({ imageUrl: storage.url(sl.imageKey), title: sl.title, subtitle: sl.subtitle, buttonLabel: sl.buttonLabel, productId: sl.productId && byId.has(sl.productId) ? sl.productId : null })) }];
+        case "video": return [{ ...base, videoUrl: storage.url(x.videoKey), title: x.title, caption: x.caption, autoplay: x.autoplay }];
+        case "text": return [{ ...base, heading: x.heading, body: x.body, align: x.align }];
+        case "products": { const products = pick(x.productIds); return products.length ? [{ ...base, title: x.title, layout: x.layout, products }] : []; }
+        case "gallery": return [{ ...base, title: x.title, images: x.imageKeys.map((k) => ({ url: storage.url(k) })) }];
+        case "features": return [{ ...base, title: x.title, items: x.items }];
+        case "spacer": return [{ ...base, size: x.size }];
+      }
+    });
     return {
-      brand: { ...toCard(b, b.live, storage), about: b.live.about, highlights: b.live.highlights, instagram: b.live.instagram, website: b.live.website, productCount: recs.length },
-      collections, products: [...byId.values()],
+      brand: { ...toCard(b, b.live, storage), instagram: b.live.instagram, website: b.live.website, productCount: recs.length },
+      sections, products: [...byId.values()],
     };
   });
 }
