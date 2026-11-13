@@ -30,7 +30,7 @@ class BrandsTest {
             "products":[$prod]}""")
         val b = parseBrandPage(o)
         assertEquals("Noor", b.card.name); assertNull(b.card.coverUrl); assertNull(b.website); assertEquals("noor.pk", b.instagram)
-        assertEquals(7, b.sections.size, "unknown section type is skipped")
+        assertEquals(7, b.sections.size)   // unknown section type is skipped
         val banner = b.sections[0] as BannerSection; assertEquals(2, banner.slides.size); assertEquals("p1", banner.slides[0].productId); assertNull(banner.slides[1].productId)
         assertFalse((b.sections[1] as VideoSection).autoplay); assertTrue((b.sections[2] as TextSection).centered)
         val ps = b.sections[3] as ProductsSection; assertEquals("carousel", ps.layout); assertEquals("p1", ps.products[0].id)
@@ -80,7 +80,7 @@ class BrandsTest {
         val b = parseSellerBrand(JSONObject("""{"id":"b1","slug":"noor","status":"active","statusNote":null,"pageStatus":"draft","pageNote":null,"draft":$c,"live":null}"""))
         assertEquals("active", b.status); assertNull(b.live); assertEquals(5, b.draft.sections.size)
         val page = b.previewPage(listOf(parseSellerProduct(JSONObject(sellerProduct))))
-        assertEquals(4, page.sections.size, "hidden section is not previewed")
+        assertEquals(4, page.sections.size)   // hidden section is not previewed
         val banner = page.sections[0] as BannerSection; assertEquals("p1", banner.slides[0].productId); assertNull(banner.slides[1].productId)
         assertEquals("https://m/v.mp4", (page.sections[1] as VideoSection).videoUrl)
         assertEquals(1, (page.sections[2] as ProductsSection).products.size)               // empty list = all products
