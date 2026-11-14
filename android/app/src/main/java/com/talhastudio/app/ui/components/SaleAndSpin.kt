@@ -123,11 +123,11 @@ fun SpinWheelButton(onClick: () -> Unit) {
 
 /** The turning prize-wheel picture on its own (used by the header action strip). */
 @Composable
-fun SpinWheelIcon(size: androidx.compose.ui.unit.Dp = 34.dp) {
+fun SpinWheelIcon(iconSize: androidx.compose.ui.unit.Dp = 34.dp) {
     val t = rememberInfiniteTransition(label = "spinicon")
     val deg by t.animateFloat(0f, 360f, infiniteRepeatable(tween(14000, easing = LinearEasing)), label = "deg")
     run {
-        Canvas(Modifier.size(size)) {
+        Canvas(Modifier.size(iconSize)) {
             val r = size.minDimension / 2f
             drawCircle(brush = Brush.sweepGradient(listOf(Color(0xFFF3DFA2), Color(0xFFB99A62), Color(0xFF8A6A32), Color(0xFFE8CC85), Color(0xFFF3DFA2))), radius = r)
             val inner = r * 0.80f
