@@ -20,6 +20,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -29,6 +30,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -48,7 +51,25 @@ import com.talhastudio.app.ui.theme.TS
 fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (category: String?) -> Unit, onNotifications: () -> Unit, onUpdates: () -> Unit, onSupport: () -> Unit, onOpenPage: (String) -> Unit, onSignIn: () -> Unit = {}, onWallet: () -> Unit = {}, onOpenBrand: (String) -> Unit = {}, onAllBrands: () -> Unit = {}) {
     LaunchedEffect(Session.user?.id) { shop.refreshUnread(); shop.refreshUpdates() }
     LaunchedEffect(Unit) { shop.refreshSale() }
-    WelcomeBonusCelebration(onWallet)
+    // Wallet: the coin in the header shows the balance. Right after the welcome bonus arrives a popup celebrates it, then coins fly into that icon.
+    val uid = Session.user?.id
+    val hostCtx = androidx.compose.ui.platform.LocalContext.current
+    val localStore = remember { com.talhastudio.app.data.LocalStore(hostCtx.applicationContext) }
+    var walletBal by remember(uid) { mutableStateOf<Int?>(null) }
+    var shownBal by remember(uid) { mutableStateOf<Int?>(null) }
+    var celebrate by remember(uid) { mutableIntStateOf(0) }
+    var flying by remember { mutableStateOf(false) }
+    var pulse by remember { mutableIntStateOf(0) }
+    var coinCenter by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    var hostOrigin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    var hostSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+    LaunchedEffect(uid) {
+        if (uid == null) return@LaunchedEffect
+        val w = runCatching { Repo.wallet() }.getOrNull() ?: return@LaunchedEffect
+        walletBal = w.balance
+        val got = w.items.filter { it.kind == "signup" || it.kind == "referral_joined" }.sumOf { it.amount }
+        if (got > 0 && !localStore.bonusCelebrated(uid)) { shownBal = 0; celebrate = got; localStore.setBonusCelebrated(uid) } else shownBal = w.balance
+    }
     var showSpin by remember { mutableStateOf(false) }
     val home = rememberLoad("home") { Repo.home() }
     val brands = rememberLoad("brands") { runCatching { Repo.brands() }.getOrDefault(emptyList()) }       // a failing brands row must never break the home screen
@@ -56,6 +77,7 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
     val cachedHome = remember { Repo.cachedHome() }
     val homeState: Load<HomeData> = when (val s = home.state) { is Load.Ready -> s; else -> cachedHome?.let { Load.Ready<HomeData>(it) } ?: s }
 
+    Box(Modifier.fillMaxSize().onGloballyPositioned { hostOrigin = it.positionInRoot(); hostSize = it.size }) {
     LazyColumn(contentPadding = PaddingValues(bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
         item { // Branded header + search (search opens the Browse tab)
             Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -64,6 +86,7 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                     Spacer(Modifier.width(10.dp))
                     Text("TALHA STUDIO", fontFamily = DisplayFont, letterSpacing = 2.sp, maxLines = 1, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                     // Lucky wheel: shown only while the owner has it switched on. Signed-out customers are asked to sign in first.
+                    if (uid != null) WalletCoinButton(shownBal, pulse, onWallet, Modifier.onGloballyPositioned { c -> val o = c.positionInRoot(); coinCenter = androidx.compose.ui.geometry.Offset(o.x + c.size.width / 2f, o.y + c.size.height / 2f) })
                     if ((homeState as? Load.Ready)?.data?.spin == true) SpinWheelButton { if (Session.signedIn) showSpin = true else onSignIn() }
                     // Updates: daily status pictures + chat with the store (asks for a mobile-number sign-in the first time).
                     IconButton(onUpdates) {
@@ -140,6 +163,12 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
         }
         item(key = "footer") { Footer(onSupport, onOpenPage) }
     }
+    if (flying) CoinFlight(
+        from = androidx.compose.ui.geometry.Offset(hostSize.width / 2f, hostSize.height / 2f),
+        to = coinCenter - hostOrigin,
+        onDone = { flying = false; shownBal = walletBal; pulse++ })
+    }
+    if (celebrate > 0) BonusCelebrationDialog(celebrate, onClose = { celebrate = 0; flying = true }, onWallet = { celebrate = 0; shownBal = walletBal; onWallet() })
     if (showSpin) SpinWheelDialog(onDismiss = { showSpin = false }, onUseCode = { shop.applyCoupon(it) })
 }
 

@@ -105,20 +105,13 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
         modifier = Modifier.padding(bottom = barSpace).consumeWindowInsets(WindowInsets.navigationBars)) {
         composable(Routes.Splash) {
             SplashScreen(onDone = {
-                nav.navigate(if (!local.onboarded()) Routes.Onboarding else if (!Session.signedIn && !local.bonusSeen()) Routes.Bonus else Routes.Main) { popUpTo(Routes.Splash) { inclusive = true } }
+                nav.navigate(if (!local.onboarded()) Routes.Onboarding else Routes.Main) { popUpTo(Routes.Splash) { inclusive = true } }
             })
         }
         composable(Routes.Onboarding) {
             OnboardingScreen(onStart = {
                 local.setOnboarded()
-                nav.navigate(if (!Session.signedIn && !local.bonusSeen()) Routes.Bonus else Routes.Main) { popUpTo(Routes.Onboarding) { inclusive = true } }
-            })
-        }
-        // After the welcome slides: "sign up and get a bonus" (skips itself when the owner turned the offers off)
-        composable(Routes.Bonus) {
-            BonusScreen(onDone = {
-                local.setBonusSeen()
-                nav.navigate(Routes.Main) { popUpTo(Routes.Bonus) { inclusive = true } }
+                nav.navigate(Routes.Main) { popUpTo(Routes.Onboarding) { inclusive = true } }
             })
         }
         composable(Routes.Wallet) { if (Session.signedIn) WalletScreen(onBack = { nav.popBackStack() }) else LaunchedEffect(Unit) { nav.navigate(Routes.auth()) } }
@@ -148,9 +141,12 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
         }
         composable(Routes.Auth, arguments = listOf(navArgument("next") { type = NavType.StringType; defaultValue = "" })) { entry ->
             val next = entry.arguments?.getString("next").orEmpty()
-            AuthScreen(onBack = { nav.popBackStack() }, onDone = {
-                if (next == "checkout") nav.navigate(Routes.Checkout) { popUpTo(Routes.Main) } else nav.popBackStack()
-            }, onPhone = { nav.navigate(Routes.phoneSignIn(next)) })
+            val finished = { if (next == "checkout") nav.navigate(Routes.Checkout) { popUpTo(Routes.Main) } else { nav.popBackStack(); Unit } }
+            // Sign-in happens only when the customer asks for it (profile) or needs it (buying). While the sign-up bonus is on, the bonus sign-in comes first;
+            // "Other sign-in options" opens the normal email / phone screen.
+            var other by rememberSaveable { mutableStateOf(false) }
+            if (!other) BonusScreen(onDone = { finished() }, onOther = { other = true }, onBack = { nav.popBackStack() })
+            else AuthScreen(onBack = { nav.popBackStack() }, onDone = { finished() }, onPhone = { nav.navigate(Routes.phoneSignIn(next)) })
         }
         // Sign in / sign up with a mobile number (for shopping; the chat sign-in above opens the chat afterwards).
         composable(Routes.PhoneSignIn, arguments = listOf(navArgument("next") { type = NavType.StringType; defaultValue = "" })) { entry ->

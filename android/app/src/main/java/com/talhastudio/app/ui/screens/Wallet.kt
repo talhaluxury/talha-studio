@@ -49,16 +49,16 @@ import kotlinx.coroutines.launch
  * It skips itself when the owner has switched both offers off. Google sign-in only. The bonus is added on the server.
  */
 @Composable
-fun BonusScreen(onDone: () -> Unit) {
+fun BonusScreen(onDone: () -> Unit, onOther: () -> Unit, onBack: () -> Unit) {
     val offers = rememberLoad("offers") { runCatching { Repo.offers() }.getOrDefault(Offers(0, 0)) }
     val o = (offers.state as? Load.Ready)?.data
     val canGoogle = BuildConfig.GOOGLE_WEB_CLIENT_ID.isNotBlank()
-    LaunchedEffect(o) { if (o != null && ((o.signupBonus <= 0 && o.referralBonus <= 0) || !canGoogle)) onDone() }
+    LaunchedEffect(o) { if (o != null && ((o.signupBonus <= 0 && o.referralBonus <= 0) || !canGoogle)) onOther() }   // offers off: straight to the normal sign-in
     // Own colours on purpose: this screen is a bright, colourful moment, so every colour is set here and nothing depends on the app theme.
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF1D0B45), Color(0xFF4B1D8F), Color(0xFFB02A7E), Color(0xFFFF7A45))))) {
         Sparkles()
         if (o == null || (o.signupBonus <= 0 && o.referralBonus <= 0)) { Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = Color.White) }; return@Box }
-        BonusContent(o, onDone)
+        BonusContent(o, onDone, onOther, onBack)
     }
 }
 
@@ -76,7 +76,7 @@ private fun Sparkles() {
 }
 
 @Composable
-private fun BonusContent(o: Offers, onDone: () -> Unit) {
+private fun BonusContent(o: Offers, onDone: () -> Unit, onOther: () -> Unit, onBack: () -> Unit) {
     val ctx = LocalContext.current; val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }; var error by remember { mutableStateOf<String?>(null) }
     var code by remember { mutableStateOf("") }; var showCode by remember { mutableStateOf(false) }
@@ -125,7 +125,8 @@ private fun BonusContent(o: Offers, onDone: () -> Unit) {
                 colors = OutlinedTextFieldDefaults.colors(focusedTextColor = white, unfocusedTextColor = white, focusedBorderColor = white, unfocusedBorderColor = Color(0x99FFFFFF),
                     focusedLabelColor = white, unfocusedLabelColor = soft, cursorColor = white))
         }
-        TextButton(onDone, enabled = !busy) { Text("Maybe later", color = soft, fontSize = 15.sp) }
+        TextButton(onOther, enabled = !busy) { Text("Other sign-in options (email or phone)", color = white, fontWeight = FontWeight.SemiBold, fontSize = 14.sp) }
+        TextButton(onBack, enabled = !busy) { Text("Maybe later", color = soft, fontSize = 15.sp) }
     }
 }
 
@@ -243,20 +244,50 @@ fun HomeWalletCard(onWallet: () -> Unit, onSignIn: () -> Unit, modifier: Modifie
     }
 }
 
-/** After login: if this account received its welcome / referral bonus and has not been told yet, celebrate once. */
+/** The celebration popup (the home screen decides when to show it, because the coins then fly into the wallet icon). */
 @Composable
-fun WelcomeBonusCelebration(onWallet: () -> Unit) {
-    val uid = Session.user?.id ?: return
-    val ctx = LocalContext.current
-    val local = remember { LocalStore(ctx.applicationContext) }
-    var amount by remember(uid) { mutableStateOf(0) }
-    LaunchedEffect(uid) {
-        if (local.bonusCelebrated(uid)) return@LaunchedEffect
-        val w = runCatching { Repo.wallet() }.getOrNull() ?: return@LaunchedEffect
-        val got = w.items.filter { it.kind == "signup" || it.kind == "referral_joined" }.sumOf { it.amount }
-        local.setBonusCelebrated(uid); if (got > 0) amount = got
+fun BonusCelebrationDialog(amount: Int, onClose: () -> Unit, onWallet: () -> Unit) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onClose) { BonusCelebrationCard(amount, onClose = onClose, onWallet = onWallet) }
+}
+
+/** Small coin button for the home header: the coin with the balance on a gold badge. It bounces when `pulse` changes. */
+@Composable
+fun WalletCoinButton(balance: Int?, pulse: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val bump = remember { Animatable(1f) }
+    LaunchedEffect(pulse) { if (pulse > 0) { bump.animateTo(1.45f, tween(160)); bump.animateTo(1f, spring(0.35f, 300f)) } }
+    val shown by animateIntAsState(balance ?: 0, tween(1200, easing = FastOutSlowInEasing), label = "badge")
+    Box(modifier.size(46.dp).clip(CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+        CoinIcon(30.dp, Modifier.scale(bump.value))
+        if (balance != null) Text("$shown", color = Color(0xFF3A2704), fontSize = 9.sp, fontWeight = FontWeight.Black, maxLines = 1,
+            modifier = Modifier.align(Alignment.BottomCenter).clip(RoundedCornerShape(50)).background(Brush.horizontalGradient(listOf(Color(0xFFFFE9A8), Color(0xFFE0B65A)))).padding(horizontal = 5.dp, vertical = 1.dp))
     }
-    if (amount > 0) androidx.compose.ui.window.Dialog(onDismissRequest = { amount = 0 }) { BonusCelebrationCard(amount, onClose = { amount = 0 }, onWallet = { amount = 0; onWallet() }) }
+}
+
+/** Several coins spin in 3D and fly from `from` to `to` (both inside this box), then `onDone`. */
+@Composable
+fun CoinFlight(from: androidx.compose.ui.geometry.Offset, to: androidx.compose.ui.geometry.Offset, onDone: () -> Unit) {
+    val n = 7
+    val prog = remember { List(n) { Animatable(0f) } }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.coroutineScope { prog.forEachIndexed { i, a -> launch { kotlinx.coroutines.delay(i * 120L); a.animateTo(1f, tween(950, easing = FastOutSlowInEasing)) } } }
+        onDone()
+    }
+    Box(Modifier.fillMaxSize()) {
+        prog.forEachIndexed { i, a ->
+            val p = a.value
+            if (p > 0f && p < 1f) {
+                val side = ((i % 3) - 1) * 70f                                   // spread the start so it looks like a handful of coins
+                val x = (from.x + side) + (to.x - from.x - side) * p
+                val y = from.y + (to.y - from.y) * p - kotlin.math.sin(p * Math.PI).toFloat() * 180f   // arc upwards
+                val s = 2.6f - 2.0f * p
+                CoinIcon(40.dp, Modifier.graphicsLayer {
+                    translationX = x - size.width / 2f; translationY = y - size.height / 2f
+                    scaleX = s; scaleY = s; rotationY = p * 1080f + i * 40f; rotationX = 25f * kotlin.math.sin(p * Math.PI).toFloat(); cameraDistance = 12f * density
+                    alpha = if (p > 0.9f) (1f - p) * 10f else 1f
+                })
+            }
+        }
+    }
 }
 
 @Composable
