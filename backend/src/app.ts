@@ -37,6 +37,8 @@ import type { SettingsStore } from "./settingsStore.js";
 import { adminEmailRoutes } from "./routes/adminEmail.js";
 import type { OrderEvents } from "./events.js";
 import { orderRoutes } from "./routes/orders.js";
+import { walletRoutes } from "./routes/wallet.js";
+import { MemoryWallet, type WalletStore } from "./walletStore.js";
 import { adminOrderRoutes } from "./routes/adminOrders.js";
 import type { ChatStore } from "./chatStore.js";
 import type { SlideStore, StatusStore } from "./contentStore.js";
@@ -57,7 +59,7 @@ import { SellerAlerts } from "./sellerNotify.js";
 import { sellerRoutes } from "./routes/seller.js";
 import { adminBrandRoutes, brandRoutes } from "./routes/brands.js";
 
-export interface Deps { brands?: BrandStore; reels?: ReelStore; spin?: SpinStore; videos?: VideoStore; sections?: SectionStore; whatsapp?: WhatsAppService; waQr?: BaileysWhatsApp; assistant?: AssistantService; chat: ChatStore; slides: SlideStore; status: StatusStore; coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
+export interface Deps { brands?: BrandStore; reels?: ReelStore; spin?: SpinStore; videos?: VideoStore; sections?: SectionStore; whatsapp?: WhatsAppService; waQr?: BaileysWhatsApp; assistant?: AssistantService; chat: ChatStore; slides: SlideStore; status: StatusStore; coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; wallet?: WalletStore; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
 
 export function googleVerifier(clientId: string): GoogleVerifier {
   const client = new OAuth2Client(clientId);
@@ -75,6 +77,7 @@ export function googleVerifier(clientId: string): GoogleVerifier {
 export async function buildApp(cfg: Config, deps: Deps) {
   const { store, catalog, storage, orders } = deps;
   const brands = deps.brands ?? new MemoryBrands();
+  const wallet: WalletStore = deps.wallet ?? ((orders as any).wallet as WalletStore | undefined) ?? new MemoryWallet();   // tests: the in-memory orders store owns the ledger
   const alerts = new SellerAlerts({ brands, pushStore: deps.pushStore, push: deps.push });
   const events = deps.events ?? composeEvents(deps.email, deps.push, alerts, ...(deps.whatsapp ? [deps.whatsapp] : []));       // order emails + push (+ the seller's own alert) are the default side effects of order events
   const images = deps.images ?? sharpProcessor;
@@ -115,11 +118,12 @@ export async function buildApp(cfg: Config, deps: Deps) {
   legalRoutes(app, { settings: deps.settings });          // public policy pages, e.g. https://api.example.com/legal/privacy
   const auth = makeAuth(store, cfg.JWT_ACCESS_SECRET);
   await app.register(async (v1) => {
-    authRoutes(v1, { store, secret: cfg.JWT_ACCESS_SECRET, google, whatsapp: deps.whatsapp });
+    authRoutes(v1, { store, secret: cfg.JWT_ACCESS_SECRET, google, wallet, settings: deps.settings, whatsapp: deps.whatsapp });
     meRoutes(v1, { store, auth, onDelete: async (id) => { for (const k of await deps.chat.deleteForCustomer(id)) await storage.delete(k).catch(() => {}); } });
     adminRoutes(v1, { store, auth });
     catalogRoutes(v1, { catalog, storage, cfg, settings: deps.settings, banners: deps.banners, coupons: deps.coupons, videos, sections, reels, brands });
     brandRoutes(v1, { brands, catalog, storage });
+    walletRoutes(v1, { wallet, settings: deps.settings, store, auth });
     sellerRoutes(v1, { brands, catalog, orders, storage, images, auth, cfg, alerts });
     adminBrandRoutes(v1, { brands, catalog, storage, store, auth, alerts });
     reelRoutes(v1, { reels, storage, store, auth });

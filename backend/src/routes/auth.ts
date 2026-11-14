@@ -7,6 +7,8 @@ import {
 import { STAFF_ROLES, type Store, type User } from "../store.js";
 import { FailureThrottle } from "../throttle.js";
 import { normalizePhone, phoneEmail } from "../phone.js";
+import type { SettingsStore } from "../settingsStore.js";
+import { grantWelcome, type WalletStore } from "../walletStore.js";
 
 export interface GoogleVerifier {
   verify(idToken: string): Promise<{ sub: string; email: string; emailVerified: boolean; name: string }>;
@@ -24,8 +26,8 @@ export const publicUser = (u: User) => ({ id: u.id, email: u.email, fullName: u.
 // Real dummy hash so login timing is similar whether or not the email exists.
 const DUMMY_P = hashPassword("not-a-real-password-for-timing");
 
-export function authRoutes(app: FastifyInstance, d: { store: Store; secret: string; google: GoogleVerifier; whatsapp?: { welcome(u: { id: string; fullName: string; phone: string | null }): Promise<unknown> } }) {
-  const { store, secret, google, whatsapp } = d;
+export function authRoutes(app: FastifyInstance, d: { store: Store; secret: string; google: GoogleVerifier; wallet?: WalletStore; settings?: SettingsStore; whatsapp?: { welcome(u: { id: string; fullName: string; phone: string | null }): Promise<unknown> } }) {
+  const { store, secret, google, whatsapp, wallet, settings } = d;
   const strict = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } };
   const loginLock = new FailureThrottle(8, 15 * 60_000); const adminLock = new FailureThrottle(5, 15 * 60_000);
 
@@ -77,7 +79,7 @@ export function authRoutes(app: FastifyInstance, d: { store: Store; secret: stri
   });
 
   app.post("/auth/google", strict, async (req) => {
-    const { idToken } = z.object({ idToken: z.string().min(20).max(4096) }).parse(req.body);
+    const { idToken, referralCode } = z.object({ idToken: z.string().min(20).max(4096), referralCode: z.string().trim().max(24).nullish() }).parse(req.body);
     let g;
     try { g = await google.verify(idToken); } catch { throw unauthorized("Google sign-in failed"); }
     if (!g.emailVerified) throw unauthorized("Google email is not verified");
@@ -90,6 +92,7 @@ export function authRoutes(app: FastifyInstance, d: { store: Store; secret: stri
         user = await store.updateUser(existing.id, { googleSub: g.sub });
       } else {
         user = await store.createUser({ email: mail, passwordHash: null, googleSub: g.sub, fullName: g.name || mail.split("@")[0]!, phone: null, role: "customer" });
+        if (wallet && settings) await grantWelcome(wallet, settings, user.id, referralCode);   // brand-new account: welcome bonus (+ referral if a friend's code was entered)
       }
     }
     if (!user.isActive || user.deletedAt) throw unauthorized("Account unavailable");

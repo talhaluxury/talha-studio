@@ -14,6 +14,7 @@ export interface StoreSettings {
   spin: { active: boolean; percents: number[] };            // lucky-wheel: every segment is one of these discount percentages
   pages: Record<PageSlug, string>;                          // policy / about page bodies
   paymentAccounts: { jazzcash: string; easypaisa: string; bank: string };   // where customers send money; a method is offered only when its text is not empty
+  wallet: { signupBonus: { active: boolean; amount: number }; referral: { active: boolean; amount: number } };   // welcome bonus + referral offers (owner can switch them off)
   homeLayouts: Record<string, "slider" | "grid">;          // per home section (slug): side-scrolling slider (default) or a grid that scrolls down with the page
   aiReplies: boolean;                                       // owner switch: AI answers customers on WhatsApp and in the app
 }
@@ -29,6 +30,7 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   pages: DEFAULT_PAGES,
   aiReplies: true,
   homeLayouts: {},
+  wallet: { signupBonus: { active: true, amount: 500 }, referral: { active: true, amount: 200 } },
   paymentAccounts: { jazzcash: "", easypaisa: "", bank: "" },
   templates: {
     order_confirmation: { subject: "Your Talha Studio order {{orderNumber}}", intro: "Thank you for your order, {{customerName}}. We have received it and will confirm it shortly.", footer: "Questions about your order? Contact us using the details below." },
@@ -48,6 +50,7 @@ const merge = (v: Partial<StoreSettings> | null, ship: StoreSettings["shipping"]
   spin: { ...DEFAULT_SETTINGS.spin, ...(v?.spin ?? {}) },
   pages: { ...DEFAULT_SETTINGS.pages, ...(v?.pages ?? {}) },
   homeLayouts: { ...(v?.homeLayouts ?? {}) },
+  wallet: { signupBonus: { ...DEFAULT_SETTINGS.wallet.signupBonus, ...(v?.wallet?.signupBonus ?? {}) }, referral: { ...DEFAULT_SETTINGS.wallet.referral, ...(v?.wallet?.referral ?? {}) } },
   store: { ...DEFAULT_SETTINGS.store, ...(v?.store ?? {}) },
   paymentAccounts: { ...DEFAULT_SETTINGS.paymentAccounts, ...(v?.paymentAccounts ?? {}) },
   templates: {

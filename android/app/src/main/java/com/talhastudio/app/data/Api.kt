@@ -85,7 +85,7 @@ fun parseOrder(o: JSONObject): Order {
         notes = o.str("notes"), trackingUrl = o.str("trackingUrl"),
         items = o.optJSONArray("items").mapObjects { OrderItem(it.getString("name"), it.getString("sku"), it.str("size"), it.str("color"), it.getInt("unitPrice"), it.getInt("qty"), it.str("imageUrl")) },
         history = o.optJSONArray("history").mapObjects { StatusEntry(it.getString("status"), it.str("note"), it.getString("at")) },
-        createdAt = o.getString("createdAt"),
+        createdAt = o.getString("createdAt"), walletUsed = o.optInt("walletUsed", 0),
     )
 }
 fun parseOrderSummary(o: JSONObject) = OrderSummary(o.getString("id"), o.getString("orderNumber"), o.getString("status"), o.getInt("total"), o.getString("createdAt"),
@@ -312,7 +312,13 @@ object Repo {
     suspend fun phoneRegister(name: String, phone: String, password: String) =
         Http.request("POST", "/auth/phone/register", JSONObject().put("fullName", name).put("phone", phone).put("password", password)).session()
     suspend fun phoneLogin(phone: String, password: String) = Http.request("POST", "/auth/phone/login", JSONObject().put("phone", phone).put("password", password)).session()
-    suspend fun googleLogin(idToken: String) = Http.request("POST", "/auth/google", JSONObject().put("idToken", idToken)).session()
+    suspend fun googleLogin(idToken: String, referralCode: String? = null) =
+        Http.request("POST", "/auth/google", JSONObject().put("idToken", idToken).apply { if (!referralCode.isNullOrBlank()) put("referralCode", referralCode.trim()) }).session()
+    suspend fun offers() = Http.request("GET", "/offers").let { Offers(it.optInt("signupBonus", 0), it.optInt("referralBonus", 0)) }
+    suspend fun wallet() = Http.request("GET", "/me/wallet", auth = true).let { o ->
+        Wallet(o.optInt("balance", 0), o.optString("referralCode"), o.optInt("referralBonus", 0), o.optInt("friends", 0), o.optInt("earnedFromReferrals", 0),
+            o.optJSONArray("items").mapObjects { WalletTx(it.getString("id"), it.getInt("amount"), it.getString("kind"), it.optString("note"), it.getString("createdAt")) })
+    }
     suspend fun logout() {
         com.talhastudio.app.push.PushTokens.unregister()      // while still signed in, so the server stops pushing to this phone
         val r = Session.refresh

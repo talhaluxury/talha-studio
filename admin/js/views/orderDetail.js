@@ -81,6 +81,7 @@ export async function renderOrderDetail(view, id) {
             h("td", { "data-label": "Price" }, money(i.unitPrice)), h("td", { "data-label": "Qty" }, i.qty), h("td", { "data-label": "Line total" }, money(i.unitPrice * i.qty)))))),
         h("div", { class: "sum" }, h("div", {}, h("span", {}, "Subtotal"), h("span", {}, money(o.subtotal))),
           o.discount ? h("div", {}, h("span", {}, "Discount"), h("span", {}, "- " + money(o.discount))) : null,
+          o.walletUsed ? h("div", {}, h("span", {}, "Wallet bonus used"), h("span", {}, "- " + money(o.walletUsed))) : null,
           h("div", {}, h("span", {}, "Shipping"), h("span", {}, o.shipping ? money(o.shipping) : "Free")),
           h("div", { class: "tot" }, h("span", {}, "Total"), h("span", {}, money(o.total))),
           h("div", { class: "hint" }, h("span", {}, `Payment: ${o.paymentMethod.toUpperCase()}`), h("span", {}, o.paymentStatus)),

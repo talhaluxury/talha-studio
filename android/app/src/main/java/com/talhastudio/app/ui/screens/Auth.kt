@@ -33,7 +33,7 @@ import com.talhastudio.app.ui.components.TsButtonStyle
 import com.talhastudio.app.ui.theme.TS
 import kotlinx.coroutines.launch
 
-private suspend fun googleIdToken(ctx: Context): String? {
+internal suspend fun googleIdToken(ctx: Context): String? {
     val option = GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_WEB_CLIENT_ID).build()
     val res = CredentialManager.create(ctx).getCredential(ctx, GetCredentialRequest.Builder().addCredentialOption(option).build())
     val c = res.credential

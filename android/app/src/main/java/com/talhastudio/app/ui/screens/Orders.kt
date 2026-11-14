@@ -108,6 +108,7 @@ fun OrderDetailScreen(id: String, onBack: () -> Unit) {
                             HorizontalDivider()
                             Row { Text("Subtotal", Modifier.weight(1f)); Text(pkr(o.subtotal)) }
                             Row { Text("Shipping", Modifier.weight(1f)); Text(if (o.shipping == 0) "Free" else pkr(o.shipping)) }
+                            if (o.walletUsed > 0) Row(verticalAlignment = Alignment.CenterVertically) { CoinIcon(18.dp); Spacer(Modifier.width(6.dp)); Text("Wallet bonus used", Modifier.weight(1f)); Text("- " + pkr(o.walletUsed), color = TS.Success) }
                             Row { Text("Total", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium); Text(pkr(o.total), style = MaterialTheme.typography.titleMedium) }
                             Text("Payment: ${payLabel(o.paymentMethod)} (${if (o.paymentStatus == "paid") "paid" else if (o.paymentMethod == "cod") "pay on delivery" else "waiting for the store to confirm"})", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
                         }

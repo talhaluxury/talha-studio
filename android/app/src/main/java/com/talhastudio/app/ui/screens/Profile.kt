@@ -43,7 +43,7 @@ private val GoldLight = Color(0xFFE9CF98)
 private val CardEdge = TS.Gold.copy(alpha = 0.30f)
 
 @Composable
-fun ProfileScreen(onSignIn: () -> Unit, onOrders: () -> Unit, onAddresses: () -> Unit, onNotifications: () -> Unit, onSupport: () -> Unit, onSettings: () -> Unit, onOpenPage: (String) -> Unit, onSeller: () -> Unit = {}) {
+fun ProfileScreen(onSignIn: () -> Unit, onOrders: () -> Unit, onAddresses: () -> Unit, onNotifications: () -> Unit, onSupport: () -> Unit, onSettings: () -> Unit, onOpenPage: (String) -> Unit, onSeller: () -> Unit = {}, onWallet: () -> Unit = {}) {
     val user = Session.user
     LazyColumn(contentPadding = PaddingValues(20.dp, 12.dp, 20.dp, 130.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         item { Text("My Account", style = MaterialTheme.typography.headlineMedium, fontFamily = DisplayFont, modifier = Modifier.staggerIn(0)) }
@@ -53,6 +53,7 @@ fun ProfileScreen(onSignIn: () -> Unit, onOrders: () -> Unit, onAddresses: () ->
                 else MemberCard(user.fullName, user.contactLine)
             }
         }
+        if (user != null) item { WalletTile(onWallet, Modifier.staggerIn(2)) }
         if (user != null) item {
             Row(Modifier.staggerIn(2), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 QuickTile("Orders", Icons.Outlined.Inventory2, onOrders, Modifier.weight(1f))

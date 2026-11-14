@@ -39,6 +39,8 @@ import com.talhastudio.app.ui.screens.*
 object Routes {
     const val Splash = "splash"
     const val Onboarding = "onboarding"
+    const val Bonus = "bonus"
+    const val Wallet = "wallet"
     const val Main = "main"
     const val Product = "product/{id}"
     fun product(id: String) = "product/$id"
@@ -103,15 +105,23 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
         modifier = Modifier.padding(bottom = barSpace).consumeWindowInsets(WindowInsets.navigationBars)) {
         composable(Routes.Splash) {
             SplashScreen(onDone = {
-                nav.navigate(if (local.onboarded()) Routes.Main else Routes.Onboarding) { popUpTo(Routes.Splash) { inclusive = true } }
+                nav.navigate(if (!local.onboarded()) Routes.Onboarding else if (!Session.signedIn && !local.bonusSeen()) Routes.Bonus else Routes.Main) { popUpTo(Routes.Splash) { inclusive = true } }
             })
         }
         composable(Routes.Onboarding) {
             OnboardingScreen(onStart = {
                 local.setOnboarded()
-                nav.navigate(Routes.Main) { popUpTo(Routes.Onboarding) { inclusive = true } }
+                nav.navigate(if (!Session.signedIn && !local.bonusSeen()) Routes.Bonus else Routes.Main) { popUpTo(Routes.Onboarding) { inclusive = true } }
             })
         }
+        // After the welcome slides: "sign up and get a bonus" (skips itself when the owner turned the offers off)
+        composable(Routes.Bonus) {
+            BonusScreen(onDone = {
+                local.setBonusSeen()
+                nav.navigate(Routes.Main) { popUpTo(Routes.Bonus) { inclusive = true } }
+            })
+        }
+        composable(Routes.Wallet) { if (Session.signedIn) WalletScreen(onBack = { nav.popBackStack() }) else LaunchedEffect(Unit) { nav.navigate(Routes.auth()) } }
         composable(Routes.Main) {
             MainShell(shop, onOpenProduct = { nav.navigate(Routes.product(it)) },
                 onCheckout = { if (Session.signedIn) nav.navigate(Routes.Checkout) else nav.navigate(Routes.auth("checkout")) },
@@ -121,7 +131,8 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
                 onUpdates = { nav.navigate(if (Session.signedIn) Routes.Chat else Routes.PhoneAuth) },
                 onSupport = { nav.navigate(Routes.Support) }, onSettings = { nav.navigate(Routes.Settings) }, onOpenPage = { nav.navigate(Routes.info(it)) },
                 onOpenBrand = { nav.navigate(Routes.brand(it)) }, onAllBrands = { nav.navigate(Routes.Brands) },
-                onSeller = { if (Session.signedIn) nav.navigate(Routes.Seller) else nav.navigate(Routes.auth()) })
+                onSeller = { if (Session.signedIn) nav.navigate(Routes.Seller) else nav.navigate(Routes.auth()) },
+                onWallet = { nav.navigate(Routes.Wallet) })
         }
         composable(Routes.Brands) { AllBrandsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.brand(it)) }) }
         composable(Routes.Brand, deepLinks = listOf(navDeepLink { uriPattern = "talhastudio://brand/{slug}" })) { entry ->

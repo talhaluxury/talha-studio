@@ -97,4 +97,10 @@ class BrandsTest {
             "items":[{"name":"Dupatta","sku":"X","size":"M","color":null,"unitPrice":1800,"qty":2,"imageUrl":null}],"itemCount":2,"subtotal":3600}"""))
         assertEquals("Ali", o.customerName); assertEquals(3600, o.subtotal); assertEquals(2, o.items[0].qty); assertNull(o.notes)
     }
+
+    @Test fun orderReadsWalletUsed() {
+        val j = JSONObject("""{"id":"o1","orderNumber":"TS-1","status":"pending","paymentMethod":"cod","paymentStatus":"unpaid","subtotal":1000,"discount":0,"walletUsed":500,"shipping":250,"total":750,
+            "customer":{"name":"A","email":"a@x.pk","phone":"+923001234567"},"address":{"line1":"x","city":"Lahore"},"items":[],"history":[],"createdAt":"2026-11-01T10:00:00Z"}""")
+        assertEquals(500, parseOrder(j).walletUsed); assertEquals(750, parseOrder(j).total)
+    }
 }

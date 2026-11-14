@@ -26,7 +26,7 @@ internal val shellTabs = listOf(
 )
 
 @Composable
-fun MainShell(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onCheckout: () -> Unit, onSignIn: () -> Unit, onOrders: () -> Unit, onAddresses: () -> Unit, onNotifications: () -> Unit, onUpdates: () -> Unit, onSupport: () -> Unit, onSettings: () -> Unit, onOpenPage: (String) -> Unit, onOpenBrand: (String) -> Unit = {}, onAllBrands: () -> Unit = {}, onSeller: () -> Unit = {}) {
+fun MainShell(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onCheckout: () -> Unit, onSignIn: () -> Unit, onOrders: () -> Unit, onAddresses: () -> Unit, onNotifications: () -> Unit, onUpdates: () -> Unit, onSupport: () -> Unit, onSettings: () -> Unit, onOpenPage: (String) -> Unit, onOpenBrand: (String) -> Unit = {}, onAllBrands: () -> Unit = {}, onSeller: () -> Unit = {}, onWallet: () -> Unit = {}) {
     val tab = shop.currentTab
     var browseCategory by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(shop.browseRequest) { shop.browseRequest?.let { browseCategory = it; shop.currentTab = 1; shop.browseRequest = null } }
@@ -45,7 +45,7 @@ fun MainShell(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onCheckout: 
                     1 -> CategoriesScreen(shop, browseCategory, onOpenProduct)
                     2 -> WishlistScreen(shop, onOpenProduct, goShop = { shop.currentTab = 0 })
                     3 -> CartScreen(shop, goShop = { shop.currentTab = 0 }, onCheckout = onCheckout)
-                    else -> ProfileScreen(onSignIn, onOrders, onAddresses, onNotifications, onSupport, onSettings, onOpenPage, onSeller)
+                    else -> ProfileScreen(onSignIn, onOrders, onAddresses, onNotifications, onSupport, onSettings, onOpenPage, onSeller, onWallet)
                 }
             }
         }

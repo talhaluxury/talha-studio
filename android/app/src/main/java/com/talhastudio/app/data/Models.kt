@@ -77,6 +77,7 @@ data class Order(
     val subtotal: Int, val discount: Int, val shipping: Int, val total: Int,
     val customerName: String, val customerEmail: String, val customerPhone: String,
     val address: String, val notes: String?, val trackingUrl: String?, val items: List<OrderItem>, val history: List<StatusEntry>, val createdAt: String,
+    val walletUsed: Int = 0,
 ) {
     val canCancel get() = status == "pending" || status == "confirmed"
     val canReturn get() = status == "delivered"
@@ -154,3 +155,8 @@ fun parseHexColor(hex: String?, fallback: Long = 0xFFB99A62): Long {
     val h = hex?.trim()?.removePrefix("#").orEmpty()
     return if (Regex("^[0-9A-Fa-f]{6}$").matches(h)) 0xFF000000L or h.toLong(16) else fallback
 }
+
+/** Wallet: welcome bonus and referral money. Offers = what the sign-up screen advertises (0 = switched off by the owner). */
+data class Offers(val signupBonus: Int, val referralBonus: Int)
+data class WalletTx(val id: String, val amount: Int, val kind: String, val note: String, val createdAt: String)
+data class Wallet(val balance: Int, val referralCode: String, val referralBonus: Int, val friends: Int, val earnedFromReferrals: Int, val items: List<WalletTx>)

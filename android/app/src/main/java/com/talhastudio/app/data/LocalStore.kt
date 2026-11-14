@@ -11,6 +11,9 @@ class LocalStore(ctx: Context) {
     fun onboarded() = sp.getBoolean("onboarded", false)
     fun setOnboarded() = sp.edit().putBoolean("onboarded", true).apply()
 
+    fun bonusSeen() = sp.getBoolean("bonus_seen", false)
+    fun setBonusSeen() = sp.edit().putBoolean("bonus_seen", true).apply()
+
     fun askedNotifications() = sp.getBoolean("asked_notif", false)
     fun setAskedNotifications() = sp.edit().putBoolean("asked_notif", true).apply()
     /** Last home feed, so the shop shows instantly on open while fresh data loads. */

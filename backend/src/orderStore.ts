@@ -5,7 +5,8 @@ import type { PaymentMethod } from "./paymentLabel.js";
 export interface OrderItemRec { productId: string | null; variantId: string | null; name: string; sku: string; size: string | null; color: string | null; unitPrice: number; qty: number; thumbKey: string | null }
 export interface OrderRec {
   id: string; orderNumber: string; userId: string | null; status: OrderStatus; paymentMethod: PaymentMethod; paymentStatus: "unpaid" | "paid" | "refunded"; paymentRef?: string | null;
-  subtotal: number; discount: number; shipping: number; total: number; couponCode: string | null;
+  subtotal: number; discount: number; shipping: number; total: number; couponCode: string | null; walletUsed?: number;   // walletUsed: wallet money applied (already taken off `total`)
+ 
   customer: { name: string; email: string; phone: string };
   address: { line1: string; line2: string | null; city: string; province: string | null; postalCode: string | null };
   notes: string | null; trackingUrl: string | null; items: OrderItemRec[];

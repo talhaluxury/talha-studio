@@ -1,3 +1,4 @@
+import { MemoryWallet } from "./walletStore.js";
 import { randomUUID } from "node:crypto";
 import type { MemoryCatalog } from "./memoryCatalog.js";
 import type { MemoryCoupons } from "./memoryCoupons.js";
@@ -11,7 +12,7 @@ import { priceCart } from "./pricing.js";
 
 /** In-memory OrderStore mirroring PgOrders semantics (used by tests). */
 export class MemoryOrders implements OrderStore {
-  orders: OrderRec[] = []; keys = new Map<string, string>(); returns: { orderId: string; reason: string }[] = []; seq = 100001;
+  wallet = new MemoryWallet(); refunded = new Set<string>(); orders: OrderRec[] = []; keys = new Map<string, string>(); returns: { orderId: string; reason: string }[] = []; seq = 100001;
   constructor(private catalog: MemoryCatalog, private users: MemoryStore, private coupons?: MemoryCoupons) {}
 
   private variant(id: string) { for (const p of this.catalog.prods.values()) { const v = p.variants.find((x) => x.id === id); if (v) return v; } return undefined; }
@@ -24,16 +25,18 @@ export class MemoryOrders implements OrderStore {
     const rec = i.couponCode ? this.coupons?.rows.find((c) => c.code.toLowerCase() === i.couponCode!.toLowerCase()) ?? null : null;
     const priced = priceCart(i.items, found, i.cfg, { requested: i.couponCode ?? null, rec, now: new Date() });
     if (priced.issues.length) throw new OrderIssuesError(priced.issues);
+    const walletUsed = Math.max(0, Math.min(await this.wallet.balance(i.userId), priced.subtotal - priced.discount));
     if (priced.couponCode && rec) rec.usedCount += 1;
     for (const l of priced.lines) this.variant(l.variantId)!.stock -= l.qty;
     const now = new Date();
     const o: OrderRec = {
       id: randomUUID(), orderNumber: `TS-${this.seq++}`, userId: i.userId, status: "pending", paymentMethod: i.paymentMethod ?? "cod", paymentStatus: "unpaid", paymentRef: i.paymentRef ?? null,
-      subtotal: priced.subtotal, discount: priced.discount, shipping: priced.shipping, total: priced.total, couponCode: priced.couponCode,
+      subtotal: priced.subtotal, discount: priced.discount, shipping: priced.shipping, total: priced.total - walletUsed, couponCode: priced.couponCode, walletUsed,
       customer: i.customer, address: i.address, notes: i.notes, trackingUrl: null,
       items: priced.lines.map((l) => ({ productId: l.productId, variantId: l.variantId, name: l.name, sku: l.sku, size: l.size, color: l.color, unitPrice: l.unitPrice, qty: l.qty, thumbKey: l.thumbKey })),
       history: [{ status: "pending", note: null, at: now }], createdAt: now, updatedAt: now,
     };
+    if (walletUsed > 0) { await this.wallet.credit(i.userId, -walletUsed, "order", `Used on order ${o.orderNumber}`); }
     this.orders.unshift(o); this.keys.set(key, o.id); return { order: o, created: true };
   }
 
@@ -56,7 +59,8 @@ export class MemoryOrders implements OrderStore {
     if (!canTransition(o.status, to)) throw new TransitionError(`Cannot change an order from ${o.status} to ${to}`);
     if (restoresStock(to)) {
       for (const it of o.items) if (it.variantId) { const v = this.variant(it.variantId); if (v) v.stock += it.qty; }
-      const c = o.couponCode ? this.coupons?.rows.find((x) => x.code === o.couponCode) : undefined; if (c && c.usedCount > 0) c.usedCount -= 1;   // a cancelled order gives its coupon use back
+      const c = o.couponCode ? this.coupons?.rows.find((x) => x.code === o.couponCode) : undefined; if (c && c.usedCount > 0) c.usedCount -= 1;
+      if (o.walletUsed && o.userId && !this.refunded.has(o.id)) { this.refunded.add(o.id); void this.wallet.credit(o.userId, o.walletUsed, "refund", `Returned: order ${o.orderNumber} was ${to}`); }   // a cancelled order gives its wallet money back
     }
     if (to === "delivered") o.paymentStatus = "paid";
     if (to === "refunded" && o.paymentStatus === "paid") o.paymentStatus = "refunded";

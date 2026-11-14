@@ -15,6 +15,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.talhastudio.app.QuoteState
 import com.talhastudio.app.ShopViewModel
+import androidx.compose.ui.Alignment
 import com.talhastudio.app.data.*
 import com.talhastudio.app.ui.components.*
 import com.talhastudio.app.ui.theme.TS
@@ -54,6 +55,10 @@ fun CheckoutScreen(shop: ShopViewModel, onBack: () -> Unit, onPlaced: (orderId: 
     val idempotencyKey = remember(cartSignature) { UUID.randomUUID().toString().replace("-", "") }
     val q = shop.quote
     val ready = (q as? QuoteState.Ready)?.quote
+    // Wallet bonus is taken off the goods (never delivery) automatically; the server does the same sum when the order is placed.
+    val wallet = rememberLoad("wallet-checkout") { runCatching { Repo.wallet().balance }.getOrDefault(0) }
+    val walletBalance = (wallet.state as? Load.Ready)?.data ?: 0
+    val walletUse = ready?.let { minOf(walletBalance, (it.subtotal - it.discount)).coerceAtLeast(0) } ?: 0
     val canOrder = ready != null && ready.issues.isEmpty() && ready.items.isNotEmpty() && !busy
 
     Scaffold(topBar = { TopAppBar(title = { Text("Checkout") }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } }) }) { pad ->
@@ -101,8 +106,9 @@ fun CheckoutScreen(shop: ShopViewModel, onBack: () -> Unit, onPlaced: (orderId: 
                     is QuoteState.Ready -> {
                         Row { Text("Subtotal", Modifier.weight(1f)); Text(pkr(q.quote.subtotal)) }
                         if (q.quote.discount > 0) Row { Text("Discount (${q.quote.couponCode})", Modifier.weight(1f)); Text("- " + pkr(q.quote.discount), color = TS.Success) }
+                        if (walletUse > 0) Row(verticalAlignment = Alignment.CenterVertically) { CoinIcon(18.dp); Spacer(Modifier.width(6.dp)); Text("Wallet bonus", Modifier.weight(1f)); Text("- " + pkr(walletUse), color = TS.Success) }
                         Row { Text("Shipping", Modifier.weight(1f)); Text(if (q.quote.shipping == 0) "Free" else pkr(q.quote.shipping)) }
-                        Row { Text("Total", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium); Text(pkr(q.quote.total), style = MaterialTheme.typography.titleMedium) }
+                        Row { Text("Total", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium); Text(pkr(q.quote.total - walletUse), style = MaterialTheme.typography.titleMedium) }
                         q.quote.issues.forEach { Text(it.message, color = TS.Danger, style = MaterialTheme.typography.labelSmall) }
                     }
                     is QuoteState.Failed -> Text(q.message, color = TS.Danger)
@@ -113,7 +119,7 @@ fun CheckoutScreen(shop: ShopViewModel, onBack: () -> Unit, onPlaced: (orderId: 
                 Text("We will confirm your order on WhatsApp on the phone number above.", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
             }
             failure?.let { Text(it, color = TS.Danger, style = MaterialTheme.typography.bodyMedium) }
-            TsButton(if (busy) "Placing order..." else "Place Order" + (ready?.let { " · " + pkr(it.total) } ?: ""), enabled = canOrder, style = TsButtonStyle.Black, onClick = {
+            TsButton(if (busy) "Placing order..." else "Place Order" + (ready?.let { " · " + pkr(it.total - walletUse) } ?: ""), enabled = canOrder, style = TsButtonStyle.Black, onClick = {
                 val v = validateCheckout(form).toMutableMap()
                 if (method != "cod" && payRef.trim().length < 6) v["payRef"] = "Enter the transaction ID (at least 6 characters)"
                 errors = v

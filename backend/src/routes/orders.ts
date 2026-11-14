@@ -12,7 +12,7 @@ import { PAYMENT_METHODS } from "../paymentLabel.js";
 
 export const toApiOrder = (o: OrderRec, s: Storage) => ({
   id: o.id, orderNumber: o.orderNumber, status: o.status, paymentMethod: o.paymentMethod, paymentStatus: o.paymentStatus, paymentRef: o.paymentRef ?? null,
-  subtotal: o.subtotal, discount: o.discount, shipping: o.shipping, total: o.total, couponCode: o.couponCode,
+  subtotal: o.subtotal, discount: o.discount, walletUsed: o.walletUsed ?? 0, shipping: o.shipping, total: o.total, couponCode: o.couponCode,
   customer: o.customer, address: o.address, notes: o.notes, trackingUrl: o.trackingUrl,
   items: o.items.map((i) => ({ productId: i.productId, variantId: i.variantId, name: i.name, sku: i.sku, size: i.size, color: i.color, unitPrice: i.unitPrice, qty: i.qty, imageUrl: i.thumbKey ? s.url(i.thumbKey) : null })),
   history: o.history.map((h) => ({ status: h.status, note: h.note, at: h.at })), createdAt: o.createdAt, updatedAt: o.updatedAt,

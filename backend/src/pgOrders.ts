@@ -37,7 +37,7 @@ export class PgOrders implements OrderStore {
     ]);
     return {
       id: o.id, orderNumber: o.order_number, userId: o.user_id, status: o.status, paymentMethod: o.payment_method, paymentStatus: o.payment_status, paymentRef: o.payment_ref ?? null,
-      subtotal: o.subtotal, discount: o.discount, shipping: o.shipping, total: o.total, couponCode: o.coupon_code,
+      subtotal: o.subtotal, discount: o.discount, shipping: o.shipping, total: o.total, couponCode: o.coupon_code, walletUsed: o.wallet_used ?? 0,
       customer: { name: o.customer_name, email: o.customer_email, phone: o.customer_phone },
       address: { line1: o.ship_line1, line2: o.ship_line2, city: o.ship_city, province: o.ship_province, postalCode: o.ship_postal },
       notes: o.notes, trackingUrl: o.tracking_url,
@@ -51,8 +51,8 @@ export class PgOrders implements OrderStore {
     const prior = await this.load("idempotency_key = $1", [key]); if (prior) return { order: prior, created: false };
     try {
       const id = await this.tx(async (c) => {
+        await c.query("SELECT id FROM users WHERE id = $1 FOR UPDATE", [i.userId]);          // serialise per customer (open-orders cap and wallet balance cannot be raced)
         if (i.maxOpenOrders) {
-          await c.query("SELECT id FROM users WHERE id = $1 FOR UPDATE", [i.userId]);          // serialise per customer so the cap cannot be raced
           const open = await c.query("SELECT count(*)::int AS n FROM orders WHERE user_id = $1 AND status = ANY($2::order_status[])", [i.userId, [...OPEN_STATUSES]]);
           if (open.rows[0].n >= i.maxOpenOrders) throw new OpenOrdersLimitError();
         }
@@ -68,6 +68,9 @@ export class PgOrders implements OrderStore {
         const coupon = cr?.rows[0] ? toCoupon(cr.rows[0]) : null;
         const priced = priceCart(i.items, found, i.cfg, { requested: i.couponCode ?? null, rec: coupon, now: new Date() });
         if (priced.issues.length) throw new OrderIssuesError(priced.issues);
+        // Wallet money (welcome bonus, referrals) comes off the goods, never off delivery, and never below zero.
+        const bal = (await c.query("SELECT COALESCE(sum(amount),0)::int AS b FROM wallet_transactions WHERE user_id = $1", [i.userId])).rows[0].b as number;
+        const walletUsed = Math.max(0, Math.min(bal, priced.subtotal - priced.discount)); const total = priced.total - walletUsed;
         if (priced.couponCode && coupon) {
           const cu = await c.query("UPDATE coupons SET used_count = used_count + 1 WHERE id = $1 AND (max_uses IS NULL OR used_count < max_uses)", [coupon.id]);
           if (cu.rowCount !== 1) throw new OrderIssuesError([{ variantId: "coupon", code: "COUPON_INVALID", message: "This code has been fully used" }]);
@@ -79,11 +82,12 @@ export class PgOrders implements OrderStore {
         const num = (await c.query("SELECT nextval('order_number_seq') AS n")).rows[0].n;
         const o = await c.query(
           `INSERT INTO orders (order_number, user_id, idempotency_key, subtotal, discount, shipping, total, coupon_code, customer_name, customer_email, customer_phone,
-             ship_line1, ship_line2, ship_city, ship_province, ship_postal, notes, payment_method, payment_ref)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id`,
-          [`TS-${num}`, i.userId, key, priced.subtotal, priced.discount, priced.shipping, priced.total, priced.couponCode, i.customer.name, i.customer.email, i.customer.phone,
-           i.address.line1, i.address.line2, i.address.city, i.address.province, i.address.postalCode, i.notes, i.paymentMethod ?? "cod", i.paymentRef ?? null]);
+             ship_line1, ship_line2, ship_city, ship_province, ship_postal, notes, payment_method, payment_ref, wallet_used)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING id`,
+          [`TS-${num}`, i.userId, key, priced.subtotal, priced.discount, priced.shipping, total, priced.couponCode, i.customer.name, i.customer.email, i.customer.phone,
+           i.address.line1, i.address.line2, i.address.city, i.address.province, i.address.postalCode, i.notes, i.paymentMethod ?? "cod", i.paymentRef ?? null, walletUsed]);
         const oid = o.rows[0].id as string;
+        if (walletUsed > 0) await c.query("INSERT INTO wallet_transactions (user_id, amount, kind, note, order_id) VALUES ($1,$2,'order',$3,$4)", [i.userId, -walletUsed, `Used on order TS-${num}`, oid]);
         for (const l of priced.lines) await c.query(
           `INSERT INTO order_items (order_id, product_id, variant_id, name, sku, size, color, unit_price, qty, thumb_key) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
           [oid, l.productId, l.variantId, l.name, l.sku, l.size, l.color, l.unitPrice, l.qty, l.thumbKey]);
@@ -106,6 +110,10 @@ export class PgOrders implements OrderStore {
     if (restoresStock(to)) {
       await c.query(`UPDATE product_variants v SET stock = v.stock + i.qty FROM order_items i WHERE i.order_id = $1 AND i.variant_id = v.id`, [orderId]);
       await c.query("UPDATE coupons SET used_count = GREATEST(used_count - 1, 0) WHERE code = (SELECT coupon_code FROM orders WHERE id = $1)", [orderId]);   // cancelled orders return their coupon use
+      // ...and the wallet money they used (once only)
+      await c.query(`INSERT INTO wallet_transactions (user_id, amount, kind, note, order_id)
+        SELECT o.user_id, o.wallet_used, 'refund', 'Returned: order ' || o.order_number || ' was ' || $2::text, o.id FROM orders o
+        WHERE o.id = $1 AND o.wallet_used > 0 AND o.user_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM wallet_transactions w WHERE w.order_id = o.id AND w.kind = 'refund')`, [orderId, to]);
     }
     const pay = to === "delivered" ? "paid" : to === "refunded" && o.payment_status === "paid" ? "refunded" : o.payment_status;
     await c.query("UPDATE orders SET status = $2, payment_status = $3, tracking_url = COALESCE($4, tracking_url), updated_at = now() WHERE id = $1", [orderId, to, pay, tracking]);
