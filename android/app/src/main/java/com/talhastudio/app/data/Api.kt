@@ -85,7 +85,7 @@ fun parseOrder(o: JSONObject): Order {
         notes = o.str("notes"), trackingUrl = o.str("trackingUrl"),
         items = o.optJSONArray("items").mapObjects { OrderItem(it.getString("name"), it.getString("sku"), it.str("size"), it.str("color"), it.getInt("unitPrice"), it.getInt("qty"), it.str("imageUrl")) },
         history = o.optJSONArray("history").mapObjects { StatusEntry(it.getString("status"), it.str("note"), it.getString("at")) },
-        createdAt = o.getString("createdAt"), walletUsed = o.optInt("walletUsed", 0),
+        createdAt = o.getString("createdAt"), walletUsed = o.optInt("walletUsed", 0), courier = o.str("courier"), trackingNo = o.str("trackingNo"),
     )
 }
 fun parseOrderSummary(o: JSONObject) = OrderSummary(o.getString("id"), o.getString("orderNumber"), o.getString("status"), o.getInt("total"), o.getString("createdAt"),
@@ -289,6 +289,16 @@ object Repo {
         return PageOf(o.optJSONArray("items").mapObjects { parseProduct(it) }, o.getInt("page"), o.getInt("total"))
     }
     suspend fun product(id: String) = parseProduct(Http.request("GET", "/products/$id"))
+
+    // ---- reviews and "tell me when it is back" ----
+    private fun parseReview(o: JSONObject) = Review(o.getString("id"), o.getInt("rating"), o.optString("body", ""), o.optString("author", ""), o.optString("createdAt", ""))
+    suspend fun reviews(productId: String): ReviewsData {
+        val o = Http.request("GET", "/products/$productId/reviews", auth = Session.signedIn)
+        return ReviewsData(o.optDouble("avg", 0.0), o.optInt("count", 0), o.optJSONArray("items").mapObjects { parseReview(it) }, o.optJSONObject("mine")?.let { parseReview(it) }, o.optBoolean("canReview", false))
+    }
+    suspend fun postReview(productId: String, rating: Int, body: String) { Http.request("POST", "/products/$productId/reviews", JSONObject().put("rating", rating).put("body", body), auth = true) }
+    suspend fun stockAlert(productId: String): Boolean = Http.request("GET", "/me/stock-alerts/$productId", auth = true).optBoolean("subscribed", false)
+    suspend fun setStockAlert(productId: String, on: Boolean) { if (on) Http.request("PUT", "/me/stock-alerts/$productId", JSONObject(), auth = true) else Http.request("DELETE", "/me/stock-alerts/$productId", auth = true) }
 
     // ---- brands ----
     suspend fun brands(): List<BrandCard> = Http.request("GET", "/brands").optJSONArray("items").mapObjects { parseBrandCard(it) }

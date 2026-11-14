@@ -19,7 +19,7 @@ fun WishlistScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, goShop:
     val ids = shop.wishlist.toList()
     val load = rememberLoad(ids) { Repo.byIds(ids) }
     Column {
-        Text("Wishlist", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(20.dp))
+        Text(tr("Wishlist"), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(20.dp))
         when {
             ids.isEmpty() -> EmptyState("Your wishlist is empty", "Tap the heart on any product to save it.", "Browse Collection", goShop)
             load.state is Load.Loading -> ProductGridSkeleton()
@@ -39,8 +39,8 @@ fun WishlistScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, goShop:
 @Composable
 fun EmptyState(title: String, body: String, action: String? = null, onAction: () -> Unit = {}) {
     Column(Modifier.fillMaxWidth().padding(40.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
-        Text(body, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(tr(title), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+        Text(tr(body), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (action != null) { Spacer(Modifier.height(8.dp)); TsButton(action, onAction) }
     }
 }

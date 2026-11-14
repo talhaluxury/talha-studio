@@ -49,7 +49,7 @@ fun InfoPageScreen(slug: String, onBack: () -> Unit) {
 fun SupportScreen(onBack: () -> Unit, onOpenPage: (String) -> Unit) {
     val load = rememberLoad("store-info") { Repo.storeInfo() }
     val ctx = LocalContext.current
-    Scaffold(topBar = { TopAppBar(title = { Text("Help & Support") }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } }) }) { pad ->
+    Scaffold(topBar = { TopAppBar(title = { Text(tr("Help & Support")) }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } }) }) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
             when (val s = load.state) {
                 is Load.Loading -> Column(Modifier.padding(20.dp)) { SkeletonBox(Modifier.fillMaxWidth().height(120.dp)) }
@@ -85,21 +85,21 @@ fun SettingsScreen(onBack: () -> Unit, onNotifications: () -> Unit, onOpenPage: 
     val user = Session.user; val ctx = LocalContext.current; val scope = rememberCoroutineScope(); val snack = remember { SnackbarHostState() }
     var exporting by remember { mutableStateOf(false) }; var exported by remember { mutableStateOf<String?>(null) }
     var deleting by remember { mutableStateOf(false) }; var pw by remember { mutableStateOf("") }; var busy by remember { mutableStateOf(false) }
-    Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = { TopAppBar(title = { Text("Settings") }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } }) }) { pad ->
+    Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = { TopAppBar(title = { Text(tr("Settings")) }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } }) }) { pad ->
         Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
             if (user != null) {
-                Text("Account", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)); Text("${user.fullName} · ${user.contactLine}", color = TS.Gray, style = MaterialTheme.typography.bodyMedium)
+                Text(tr("Account"), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)); Text("${user.fullName} · ${user.contactLine}", color = TS.Gray, style = MaterialTheme.typography.bodyMedium)
                 LinkRow("Notifications", onNotifications)
                 LinkRow(if (exporting) "Preparing your data..." else "Download my data") { if (!exporting) { exporting = true; scope.launch {
                     try { exported = Repo.exportMyData() } catch (e: ApiException) { snack.showSnackbar(e.message ?: "Could not prepare your data") } finally { exporting = false } } } }
             }
-            Text("Legal", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
+            Text(tr("Legal"), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
             LinkRow("Privacy Policy") { onOpenPage("privacy") }; LinkRow("Terms of Service") { onOpenPage("terms") }
             Text("Talha Studio ${com.talhastudio.app.BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelSmall, color = TS.Gray, modifier = Modifier.padding(top = 16.dp))
             if (user != null) {
                 Spacer(Modifier.height(20.dp))
                 TsButton("Sign out", { scope.launch { Repo.logout(); onSignedOut() } }, style = TsButtonStyle.Outline)
-                TextButton({ deleting = true }, Modifier.fillMaxWidth()) { Text("Delete my account", color = TS.Danger) }
+                TextButton({ deleting = true }, Modifier.fillMaxWidth()) { Text(tr("Delete my account"), color = TS.Danger) }
             }
             Spacer(Modifier.height(32.dp))
         }
@@ -107,11 +107,11 @@ fun SettingsScreen(onBack: () -> Unit, onNotifications: () -> Unit, onOpenPage: 
     exported?.let { text -> AlertDialog({ exported = null }, title = { Text("Your data") },
         text = { Text("A copy of your profile, addresses and orders is ready. Share or save it somewhere safe; it contains personal details.", style = MaterialTheme.typography.bodyMedium) },
         confirmButton = { TextButton({ ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, "My Talha Studio data").putExtra(Intent.EXTRA_TEXT, text), "Share my data")); exported = null }) { Text("Share", color = TS.Gold) } },
-        dismissButton = { TextButton({ exported = null }) { Text("Close") } }) }
+        dismissButton = { TextButton({ exported = null }) { Text(tr("Close")) } }) }
     if (deleting) AlertDialog({ if (!busy) deleting = false }, title = { Text("Delete your account?") },
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Your profile, saved addresses and notification devices are erased. Past orders are kept by the store for accounting. This cannot be undone.", style = MaterialTheme.typography.bodyMedium)
             OutlinedTextField(pw, { pw = it }, Modifier.fillMaxWidth(), label = { Text("Password (leave empty if you use Google)") }, singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation()) } },
         confirmButton = { TextButton({ busy = true; scope.launch { try { Repo.deleteAccount(pw.ifBlank { null }); deleting = false; onSignedOut() } catch (e: ApiException) { snack.showSnackbar(e.message ?: "Could not delete account") } finally { busy = false } } }, enabled = !busy) { Text("Delete", color = TS.Danger) } },
-        dismissButton = { TextButton({ deleting = false }, enabled = !busy) { Text("Cancel") } })
+        dismissButton = { TextButton({ deleting = false }, enabled = !busy) { Text(tr("Cancel")) } })
 }

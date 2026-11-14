@@ -33,7 +33,7 @@ fun CartScreen(shop: ShopViewModel, goShop: () -> Unit, onCheckout: () -> Unit) 
 
     Box(Modifier.fillMaxSize()) {
         Column {
-            Text("My Cart", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(20.dp))
+            Text(tr("My Cart"), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(20.dp))
             if (shop.cart.isEmpty()) EmptyState("Your cart is empty", "Add something beautiful.", "Start Shopping", goShop)
             else LazyColumn(contentPadding = PaddingValues(20.dp, 0.dp, 20.dp, 140.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(shop.cart, key = { it.variantId }) { line ->
@@ -60,19 +60,19 @@ fun CartScreen(shop: ShopViewModel, goShop: () -> Unit, onCheckout: () -> Unit) 
                 item { CouponBox(shop, ready) }
                 item {
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Price Details", style = MaterialTheme.typography.titleMedium)
+                        Text(tr("Price Details"), style = MaterialTheme.typography.titleMedium)
                         when (q) {
                             is QuoteState.Ready -> {
                                 q.quote.issues.filter { it.variantId == "cart" }.forEach { Text(it.message, color = TS.Danger, style = MaterialTheme.typography.bodyMedium) }
-                                Row { Text("Subtotal", Modifier.weight(1f)); Text(pkr(q.quote.subtotal)) }
-                                if (q.quote.discount > 0) Row { Text("Discount", Modifier.weight(1f)); Text("- " + pkr(q.quote.discount), color = TS.Success) }
-                                Row { Text("Shipping", Modifier.weight(1f)); Text(if (q.quote.shipping == 0) "Free" else pkr(q.quote.shipping)) }
+                                Row { Text(tr("Subtotal"), Modifier.weight(1f)); Text(pkr(q.quote.subtotal)) }
+                                if (q.quote.discount > 0) Row { Text(tr("Discount"), Modifier.weight(1f)); Text("- " + pkr(q.quote.discount), color = TS.Success) }
+                                Row { Text(tr("Shipping"), Modifier.weight(1f)); Text(if (q.quote.shipping == 0) "Free" else pkr(q.quote.shipping)) }
                                 HorizontalDivider()
-                                Row { Text("Total", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium); Text(pkr(q.quote.total), style = MaterialTheme.typography.titleMedium) }
-                                Text("Payment: choose at checkout (Cash on Delivery or online transfer)", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
+                                Row { Text(tr("Total"), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium); Text(pkr(q.quote.total), style = MaterialTheme.typography.titleMedium) }
+                                Text(tr("Payment: choose at checkout (Cash on Delivery or online transfer)"), style = MaterialTheme.typography.labelSmall, color = TS.Gray)
                             }
-                            is QuoteState.Failed -> { Text(q.message, color = TS.Danger, style = MaterialTheme.typography.bodyMedium); OutlinedButton({ shop.refreshQuote() }) { Text("Try again") } }
-                            else -> Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = TS.Gold); Spacer(Modifier.width(10.dp)); Text("Confirming prices...", color = TS.Gray) }
+                            is QuoteState.Failed -> { Text(q.message, color = TS.Danger, style = MaterialTheme.typography.bodyMedium); OutlinedButton({ shop.refreshQuote() }) { Text(tr("Try again")) } }
+                            else -> Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = TS.Gold); Spacer(Modifier.width(10.dp)); Text(tr("Confirming prices..."), color = TS.Gray) }
                         }
                     }
                 }
@@ -89,17 +89,17 @@ private fun CouponBox(shop: ShopViewModel, ready: com.talhastudio.app.data.Quote
     val code = shop.couponCode
     val problem = ready?.couponIssue?.message
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Discount code", style = MaterialTheme.typography.titleMedium)
+        Text(tr("Discount code"), style = MaterialTheme.typography.titleMedium)
         if (code != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(if (problem == null && ready?.couponCode != null) "$code applied" else code, Modifier.weight(1f), color = if (problem == null && ready?.couponCode != null) TS.Success else TS.Ivory)
-                TextButton({ shop.clearCoupon() }) { Text("Remove", color = TS.Gold) }
+                TextButton({ shop.clearCoupon() }) { Text(tr("Remove"), color = TS.Gold) }
             }
             if (problem != null) Text("$problem. Remove the code to continue.", style = MaterialTheme.typography.labelSmall, color = TS.Danger)
         } else {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(text, { text = it.uppercase().take(20).filter { c -> c.isLetterOrDigit() || c == '-' || c == '_' } }, Modifier.weight(1f), singleLine = true, placeholder = { Text("Enter code") })
-                OutlinedButton({ if (text.isNotBlank()) { shop.applyCoupon(text); text = "" } }, enabled = text.isNotBlank()) { Text("Apply") }
+                OutlinedTextField(text, { text = it.uppercase().take(20).filter { c -> c.isLetterOrDigit() || c == '-' || c == '_' } }, Modifier.weight(1f), singleLine = true, placeholder = { Text(tr("Enter code")) })
+                OutlinedButton({ if (text.isNotBlank()) { shop.applyCoupon(text); text = "" } }, enabled = text.isNotBlank()) { Text(tr("Apply")) }
             }
         }
     }

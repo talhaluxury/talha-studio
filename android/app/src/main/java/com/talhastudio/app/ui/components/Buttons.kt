@@ -27,7 +27,7 @@ fun TsButton(
         shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.buttonColors(containerColor = bg, contentColor = fg, disabledContainerColor = TS.Neutral, disabledContentColor = TS.Gray),
         border = if (style == TsButtonStyle.Outline) BorderStroke(1.dp, TS.Gold) else null,
-    ) { Text(text, style = MaterialTheme.typography.labelLarge) }
+    ) { Text(tr(text), style = MaterialTheme.typography.labelLarge) }
 }
 
 /** Same look as [TsButton] with a small picture in front of the text (Google logo, phone). */

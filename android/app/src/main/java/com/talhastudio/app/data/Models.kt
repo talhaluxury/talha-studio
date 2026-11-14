@@ -77,7 +77,7 @@ data class Order(
     val subtotal: Int, val discount: Int, val shipping: Int, val total: Int,
     val customerName: String, val customerEmail: String, val customerPhone: String,
     val address: String, val notes: String?, val trackingUrl: String?, val items: List<OrderItem>, val history: List<StatusEntry>, val createdAt: String,
-    val walletUsed: Int = 0,
+    val walletUsed: Int = 0, val courier: String? = null, val trackingNo: String? = null,
 ) {
     val canCancel get() = status == "pending" || status == "confirmed"
     val canReturn get() = status == "delivered"
@@ -160,3 +160,6 @@ fun parseHexColor(hex: String?, fallback: Long = 0xFFB99A62): Long {
 data class Offers(val signupBonus: Int, val referralBonus: Int)
 data class WalletTx(val id: String, val amount: Int, val kind: String, val note: String, val createdAt: String)
 data class Wallet(val balance: Int, val referralCode: String, val referralBonus: Int, val friends: Int, val earnedFromReferrals: Int, val items: List<WalletTx>)
+
+data class Review(val id: String, val rating: Int, val body: String, val author: String, val createdAt: String)
+data class ReviewsData(val avg: Double, val count: Int, val items: List<Review>, val mine: Review?, val canReview: Boolean)

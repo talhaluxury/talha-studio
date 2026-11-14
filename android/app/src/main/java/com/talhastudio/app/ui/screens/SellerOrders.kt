@@ -45,7 +45,7 @@ internal fun SellerOrdersTab(onOpen: (String) -> Unit) {
         err != null && orders.isEmpty() -> ErrorState(err.pretty(), err.offline, { load(1) })
         loading && orders.isEmpty() -> Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { repeat(3) { SkeletonBox(Modifier.fillMaxWidth().height(84.dp)) } }
         orders.isEmpty() -> Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text("No orders yet", style = MaterialTheme.typography.titleMedium)
+            Text(tr("No orders yet"), style = MaterialTheme.typography.titleMedium)
             Text("When a customer buys one of your products it shows up here, and you get a notification.", style = MaterialTheme.typography.bodyMedium, color = TS.Gray)
             Spacer(Modifier.height(16.dp)); OutlinedButton({ load(1) }) { Text("Refresh") }
         }

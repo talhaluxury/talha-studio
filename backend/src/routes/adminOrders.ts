@@ -104,6 +104,15 @@ export function adminOrderRoutes(app: FastifyInstance, d: {
     } catch (e) { throw mapOrderError(e); }
   });
 
+  // Courier name + tracking number (shown to the customer on the order screen). Empty values clear them.
+  app.patch<{ Params: { id: string } }>("/admin/orders/:id/tracking", staff, async (req) => {
+    const id = idParam.parse(req.params.id);
+    const b = z.object({ courier: z.string().trim().max(40).nullish().transform((v) => v || null), trackingNo: z.string().trim().max(60).nullish().transform((v) => v || null) }).parse(req.body);
+    const o = await orders.setTracking(id, b.courier, b.trackingNo); if (!o) throw notFound("Order not found");
+    await store.logActivity({ adminId: req.user!.id, action: "order.tracking", entity: "order", entityId: id, meta: { courier: b.courier }, ip: req.ip });
+    return await withBrands(o);
+  });
+
   app.patch<{ Params: { id: string } }>("/admin/orders/:id/payment", staff, async (req) => {
     const id = idParam.parse(req.params.id);
     const b = z.object({ status: z.enum(["paid", "unpaid"]) }).parse(req.body);
@@ -116,6 +125,15 @@ export function adminOrderRoutes(app: FastifyInstance, d: {
     const q = z.object({ q: z.string().trim().max(60).optional(), page: z.coerce.number().int().min(1).max(1000).default(1), limit: z.coerce.number().int().min(1).max(100).default(20) }).parse(req.query);
     const r = await orders.adminCustomers(q.q, q.page, q.limit);
     return { items: r.items, page: q.page, limit: q.limit, total: r.total };
+  });
+
+  // Block / unblock a customer (a blocked customer can not sign in and their open sessions stop working).
+  app.patch<{ Params: { id: string } }>("/admin/customers/:id/active", manager, async (req) => {
+    const id = idParam.parse(req.params.id); const b = z.object({ active: z.boolean() }).parse(req.body);
+    const u = await store.findUserById(id); if (!u || u.role !== "customer" || u.deletedAt) throw notFound("Customer not found");
+    await store.updateUser(id, { isActive: b.active });
+    await store.logActivity({ adminId: req.user!.id, action: b.active ? "customer.unblock" : "customer.block", entity: "user", entityId: id, meta: {}, ip: req.ip });
+    return { ok: true, isActive: b.active };
   });
 
   app.get("/admin/analytics", staff, async (req) => {

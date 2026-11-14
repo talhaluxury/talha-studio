@@ -206,7 +206,7 @@ private fun SectionEditor(
                                 Text("Banner ${i + 1}", style = MaterialTheme.typography.labelLarge)
                                 Row {
                                     TextButton({ chooseImage { m -> onChange(s.copy(slides = s.slides.toMutableList().also { it[i] = sl.copy(image = m) })) } }, enabled = !uploading) { Text("Change picture") }
-                                    TextButton({ onChange(s.copy(slides = s.slides.filterIndexed { k, _ -> k != i })) }) { Text("Remove", color = TS.Danger) }
+                                    TextButton({ onChange(s.copy(slides = s.slides.filterIndexed { k, _ -> k != i })) }) { Text(tr("Remove"), color = TS.Danger) }
                                 }
                             }
                         }
@@ -257,7 +257,7 @@ private fun SectionEditor(
                     s.images.forEachIndexed { i, m ->
                         Box(Modifier.size(92.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
                             AsyncImage(m.url, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                            TextButton({ onChange(s.copy(images = s.images.filterIndexed { k, _ -> k != i })) }, Modifier.align(Alignment.BottomEnd), contentPadding = PaddingValues(6.dp, 0.dp)) { Text("Remove", style = MaterialTheme.typography.labelSmall, color = TS.Danger) }
+                            TextButton({ onChange(s.copy(images = s.images.filterIndexed { k, _ -> k != i })) }, Modifier.align(Alignment.BottomEnd), contentPadding = PaddingValues(6.dp, 0.dp)) { Text(tr("Remove"), style = MaterialTheme.typography.labelSmall, color = TS.Danger) }
                         }
                     }
                 }
@@ -268,7 +268,7 @@ private fun SectionEditor(
                 s.items.forEachIndexed { i, item ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Field("e.g. Pure cotton", item, { v -> onChange(s.copy(items = s.items.toMutableList().also { it[i] = v })) }, modifier = Modifier.weight(1f))
-                        TextButton({ onChange(s.copy(items = s.items.filterIndexed { k, _ -> k != i })) }) { Text("Remove") }
+                        TextButton({ onChange(s.copy(items = s.items.filterIndexed { k, _ -> k != i })) }) { Text(tr("Remove")) }
                     }
                 }
                 if (s.items.size < 6) OutlinedButton({ onChange(s.copy(items = s.items + "")) }) { Text("Add point") }
@@ -308,7 +308,7 @@ internal fun ImagePickRow(label: String, url: String?, busy: Boolean, onPick: ()
             Text(label, style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onPick, enabled = !busy) { Text(if (url == null) "Choose" else "Change") }
-                if (url != null) TextButton(onRemove, enabled = !busy) { Text("Remove") }
+                if (url != null) TextButton(onRemove, enabled = !busy) { Text(tr("Remove")) }
             }
         }
     }

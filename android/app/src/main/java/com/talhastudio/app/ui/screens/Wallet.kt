@@ -147,7 +147,7 @@ fun WalletTile(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).clickable(onClick = onClick), shape = RoundedCornerShape(20.dp), color = Color(0xFF17130B), border = BorderStroke(1.dp, Color(0x55B99A62))) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             CoinIcon(40.dp)
-            Column(Modifier.weight(1f)) { Text("My Wallet", style = MaterialTheme.typography.labelLarge, color = TS.Gray); Text(if (bal == null) "..." else pkr(bal), style = MaterialTheme.typography.titleLarge, color = TS.Gold) }
+            Column(Modifier.weight(1f)) { Text(tr("My Wallet"), style = MaterialTheme.typography.labelLarge, color = TS.Gray); Text(if (bal == null) "..." else pkr(bal), style = MaterialTheme.typography.titleLarge, color = TS.Gold) }
             Text("Invite & earn  ›", color = TS.Gold, style = MaterialTheme.typography.labelLarge)
         }
     }
@@ -159,7 +159,7 @@ fun WalletScreen(onBack: () -> Unit) {
     val load = rememberLoad("wallet") { Repo.wallet() }
     val clip = LocalClipboardManager.current; val ctx = LocalContext.current
     var copied by remember { mutableStateOf(false) }
-    Scaffold(topBar = { TopAppBar(title = { Text("My Wallet") }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } }) }) { pad ->
+    Scaffold(topBar = { TopAppBar(title = { Text(tr("My Wallet")) }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } }) }) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
             when (val s = load.state) {
                 is Load.Loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = TS.Gold) }

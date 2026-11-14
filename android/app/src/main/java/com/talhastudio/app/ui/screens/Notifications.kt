@@ -64,7 +64,7 @@ fun NotificationsScreen(shop: ShopViewModel, onBack: () -> Unit, onNavigate: (St
     fun delete(id: String) { removed.add(id); scope.launch { try { Repo.deleteNotification(id); shop.refreshUnread() } catch (e: ApiException) { removed.remove(id); snack.showSnackbar(e.message ?: "Could not delete") } } }
     if (askClear) AlertDialog(onDismissRequest = { askClear = false }, title = { Text("Delete all notifications?") }, text = { Text("This removes every notification from your inbox. It cannot be undone.") },
         confirmButton = { TextButton({ askClear = false; scope.launch { try { Repo.clearNotifications(); shop.refreshUnread(); attempt++; removed.clear() } catch (e: ApiException) { snack.showSnackbar(e.message ?: "Could not delete") } } }) { Text("Delete all", color = TS.Danger) } },
-        dismissButton = { TextButton({ askClear = false }) { Text("Cancel") } })
+        dismissButton = { TextButton({ askClear = false }) { Text(tr("Cancel")) } })
 
     fun setPref(o: Boolean? = null, p: Boolean? = null) { scope.launch {
         val before = prefs
@@ -73,7 +73,7 @@ fun NotificationsScreen(shop: ShopViewModel, onBack: () -> Unit, onNavigate: (St
     } }
 
     Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = {
-        TopAppBar(title = { Text("Notifications") }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
+        TopAppBar(title = { Text(tr("Notifications")) }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
             actions = {
                 TextButton({ scope.launch { try { Repo.markAllNotificationsRead(); shop.refreshUnread(); attempt++ } catch (e: ApiException) { snack.showSnackbar(e.message ?: "Failed") } } }) { Text("Mark all read", color = TS.Gold) }
                 IconButton({ askClear = true }) { Icon(Icons.Outlined.DeleteSweep, "Delete all notifications", tint = TS.Gold) }

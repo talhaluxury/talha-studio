@@ -67,7 +67,7 @@ fun CategoriesScreen(shop: ShopViewModel, initialCategory: String?, onOpenProduc
 
     Column {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedTextField(typed, { typed = it }, Modifier.weight(1f), placeholder = { Text("Search suits, fabrics, brands") }, singleLine = true, shape = RoundedCornerShape(50),
+            OutlinedTextField(typed, { typed = it }, Modifier.weight(1f), placeholder = { Text(tr("Search suits, fabrics, brands")) }, singleLine = true, shape = RoundedCornerShape(50),
                 leadingIcon = { Icon(Icons.Outlined.Search, null, tint = TS.Gold) },
                 trailingIcon = { if (typed.isNotEmpty()) IconButton({ typed = "" }) { Icon(Icons.Outlined.Close, "Clear search") } },
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = TS.Gold, unfocusedBorderColor = TS.Gold.copy(alpha = 0.35f), cursorColor = TS.Gold))
@@ -92,7 +92,7 @@ fun CategoriesScreen(shop: ShopViewModel, initialCategory: String?, onOpenProduc
         val activeMain = picked?.let { p -> if (p.parentId == null) p else catList.firstOrNull { it.id == p.parentId } }
         val subs = activeMain?.let { m -> catList.filter { it.parentId == m.id } }.orEmpty()
         if (mains.isNotEmpty()) LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            item { FilterChip(filter.category == null, { filter = filter.copy(category = null) }, { Text("All") }, colors = chipColors()) }
+            item { FilterChip(filter.category == null, { filter = filter.copy(category = null) }, { Text(tr("All")) }, colors = chipColors()) }
             items(mains, key = { it.id }) { c -> FilterChip(activeMain?.id == c.id, { filter = filter.copy(category = c.slug) }, { Text(c.name) }, colors = chipColors()) }
         }
         // Sub-categories of the chosen main category: a side-scrolling slider of round pictures.
@@ -109,7 +109,7 @@ fun CategoriesScreen(shop: ShopViewModel, initialCategory: String?, onOpenProduc
                 items(items, key = { it.id }) { p -> ProductCard(p, shop.isWished(p.id), { onOpenProduct(p.id) }, { shop.toggleWishlist(p.id) }) }
                 if (items.size < total) item(span = { GridItemSpan(maxLineSpan) }) {
                     Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
-                        if (loadingMore) CircularProgressIndicator(color = TS.Gold) else OutlinedButton({ moreAttempt++ }) { Text("Load more") }
+                        if (loadingMore) CircularProgressIndicator(color = TS.Gold) else OutlinedButton({ moreAttempt++ }) { Text(tr("Load more")) }
                     }
                 }
             }
@@ -153,8 +153,8 @@ private fun FilterSheet(current: Filter, onDismiss: () -> Unit, onApply: (Filter
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.width(3.dp).height(24.dp).clip(RoundedCornerShape(2.dp)).background(TS.Gold))
                 Spacer(Modifier.width(10.dp))
-                Text("Filter & sort", style = MaterialTheme.typography.headlineSmall, fontFamily = DisplayFont, modifier = Modifier.weight(1f))
-                TextButton({ sort = Sort.New; inStock = false; min = ""; max = "" }) { Text("Reset all", color = TS.Gold) }
+                Text(tr("Filter & sort"), style = MaterialTheme.typography.headlineSmall, fontFamily = DisplayFont, modifier = Modifier.weight(1f))
+                TextButton({ sort = Sort.New; inStock = false; min = ""; max = "" }) { Text(tr("Reset all"), color = TS.Gold) }
             }
             SheetLabel("SORT BY")
             Sort.entries.forEach { s ->
@@ -167,7 +167,7 @@ private fun FilterSheet(current: Filter, onDismiss: () -> Unit, onApply: (Filter
             }
             SheetLabel("AVAILABILITY")
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.04f)).border(0.8.dp, line, RoundedCornerShape(16.dp)).clickable { inStock = !inStock }.padding(start = 16.dp, end = 10.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text("In stock only", style = MaterialTheme.typography.bodyLarge); Text("Hide sold-out items", style = MaterialTheme.typography.labelSmall, color = TS.Gray) }
+                Column(Modifier.weight(1f)) { Text(tr("In stock only"), style = MaterialTheme.typography.bodyLarge); Text(tr("Hide sold-out items"), style = MaterialTheme.typography.labelSmall, color = TS.Gray) }
                 Switch(inStock, { inStock = it }, colors = SwitchDefaults.colors(checkedTrackColor = TS.Gold, checkedThumbColor = TS.Black))
             }
             SheetLabel("PRICE RANGE (RS.)")
@@ -187,7 +187,7 @@ private fun FilterSheet(current: Filter, onDismiss: () -> Unit, onApply: (Filter
             }
             Spacer(Modifier.height(4.dp))
             Button({ onApply(current.copy(sort = sort, inStockOnly = inStock, minPrice = min.toIntOrNull(), maxPrice = max.toIntOrNull())) }, Modifier.fillMaxWidth().heightIn(min = 54.dp),
-                shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = TS.Gold, contentColor = TS.Black)) { Text("Show results", style = MaterialTheme.typography.labelLarge) }
+                shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = TS.Gold, contentColor = TS.Black)) { Text(tr("Show results"), style = MaterialTheme.typography.labelLarge) }
         }
     }
 }

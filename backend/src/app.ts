@@ -38,6 +38,8 @@ import { adminEmailRoutes } from "./routes/adminEmail.js";
 import type { OrderEvents } from "./events.js";
 import { orderRoutes } from "./routes/orders.js";
 import { walletRoutes } from "./routes/wallet.js";
+import { engageRoutes } from "./routes/engage.js";
+import { MemoryEngage, type EngageStore } from "./engageStore.js";
 import { MemoryWallet, type WalletStore } from "./walletStore.js";
 import { adminOrderRoutes } from "./routes/adminOrders.js";
 import type { ChatStore } from "./chatStore.js";
@@ -59,7 +61,7 @@ import { SellerAlerts } from "./sellerNotify.js";
 import { sellerRoutes } from "./routes/seller.js";
 import { adminBrandRoutes, brandRoutes } from "./routes/brands.js";
 
-export interface Deps { brands?: BrandStore; reels?: ReelStore; spin?: SpinStore; videos?: VideoStore; sections?: SectionStore; whatsapp?: WhatsAppService; waQr?: BaileysWhatsApp; assistant?: AssistantService; chat: ChatStore; slides: SlideStore; status: StatusStore; coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; wallet?: WalletStore; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
+export interface Deps { brands?: BrandStore; reels?: ReelStore; spin?: SpinStore; videos?: VideoStore; sections?: SectionStore; whatsapp?: WhatsAppService; waQr?: BaileysWhatsApp; assistant?: AssistantService; chat: ChatStore; slides: SlideStore; status: StatusStore; coupons: CouponStore; banners: BannerStore; push: PushService; pushStore: PushStore; email: EmailService; emails: EmailStore; settings: SettingsStore; store: Store; catalog: CatalogStore; orders: OrderStore; events?: OrderEvents; wallet?: WalletStore; engage?: EngageStore; storage: Storage; images?: ImageProcessor; google?: GoogleVerifier }
 
 export function googleVerifier(clientId: string): GoogleVerifier {
   const client = new OAuth2Client(clientId);
@@ -124,6 +126,7 @@ export async function buildApp(cfg: Config, deps: Deps) {
     catalogRoutes(v1, { catalog, storage, cfg, settings: deps.settings, banners: deps.banners, coupons: deps.coupons, videos, sections, reels, brands });
     brandRoutes(v1, { brands, catalog, storage, settings: deps.settings });
     walletRoutes(v1, { wallet, settings: deps.settings, store, auth });
+    engageRoutes(v1, { engage: deps.engage ?? new MemoryEngage(catalog), orders, catalog, store, auth });
     sellerRoutes(v1, { brands, catalog, orders, storage, images, auth, cfg, alerts });
     adminBrandRoutes(v1, { brands, catalog, storage, store, auth, alerts, settings: deps.settings });
     reelRoutes(v1, { reels, storage, store, auth });

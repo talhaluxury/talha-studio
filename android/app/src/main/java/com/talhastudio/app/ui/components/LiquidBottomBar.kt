@@ -82,7 +82,7 @@ fun LiquidBottomBar(
                             }) {
                                 Icon(item.icon, null, tint = if (active) TS.Black else Color.White.copy(0.75f), modifier = Modifier.size(22.dp).graphicsLayer { scaleX = bump.value; scaleY = bump.value })
                             }
-                            Text(item.label, style = MaterialTheme.typography.labelSmall, color = if (active) TS.Black else Color.White.copy(0.75f))
+                            Text(tr(item.label), style = MaterialTheme.typography.labelSmall, color = if (active) TS.Black else Color.White.copy(0.75f))
                         }
                     }
                 }

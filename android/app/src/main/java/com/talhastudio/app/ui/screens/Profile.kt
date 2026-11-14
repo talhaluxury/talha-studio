@@ -1,6 +1,7 @@
 package com.talhastudio.app.ui.screens
 
 import androidx.compose.foundation.Image
+import com.talhastudio.app.ui.components.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material.icons.outlined.LocationOn
@@ -35,6 +37,7 @@ import com.talhastudio.app.R
 import com.talhastudio.app.data.Session
 import com.talhastudio.app.data.contactLine
 import com.talhastudio.app.ui.components.TsButton
+import com.talhastudio.app.ui.components.LanguageDialog
 import com.talhastudio.app.ui.components.staggerIn
 import com.talhastudio.app.ui.theme.DisplayFont
 import com.talhastudio.app.ui.theme.TS
@@ -45,8 +48,10 @@ private val CardEdge = TS.Gold.copy(alpha = 0.30f)
 @Composable
 fun ProfileScreen(onSignIn: () -> Unit, onOrders: () -> Unit, onAddresses: () -> Unit, onNotifications: () -> Unit, onSupport: () -> Unit, onSettings: () -> Unit, onOpenPage: (String) -> Unit, onSeller: () -> Unit = {}, onWallet: () -> Unit = {}) {
     val user = Session.user
+    var langDialog by remember { mutableStateOf(false) }
+    if (langDialog) LanguageDialog { langDialog = false }
     LazyColumn(contentPadding = PaddingValues(20.dp, 12.dp, 20.dp, 130.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        item { Text("My Account", style = MaterialTheme.typography.headlineMedium, fontFamily = DisplayFont, modifier = Modifier.staggerIn(0)) }
+        item { Text(tr("My Account"), style = MaterialTheme.typography.headlineMedium, fontFamily = DisplayFont, modifier = Modifier.staggerIn(0)) }
         item {
             Box(Modifier.staggerIn(1)) {
                 if (user == null) GuestCard(onSignIn)
@@ -78,13 +83,14 @@ fun ProfileScreen(onSignIn: () -> Unit, onOrders: () -> Unit, onAddresses: () ->
                 MenuGroup(listOf(
                     MenuItem("Privacy Policy", Icons.Outlined.PrivacyTip) { onOpenPage("privacy") },
                     MenuItem("About Talha Studio", Icons.Outlined.Info) { onOpenPage("about") },
+                    MenuItem("Language / زبان", Icons.Outlined.Language) { langDialog = true },
                     MenuItem("Settings", Icons.Outlined.Settings, onSettings),
                 ))
             }
         }
         item {
             Text("TALHA STUDIO", Modifier.fillMaxWidth().staggerIn(5), textAlign = TextAlign.Center, color = TS.Gold, fontFamily = DisplayFont, letterSpacing = 4.sp, style = MaterialTheme.typography.labelLarge)
-            Text("Elegance in every thread", Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = TS.Gray, style = MaterialTheme.typography.labelSmall)
+            Text(tr("Elegance in every thread"), Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = TS.Gray, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -115,8 +121,8 @@ private fun GuestCard(onSignIn: () -> Unit) {
     Column(Modifier.fillMaxWidth().clip(shape).background(Brush.linearGradient(listOf(Color(0xFF1E1B16), Color(0xFF0E0E0E)))).border(1.dp, CardEdge, shape).padding(22.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Image(painterResource(R.drawable.talha_logo), "Talha Studio", Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)))
-        Text("Welcome to Talha Studio", style = MaterialTheme.typography.titleLarge, fontFamily = DisplayFont, color = TS.Ivory)
-        Text("Sign in to place orders, track them live and save your delivery addresses.", style = MaterialTheme.typography.bodyMedium, color = TS.Ivory.copy(alpha = 0.65f), textAlign = TextAlign.Center)
+        Text(tr("Welcome to Talha Studio"), style = MaterialTheme.typography.titleLarge, fontFamily = DisplayFont, color = TS.Ivory)
+        Text(tr("Sign in to place orders, track them live and save your delivery addresses."), style = MaterialTheme.typography.bodyMedium, color = TS.Ivory.copy(alpha = 0.65f), textAlign = TextAlign.Center)
         Spacer(Modifier.height(4.dp))
         TsButton("Sign In / Create Account", onSignIn)
     }
@@ -128,7 +134,7 @@ private fun QuickTile(label: String, icon: ImageVector, onClick: () -> Unit, mod
     Column(modifier.clip(shape).background(MaterialTheme.colorScheme.surface).border(0.8.dp, CardEdge, shape).clickable(onClick = onClick).padding(vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         IconBadge(icon)
-        Text(label, style = MaterialTheme.typography.labelLarge)
+        Text(tr(label), style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -140,7 +146,7 @@ private fun IconBadge(icon: ImageVector) {
 }
 
 @Composable
-private fun GroupLabel(text: String) = Text(text, style = MaterialTheme.typography.labelSmall, color = TS.Gold, letterSpacing = 2.sp, modifier = Modifier.padding(start = 6.dp))
+private fun GroupLabel(text: String) = Text(tr(text), style = MaterialTheme.typography.labelSmall, color = TS.Gold, letterSpacing = 2.sp, modifier = Modifier.padding(start = 6.dp))
 
 private class MenuItem(val title: String, val icon: ImageVector, val onClick: () -> Unit)
 
@@ -151,7 +157,7 @@ private fun MenuGroup(items: List<MenuItem>) {
         items.forEachIndexed { i, m ->
             Row(Modifier.fillMaxWidth().clickable(onClick = m.onClick).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconBadge(m.icon)
-                Text(m.title, Modifier.weight(1f).padding(start = 14.dp), style = MaterialTheme.typography.bodyLarge)
+                Text(tr(m.title), Modifier.weight(1f).padding(start = 14.dp), style = MaterialTheme.typography.bodyLarge)
                 Icon(Icons.AutoMirrored.Outlined.ArrowForwardIos, null, Modifier.size(14.dp), tint = TS.Gray)
             }
             if (i < items.lastIndex) HorizontalDivider(Modifier.padding(start = 72.dp), color = MaterialTheme.colorScheme.outline)

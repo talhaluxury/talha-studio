@@ -1,6 +1,7 @@
 package com.talhastudio.app.ui.screens
 
 import androidx.compose.animation.core.*
+import com.talhastudio.app.ui.components.tr
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -99,7 +100,7 @@ fun SplashScreen(onDone: () -> Unit) {
             Spacer(Modifier.height(14.dp))
             Text(statusLines[line], style = MaterialTheme.typography.labelSmall, color = TS.Ivory.copy(0.6f), letterSpacing = 1.sp)
         }
-        Text("Elegance in every thread", Modifier.align(Alignment.BottomCenter).systemBarsPadding().padding(bottom = 18.dp).alpha(0.45f), style = MaterialTheme.typography.labelSmall, color = TS.Gold, letterSpacing = 2.sp)
+        Text(tr("Elegance in every thread"), Modifier.align(Alignment.BottomCenter).systemBarsPadding().padding(bottom = 18.dp).alpha(0.45f), style = MaterialTheme.typography.labelSmall, color = TS.Gold, letterSpacing = 2.sp)
     }
 }
 

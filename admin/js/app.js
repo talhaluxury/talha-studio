@@ -15,7 +15,7 @@ import { renderCampaigns } from "./views/campaigns.js";
 import { renderBanners, renderCoupons } from "./views/promos.js";
 import { renderReels } from "./views/reels.js";
 import { renderStoreSettings } from "./views/storeSettings.js";
-import { renderActivity, renderCustomers } from "./views/people.js";
+import { renderActivity, renderCustomers, renderReviews } from "./views/people.js";
 import { chatUnread, renderChatInbox, renderChatThread } from "./views/chat.js";
 import { renderStatus } from "./views/status.js";
 import { renderWhatsapp } from "./views/whatsapp.js";
@@ -27,7 +27,7 @@ const NAV = [["#/dashboard", "Dashboard"], ["#/orders", "Orders"], ["#/chat", "C
 /** Menu by role: staff fulfil orders; admins also run promotions; the owner also sees settings and the audit trail. */
 const navFor = (role) => {
   if (role !== "admin" && role !== "owner") return NAV;
-  const more = [["#/brands", "Brands"], ["#/sections", "Home sections"], ["#/banners", "Banners"], ["#/reels", "Video cards"], ["#/status", "Status"], ["#/whatsapp", "WhatsApp"], ["#/welcome", "Welcome screens"], ["#/coupons", "Coupons"], ["#/customers", "Customers"], ["#/campaigns", "Notifications"]];
+  const more = [["#/brands", "Brands"], ["#/sections", "Home sections"], ["#/banners", "Banners"], ["#/reels", "Video cards"], ["#/status", "Status"], ["#/whatsapp", "WhatsApp"], ["#/welcome", "Welcome screens"], ["#/coupons", "Coupons"], ["#/customers", "Customers"], ["#/reviews", "Reviews"], ["#/campaigns", "Notifications"]];
   return role === "owner" ? [...NAV, ...more, ["#/store", "Store settings"], ["#/email", "Email & settings"], ["#/activity", "Activity log"]] : [...NAV, ...more, ["#/email", "Email log"]];
 };
 
@@ -79,6 +79,7 @@ async function route() {
     else if (section === "coupons") await renderCoupons(view);
     else if (section === "store") await renderStoreSettings(view);
     else if (section === "customers") await renderCustomers(view);
+    else if (section === "reviews") await renderReviews(view);
     else if (section === "activity") await renderActivity(view);
     else if (section === "email") await renderEmail(view);
     else if (section === "categories") await renderCategories(view);

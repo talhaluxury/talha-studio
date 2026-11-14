@@ -17,6 +17,18 @@ class LocalStore(ctx: Context) {
     fun bonusCelebrated(uid: String) = sp.getBoolean("bonus_cel_$uid", false)
     fun setBonusCelebrated(uid: String) = sp.edit().putBoolean("bonus_cel_$uid", true).apply()
 
+    /** Last words the customer searched for (newest first), shown as quick chips on the search screen. */
+    fun recentSearches(): List<String> = runCatching { val a = JSONArray(sp.getString("recent_search", "[]")); (0 until a.length()).map { a.getString(it) } }.getOrDefault(emptyList())
+    fun addRecentSearch(q: String) {
+        val t = q.trim().take(40); if (t.length < 2) return
+        val list = (listOf(t) + recentSearches().filterNot { it.equals(t, true) }).take(8)
+        sp.edit().putString("recent_search", JSONArray(list).toString()).apply()
+    }
+    fun clearRecentSearches() = sp.edit().remove("recent_search").apply()
+
+    fun language(): String = sp.getString("lang", "en") ?: "en"
+    fun setLanguage(code: String) = sp.edit().putString("lang", code).apply()
+
     fun askedNotifications() = sp.getBoolean("asked_notif", false)
     fun setAskedNotifications() = sp.edit().putBoolean("asked_notif", true).apply()
     /** Last home feed, so the shop shows instantly on open while fresh data loads. */

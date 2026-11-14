@@ -64,6 +64,6 @@ fun AddressesScreen(onBack: () -> Unit) {
                 errors = validateCheckout(f.copy(email = "x@x.co")); if (errors.isNotEmpty()) return@TextButton
                 busy = true; scope.launch { try { Repo.saveAddress(f, isDefault = false); adding = false; attempt++ } catch (e: ApiException) { snack.showSnackbar(e.message ?: "Could not save") } finally { busy = false } }
             }, enabled = !busy) { Text("Save", color = TS.Gold) } },
-            dismissButton = { TextButton({ adding = false }, enabled = !busy) { Text("Cancel") } })
+            dismissButton = { TextButton({ adding = false }, enabled = !busy) { Text(tr("Cancel")) } })
     }
 }

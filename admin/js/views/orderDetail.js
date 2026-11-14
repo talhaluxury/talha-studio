@@ -62,6 +62,17 @@ export async function renderOrderDetail(view, id) {
       } catch (e) { showFieldErrors(root, e.fields); toast(e.message, "error"); save.disabled = false; }
     } }, "Update status");
 
+    // Courier + tracking number: the customer sees them on the order screen (and can copy the number).
+    const courier = h("input", { id: "courier", maxlength: 40, placeholder: "Courier (TCS, Leopards, M&P...)", value: o.courier || "" });
+    const trackNo = h("input", { id: "trackno", maxlength: 60, placeholder: "Tracking number", value: o.trackingNo || "" });
+    const saveTrack = h("button", { class: "btn", type: "button", onclick: async () => {
+      saveTrack.disabled = true;
+      try { o = await api(`/admin/orders/${o.id}/tracking`, { method: "PATCH", body: { courier: courier.value.trim() || null, trackingNo: trackNo.value.trim() || null } }); toast("Tracking saved"); draw(); }
+      catch (e) { toast(e.message, "error"); saveTrack.disabled = false; }
+    } }, "Save tracking");
+    const trackCard = h("div", { class: "card" }, h("h2", {}, "Parcel tracking"), h("p", { class: "muted" }, "Shown to the customer on their order screen."),
+      h("div", { class: "field" }, h("label", { for: "courier" }, "Courier"), courier), h("div", { class: "field" }, h("label", { for: "trackno" }, "Tracking number"), trackNo), saveTrack);
+
     put(clear(root),
       h("div", { class: "pagehead" }, h("div", {}, h("h1", {}, o.orderNumber), h("p", { class: "muted" }, [statusBadge(o.status), `  Placed ${fmtDate(o.createdAt)}`])),
         h("div", { class: "row" }, h("a", { class: "btn ghost", href: "#/orders" }, "Back to orders"),
@@ -73,6 +84,7 @@ export async function renderOrderDetail(view, id) {
           h("dl", { class: "kv" }, h("dt", {}, "Address"), h("dd", {}, [a.line1, a.line2].filter(Boolean).join(", ")), h("dt", {}, "City"), h("dd", {}, [a.city, a.province, a.postalCode].filter(Boolean).join(", ")),
             o.notes ? [h("dt", {}, "Customer note"), h("dd", {}, o.notes)] : null, o.trackingUrl ? [h("dt", {}, "Tracking"), h("dd", {}, o.trackingUrl)] : null))),
       waCard(),
+      trackCard,
       h("div", { class: "card" }, h("h2", {}, "Items"),
         h("table", {}, h("thead", {}, h("tr", {}, ["", "Product", "Options", "Price", "Qty", "Line total"].map((t) => h("th", { scope: "col" }, t)))),
           h("tbody", {}, o.items.map((i) => h("tr", {},

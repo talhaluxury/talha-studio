@@ -1,6 +1,7 @@
 package com.talhastudio.app.ui.screens
 
 import androidx.compose.animation.core.*
+import com.talhastudio.app.ui.components.tr
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -193,7 +194,7 @@ private fun AssistantSheet(turns: androidx.compose.runtime.snapshots.SnapshotSta
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text("Talha Assistant", fontFamily = DisplayFont, style = MaterialTheme.typography.titleLarge, color = TS.Ivory); AiChip() }
                     Text("Ask about fabrics, sizes, delivery or your order", style = MaterialTheme.typography.labelSmall, color = TS.Gold)
                 }
-                TextButton(onClose) { Text("Close", color = TS.Ivory.copy(0.7f)) }
+                TextButton(onClose) { Text(tr("Close"), color = TS.Ivory.copy(0.7f)) }
             }
             LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item { Bubble(Turn(false, "Assalam o Alaikum! Main Talha AI Assistant hun. Main aap ki kya madad kar sakti hun? Aap English, Urdu ya Roman Urdu mein poochh sakte hain."), onAction) }

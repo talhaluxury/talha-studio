@@ -92,7 +92,7 @@ fun AllBrandsScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.statusBarsPadding().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") }
-            Text("Brands", style = MaterialTheme.typography.headlineMedium, fontFamily = DisplayFont)
+            Text(tr("Brands"), style = MaterialTheme.typography.headlineMedium, fontFamily = DisplayFont)
         }
         when (val s = load.state) {
             is Load.Loading -> Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { repeat(3) { Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) { repeat(2) { SkeletonBox(Modifier.weight(1f).height(170.dp)) } } } }

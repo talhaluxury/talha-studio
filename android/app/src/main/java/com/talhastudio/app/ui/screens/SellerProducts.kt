@@ -169,7 +169,7 @@ internal fun SellerProductForm(id: String?, onBack: () -> Unit, onSaved: () -> U
                         }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Field("Stock", v.stock, { v.stock = it }, errors["variants.$i.stock"], KeyboardType.Number, Modifier.weight(1f))
-                            if (variants.size > 1) TextButton({ variants.removeAt(i) }) { Text("Remove") }
+                            if (variants.size > 1) TextButton({ variants.removeAt(i) }) { Text(tr("Remove")) }
                         }
                     }
                 }
@@ -210,6 +210,6 @@ internal fun SellerProductForm(id: String?, onBack: () -> Unit, onSaved: () -> U
                 scope.launch { try { Repo.sellerDeleteProduct(pid); onSaved() } catch (e: ApiException) { say(e.pretty()) } }
             }) { Text("Delete", color = TS.Danger) }
         },
-        dismissButton = { TextButton({ confirmDelete = false }) { Text("Cancel") } },
+        dismissButton = { TextButton({ confirmDelete = false }) { Text(tr("Cancel")) } },
     )
 }

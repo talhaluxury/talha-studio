@@ -9,7 +9,7 @@ export interface OrderRec {
  
   customer: { name: string; email: string; phone: string };
   address: { line1: string; line2: string | null; city: string; province: string | null; postalCode: string | null };
-  notes: string | null; trackingUrl: string | null; items: OrderItemRec[];
+  notes: string | null; trackingUrl: string | null; courier?: string | null; trackingNo?: string | null; items: OrderItemRec[];
   history: { status: OrderStatus; note: string | null; at: Date }[]; createdAt: Date; updatedAt: Date;
 }
 export interface OrderSummary { id: string; orderNumber: string; status: OrderStatus; total: number; createdAt: Date; itemCount: number; firstItemName: string | null; firstThumbKey: string | null; customerName: string; customerPhone: string }
@@ -23,7 +23,7 @@ export interface Analytics {
   series: { date: string; orders: number; sales: number }[]; byStatus: Record<string, number>;
   topProducts: { name: string; qty: number; revenue: number }[];
 }
-export interface CustomerRow { id: string; fullName: string; email: string; phone: string | null; createdAt: Date; orders: number; spent: number }
+export interface CustomerRow { id: string; fullName: string; email: string; phone: string | null; createdAt: Date; orders: number; spent: number; isActive: boolean; walletBalance: number; lastOrderAt: Date | null }
 
 export class OrderIssuesError extends Error { constructor(public issues: Issue[]) { super("cart issues"); } }
 export class TransitionError extends Error {}
@@ -45,6 +45,10 @@ export interface OrderStore {
   adminSetStatus(id: string, to: OrderStatus, note: string | null, trackingUrl: string | null, adminId: string): Promise<OrderRec | null>;
   /** Owner confirms (or un-confirms) a manual payment. */
   setPayment(id: string, status: "paid" | "unpaid", adminId: string): Promise<OrderRec | null>;
+  /** Courier name and tracking number shown to the customer on the order screen. */
+  setTracking(id: string, courier: string | null, trackingNo: string | null): Promise<OrderRec | null>;
+  /** True when this customer has an order with this product that was delivered (only they can review it). */
+  hasDelivered(userId: string, productId: string): Promise<boolean>;
   adminExport(f: Omit<OrderFilter, "page" | "limit">): Promise<OrderRec[]>;
   adminCustomers(q: string | undefined, page: number, limit: number): Promise<{ items: CustomerRow[]; total: number }>;
   analytics(days: number, tz: string): Promise<Analytics>;

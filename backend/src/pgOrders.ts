@@ -40,7 +40,7 @@ export class PgOrders implements OrderStore {
       subtotal: o.subtotal, discount: o.discount, shipping: o.shipping, total: o.total, couponCode: o.coupon_code, walletUsed: o.wallet_used ?? 0,
       customer: { name: o.customer_name, email: o.customer_email, phone: o.customer_phone },
       address: { line1: o.ship_line1, line2: o.ship_line2, city: o.ship_city, province: o.ship_province, postalCode: o.ship_postal },
-      notes: o.notes, trackingUrl: o.tracking_url,
+      notes: o.notes, trackingUrl: o.tracking_url, courier: o.courier ?? null, trackingNo: o.tracking_no ?? null,
       items: items.rows.map((i) => ({ productId: i.product_id, variantId: i.variant_id, name: i.name, sku: i.sku, size: i.size, color: i.color, unitPrice: i.unit_price, qty: i.qty, thumbKey: i.thumb_key })),
       history: hist.rows.map((h) => ({ status: h.status, note: h.note, at: h.created_at })), createdAt: o.created_at, updatedAt: o.updated_at,
     };
@@ -131,6 +131,14 @@ export class PgOrders implements OrderStore {
     });
   }
 
+  async setTracking(id: string, courier: string | null, trackingNo: string | null) {
+    const r = await this.pool.query("UPDATE orders SET courier = $2, tracking_no = $3, updated_at = now() WHERE id = $1 RETURNING id", [id, courier, trackingNo]);
+    return r.rowCount ? this.adminGet(id) : null;
+  }
+  async hasDelivered(userId: string, productId: string) {
+    const r = await this.pool.query("SELECT 1 FROM orders o JOIN order_items i ON i.order_id = o.id WHERE o.user_id = $1 AND i.product_id = $2 AND o.status = 'delivered' LIMIT 1", [userId, productId]);
+    return r.rowCount === 1;
+  }
   async setPayment(id: string, status: "paid" | "unpaid", _adminId: string) {
     const r = await this.pool.query("UPDATE orders SET payment_status = $2, updated_at = now() WHERE id = $1 AND payment_status <> 'refunded' RETURNING id", [id, status]);
     return r.rowCount ? this.adminGet(id) : null;
@@ -219,15 +227,17 @@ export class PgOrders implements OrderStore {
   }
   async adminCustomers(q: string | undefined, page: number, limit: number) {
     const v: unknown[] = []; let w = "WHERE u.role = 'customer' AND u.deleted_at IS NULL";
-    if (q) { v.push(`%${q.replace(/[\\%_]/g, (m) => "\\" + m)}%`); w += ` AND (u.email ILIKE $1 OR u.full_name ILIKE $1)`; }
+    if (q) { v.push(`%${q.replace(/[\\%_]/g, (m) => "\\" + m)}%`); w += ` AND (u.email ILIKE $1 OR u.full_name ILIKE $1 OR u.phone ILIKE $1)`; }
     const [rows, n] = await Promise.all([
-      this.q(`SELECT u.id, u.full_name, u.email, u.phone, u.created_at,
+      this.q(`SELECT u.id, u.full_name, u.email, u.phone, u.created_at, u.is_active,
                 count(o.id) FILTER (WHERE o.status NOT IN ('cancelled','refunded'))::int AS orders,
-                COALESCE(sum(o.total) FILTER (WHERE o.status NOT IN ('cancelled','refunded')), 0)::int AS spent
+                COALESCE(sum(o.total) FILTER (WHERE o.status NOT IN ('cancelled','refunded')), 0)::int AS spent,
+                max(o.created_at) AS last_order,
+                (SELECT COALESCE(sum(t.amount), 0)::int FROM wallet_transactions t WHERE t.user_id = u.id) AS wallet
               FROM users u LEFT JOIN orders o ON o.user_id = u.id ${w} GROUP BY u.id ORDER BY u.created_at DESC LIMIT ${limit} OFFSET ${(page - 1) * limit}`, v),
       this.q(`SELECT count(*)::int AS n FROM users u ${w}`, v),
     ]);
-    return { items: rows.rows.map((r): CustomerRow => ({ id: r.id, fullName: r.full_name, email: r.email, phone: r.phone, createdAt: r.created_at, orders: r.orders, spent: r.spent })), total: n.rows[0].n };
+    return { items: rows.rows.map((r): CustomerRow => ({ id: r.id, fullName: r.full_name, email: r.email, phone: r.phone, createdAt: r.created_at, orders: r.orders, spent: r.spent, isActive: r.is_active, walletBalance: r.wallet, lastOrderAt: r.last_order })), total: n.rows[0].n };
   }
   async analytics(days: number, tz: string): Promise<Analytics> {
     const [series, totals, status, top] = await Promise.all([

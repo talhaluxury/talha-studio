@@ -44,7 +44,7 @@ export async function priceCfgFrom(settings: SettingsStore, cfg: Pick<Config, "M
   return { SHIPPING_FLAT_PKR: s.shipping.flat, FREE_SHIPPING_OVER_PKR: s.shipping.freeOver, MAX_COD_ORDER_PKR: cfg.MAX_COD_ORDER_PKR };
 }
 
-export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; storage: Storage; cfg: Config; settings: SettingsStore; banners: BannerStore; coupons: CouponStore; videos?: VideoStore; sections?: SectionStore; reels?: ReelStore; brands?: BrandStore }) {
+export function catalogRoutes(app: FastifyInstance, d: { catalog: CatalogStore; storage: Storage; cfg: Config; settings: SettingsStore; banners: BannerStore; coupons: CouponStore; videos?: VideoStore; sections?: SectionStore; reels?: ReelStore; brands?: BrandStore}) {
   const { catalog, storage, cfg, settings, banners, coupons, videos, sections, reels, brands } = d;
   /** The product filter behind each home section, so "View all" shows exactly what the section shows. */
   const sectionFilter = async (slug?: string): Promise<{ featured?: boolean; onSale?: boolean; newArrival?: boolean; ids?: string[] }> => {

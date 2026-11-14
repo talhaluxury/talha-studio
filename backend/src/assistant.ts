@@ -7,7 +7,7 @@ import type { User } from "./store.js";
 
 export interface ChatTurn { role: "user" | "assistant"; content: string }
 /** The language model behind the assistant. Swappable so tests never call a real API. */
-export interface LLM { readonly configured: boolean; complete(system: string, messages: ChatTurn[]): Promise<string> }
+export interface LLM { readonly configured: boolean; complete(system: string, messages: ChatTurn[]): Promise<string>; }
 
 export const noLLM: LLM = { configured: false, complete: async () => { throw new Error("Assistant is not configured"); } };
 

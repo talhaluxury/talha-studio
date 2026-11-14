@@ -118,10 +118,16 @@ fun SaleChip(remainingMs: Long, modifier: Modifier = Modifier) {
 /** Prize-wheel badge for the home header: polished gold rim, burgundy and cream slices that turn slowly, a gold hub and a red pointer. */
 @Composable
 fun SpinWheelButton(onClick: () -> Unit) {
+    IconButton(onClick, Modifier.size(48.dp).semantics { contentDescription = "Spin and win a discount" }) { SpinWheelIcon(34.dp) }
+}
+
+/** The turning prize-wheel picture on its own (used by the header action strip). */
+@Composable
+fun SpinWheelIcon(size: androidx.compose.ui.unit.Dp = 34.dp) {
     val t = rememberInfiniteTransition(label = "spinicon")
     val deg by t.animateFloat(0f, 360f, infiniteRepeatable(tween(14000, easing = LinearEasing)), label = "deg")
-    IconButton(onClick, Modifier.size(48.dp).semantics { contentDescription = "Spin and win a discount" }) {
-        Canvas(Modifier.size(34.dp)) {
+    run {
+        Canvas(Modifier.size(size)) {
             val r = size.minDimension / 2f
             drawCircle(brush = Brush.sweepGradient(listOf(Color(0xFFF3DFA2), Color(0xFFB99A62), Color(0xFF8A6A32), Color(0xFFE8CC85), Color(0xFFF3DFA2))), radius = r)
             val inner = r * 0.80f
@@ -220,7 +226,7 @@ fun SpinWheelDialog(onDismiss: () -> Unit, onUseCode: (String) -> Unit) {
                     }
                 }
             }
-            TextButton(onDismiss, enabled = !spinning) { Text("Close", color = TS.Gray) }
+            TextButton(onDismiss, enabled = !spinning) { Text(tr("Close"), color = TS.Gray) }
         }
     }
 }

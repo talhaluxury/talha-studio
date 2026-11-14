@@ -47,7 +47,7 @@ fun OrdersScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
     LaunchedEffect(more) { if (more == 0) return@LaunchedEffect
         try { val r = Repo.orders(page + 1); items = items + r.items; page++ } catch (e: ApiException) { error = e } }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("My Orders") }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } }) }) { pad ->
+    Scaffold(topBar = { TopAppBar(title = { Text(tr("My Orders")) }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } }) }) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
             when {
                 loading -> ProductGridSkeleton()
@@ -65,7 +65,7 @@ fun OrdersScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
                             StatusChip(o.status)
                         }
                     }
-                    if (items.size < total) item { OutlinedButton({ more++ }, Modifier.fillMaxWidth()) { Text("Load more") } }
+                    if (items.size < total) item { OutlinedButton({ more++ }, Modifier.fillMaxWidth()) { Text(tr("Load more")) } }
                 }
             }
         }
@@ -87,7 +87,7 @@ fun OrderDetailScreen(id: String, onBack: () -> Unit) {
         try { latest = block(); snack.showSnackbar(ok) } catch (e: ApiException) { snack.showSnackbar(e.message ?: "Something went wrong") } finally { busy = false }
     }
 
-    Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = { TopAppBar(title = { Text("Order details") }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } }) }) { pad ->
+    Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = { TopAppBar(title = { Text(tr("Order details")) }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } }) }) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
             when (val s = load.state) {
                 is Load.Loading -> Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { SkeletonBox(Modifier.fillMaxWidth().height(80.dp)); SkeletonBox(Modifier.fillMaxWidth().height(160.dp)) }
@@ -98,7 +98,17 @@ fun OrderDetailScreen(id: String, onBack: () -> Unit) {
                         Row(verticalAlignment = Alignment.CenterVertically) { Text(o.orderNumber, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f)); StatusChip(o.status) }
                         Text("Placed ${prettyDate(o.createdAt)}", color = TS.Gray, style = MaterialTheme.typography.bodyMedium)
                         Progress(o)
-                        o.trackingUrl?.let { link -> TextButton({ runCatching { uri.openUri(link) } }) { Text("Track your parcel", color = TS.Gold) } }
+                        o.trackingUrl?.let { link -> TextButton({ runCatching { uri.openUri(link) } }) { Text(tr("Track your parcel"), color = TS.Gold) } }
+                        if (o.courier != null || o.trackingNo != null) {
+                            val clip = androidx.compose.ui.platform.LocalClipboardManager.current
+                            Panel("Parcel tracking") {
+                                o.courier?.let { c -> Row { Text(tr("Courier"), Modifier.weight(1f)); Text(c) } }
+                                o.trackingNo?.let { no -> Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(tr("Tracking no."), Modifier.weight(1f)); Text(no)
+                                    TextButton({ clip.setText(androidx.compose.ui.text.AnnotatedString(no)); scope.launch { snack.showSnackbar("Tracking number copied") } }) { Text(tr("Copy"), color = TS.Gold) }
+                                } }
+                            }
+                        }
                         Panel("Items") {
                             o.items.forEach { i -> Row(verticalAlignment = Alignment.CenterVertically) {
                                 ImageTile(i.imageUrl, i.name, Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)))
@@ -106,10 +116,10 @@ fun OrderDetailScreen(id: String, onBack: () -> Unit) {
                                 Text(pkr(i.unitPrice * i.qty))
                             } }
                             HorizontalDivider()
-                            Row { Text("Subtotal", Modifier.weight(1f)); Text(pkr(o.subtotal)) }
-                            Row { Text("Shipping", Modifier.weight(1f)); Text(if (o.shipping == 0) "Free" else pkr(o.shipping)) }
-                            if (o.walletUsed > 0) Row(verticalAlignment = Alignment.CenterVertically) { CoinIcon(18.dp); Spacer(Modifier.width(6.dp)); Text("Wallet bonus used", Modifier.weight(1f)); Text("- " + pkr(o.walletUsed), color = TS.Success) }
-                            Row { Text("Total", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium); Text(pkr(o.total), style = MaterialTheme.typography.titleMedium) }
+                            Row { Text(tr("Subtotal"), Modifier.weight(1f)); Text(pkr(o.subtotal)) }
+                            Row { Text(tr("Shipping"), Modifier.weight(1f)); Text(if (o.shipping == 0) "Free" else pkr(o.shipping)) }
+                            if (o.walletUsed > 0) Row(verticalAlignment = Alignment.CenterVertically) { CoinIcon(18.dp); Spacer(Modifier.width(6.dp)); Text(tr("Wallet bonus used"), Modifier.weight(1f)); Text("- " + pkr(o.walletUsed), color = TS.Success) }
+                            Row { Text(tr("Total"), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium); Text(pkr(o.total), style = MaterialTheme.typography.titleMedium) }
                             Text("Payment: ${payLabel(o.paymentMethod)} (${if (o.paymentStatus == "paid") "paid" else if (o.paymentMethod == "cod") "pay on delivery" else "waiting for the store to confirm"})", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
                         }
                         Panel("Delivery") { Text(o.customerName); Text(o.customerPhone); Text(o.address, color = TS.Gray); o.notes?.let { Text("Note: $it", style = MaterialTheme.typography.labelSmall, color = TS.Gray) } }
@@ -118,13 +128,13 @@ fun OrderDetailScreen(id: String, onBack: () -> Unit) {
                         if (o.canReturn) TsButton("Request a return", style = TsButtonStyle.Outline, enabled = !busy, onClick = { returning = true })
                         Spacer(Modifier.height(24.dp))
                     }
-                    if (confirmCancel) AlertDialog({ confirmCancel = false }, title = { Text("Cancel this order?") }, text = { Text("Your items go back on sale and you will not be charged.") },
-                        confirmButton = { TextButton({ confirmCancel = false; act({ Repo.cancelOrder(o.id) }, "Order cancelled") }) { Text("Cancel order", color = TS.Danger) } },
-                        dismissButton = { TextButton({ confirmCancel = false }) { Text("Keep order") } })
-                    if (returning) AlertDialog({ returning = false }, title = { Text("Request a return") },
+                    if (confirmCancel) AlertDialog({ confirmCancel = false }, title = { Text(tr("Cancel this order?")) }, text = { Text(tr("Your items go back on sale and you will not be charged.")) },
+                        confirmButton = { TextButton({ confirmCancel = false; act({ Repo.cancelOrder(o.id) }, "Order cancelled") }) { Text(tr("Cancel order"), color = TS.Danger) } },
+                        dismissButton = { TextButton({ confirmCancel = false }) { Text(tr("Keep order")) } })
+                    if (returning) AlertDialog({ returning = false }, title = { Text(tr("Request a return")) },
                         text = { Column { Text("Tell us what went wrong (min 5 characters).", style = MaterialTheme.typography.bodyMedium); OutlinedTextField(reason, { reason = it.take(500) }, Modifier.fillMaxWidth(), minLines = 3) } },
-                        confirmButton = { TextButton({ if (reason.trim().length >= 5) { returning = false; act({ Repo.requestReturn(o.id, reason.trim()) }, "Return requested. We will contact you.") } }, enabled = reason.trim().length >= 5) { Text("Submit", color = TS.Gold) } },
-                        dismissButton = { TextButton({ returning = false }) { Text("Close") } })
+                        confirmButton = { TextButton({ if (reason.trim().length >= 5) { returning = false; act({ Repo.requestReturn(o.id, reason.trim()) }, "Return requested. We will contact you.") } }, enabled = reason.trim().length >= 5) { Text(tr("Submit"), color = TS.Gold) } },
+                        dismissButton = { TextButton({ returning = false }) { Text(tr("Close")) } })
                 }
             }
         }
@@ -156,8 +166,8 @@ fun OrderConfirmationScreen(id: String, onContinue: () -> Unit, onViewOrder: () 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Spacer(Modifier.height(40.dp))
         Box(Modifier.size(84.dp).clip(RoundedCornerShape(42.dp)).background(TS.Gold), contentAlignment = Alignment.Center) { Text("✓", style = MaterialTheme.typography.displayLarge, color = TS.Black) }
-        Text("Thank you!", style = MaterialTheme.typography.headlineMedium)
-        Text("Your order has been placed.", color = TS.Gray)
+        Text(tr("Thank you!"), style = MaterialTheme.typography.headlineMedium)
+        Text(tr("Your order has been placed."), color = TS.Gray)
         when (val s = load.state) {
             is Load.Ready -> { val o = s.data
                 Text(o.orderNumber, style = MaterialTheme.typography.displayLarge)

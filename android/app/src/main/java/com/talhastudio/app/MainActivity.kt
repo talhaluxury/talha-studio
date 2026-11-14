@@ -17,7 +17,7 @@ import com.talhastudio.app.ui.theme.TalhaTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Session.init(applicationContext); PushTokens.init(applicationContext); Channels.create(applicationContext); com.talhastudio.app.data.Repo.initCache(applicationContext)
+        Session.init(applicationContext); PushTokens.init(applicationContext); Channels.create(applicationContext); com.talhastudio.app.data.Repo.initCache(applicationContext); com.talhastudio.app.ui.components.Lang.init(applicationContext)
         com.talhastudio.app.push.InboxSync.schedule(applicationContext)
         normalizeDeepLink(intent)
         // The app is always dark, so keep the status/navigation bar icons light even when the phone itself is in light mode.

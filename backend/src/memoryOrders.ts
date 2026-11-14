@@ -40,6 +40,11 @@ export class MemoryOrders implements OrderStore {
     this.orders.unshift(o); this.keys.set(key, o.id); return { order: o, created: true };
   }
 
+  async setTracking(id: string, courier: string | null, trackingNo: string | null) {
+    const o = this.orders.find((x) => x.id === id); if (!o) return null;
+    o.courier = courier; o.trackingNo = trackingNo; o.updatedAt = new Date(); return o;
+  }
+  async hasDelivered(userId: string, productId: string) { return this.orders.some((o) => o.userId === userId && o.status === "delivered" && o.items.some((i) => i.productId === productId)); }
   async setPayment(id: string, status: "paid" | "unpaid", _adminId: string) {
     const o = this.orders.find((x) => x.id === id); if (!o || o.paymentStatus === "refunded") return null;
     o.paymentStatus = status; o.updatedAt = new Date(); return o;
@@ -116,9 +121,12 @@ export class MemoryOrders implements OrderStore {
   }
   async adminExport(f: Omit<OrderFilter, "page" | "limit">) { return this.filtered(f).slice(0, 5000); }
   async adminCustomers(q: string | undefined, page: number, limit: number) {
-    const rows: CustomerRow[] = [...this.users.users.values()].filter((u) => u.role === "customer" && !u.deletedAt && (!q || (u.email + u.fullName).toLowerCase().includes(q.toLowerCase())))
-      .map((u) => { const mine = this.orders.filter((o) => o.userId === u.id && !["cancelled", "refunded"].includes(o.status));
-        return { id: u.id, fullName: u.fullName, email: u.email, phone: u.phone, createdAt: u.createdAt, orders: mine.length, spent: mine.reduce((a, o) => a + o.total, 0) }; });
+    const users = [...this.users.users.values()].filter((u) => u.role === "customer" && !u.deletedAt && (!q || (u.email + u.fullName + (u.phone ?? "")).toLowerCase().includes(q.toLowerCase())));
+    const rows: CustomerRow[] = await Promise.all(users.map(async (u) => {
+      const mine = this.orders.filter((o) => o.userId === u.id && !["cancelled", "refunded"].includes(o.status));
+      const last = this.orders.filter((o) => o.userId === u.id).map((o) => o.createdAt).sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+      return { id: u.id, fullName: u.fullName, email: u.email, phone: u.phone, createdAt: u.createdAt, orders: mine.length, spent: mine.reduce((a, o) => a + o.total, 0), isActive: u.isActive, walletBalance: await this.wallet.balance(u.id), lastOrderAt: last };
+    }));
     return { items: rows.slice((page - 1) * limit, page * limit), total: rows.length };
   }
   async analytics(days: number): Promise<Analytics> {

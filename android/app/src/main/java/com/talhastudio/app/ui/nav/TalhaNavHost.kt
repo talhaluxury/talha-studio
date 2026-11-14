@@ -42,6 +42,8 @@ object Routes {
     const val Onboarding = "onboarding"
     const val Bonus = "bonus"
     const val Wallet = "wallet"
+    const val Search = "search?cam={cam}"
+    fun search(camera: Boolean = false) = "search?cam=$camera"
     const val Main = "main"
     const val Product = "product/{id}"
     fun product(id: String) = "product/$id"
@@ -115,6 +117,9 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
                 nav.navigate(Routes.Main) { popUpTo(Routes.Onboarding) { inclusive = true } }
             })
         }
+        composable(Routes.Search, arguments = listOf(navArgument("cam") { type = NavType.BoolType; defaultValue = false })) { entry ->
+            SearchScreen(shop, openCamera = entry.arguments?.getBoolean("cam") == true, onBack = { nav.popBackStack() }, onOpenProduct = { nav.navigate(Routes.product(it)) })
+        }
         composable(Routes.Wallet) { if (Session.signedIn) WalletScreen(onBack = { nav.popBackStack() }) else LaunchedEffect(Unit) { nav.navigate(Routes.auth()) } }
         composable(Routes.Main) {
             MainShell(shop, onOpenProduct = { nav.navigate(Routes.product(it)) },
@@ -126,7 +131,7 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
                 onSupport = { nav.navigate(Routes.Support) }, onSettings = { nav.navigate(Routes.Settings) }, onOpenPage = { nav.navigate(Routes.info(it)) },
                 onOpenBrand = { nav.navigate(Routes.brand(it)) }, onAllBrands = { nav.navigate(Routes.Brands) },
                 onSeller = { if (Session.signedIn) nav.navigate(Routes.Seller) else nav.navigate(Routes.auth()) },
-                onWallet = { nav.navigate(Routes.Wallet) })
+                onWallet = { nav.navigate(Routes.Wallet) }, onSearch = { cam -> nav.navigate(Routes.search(cam)) })
         }
         composable(Routes.Brands) { AllBrandsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.brand(it)) }) }
         composable(Routes.Brand, deepLinks = listOf(navDeepLink { uriPattern = "talhastudio://brand/{slug}" })) { entry ->
@@ -138,7 +143,7 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
         }
         composable(Routes.Product, deepLinks = listOf(navDeepLink { uriPattern = "talhastudio://product/{id}" })) { entry ->
             val id = entry.arguments?.getString("id").orEmpty()
-            ProductDetailScreen(shop, id, onBack = { nav.popBackStack() }, onOpenProduct = { nav.navigate(Routes.product(it)) }, onOpenBrand = { nav.navigate(Routes.brand(it)) })
+            ProductDetailScreen(shop, id, onBack = { nav.popBackStack() }, onOpenProduct = { nav.navigate(Routes.product(it)) }, onOpenBrand = { nav.navigate(Routes.brand(it)) }, onSignIn = { nav.navigate(Routes.auth()) })
         }
         composable(Routes.Auth, arguments = listOf(navArgument("next") { type = NavType.StringType; defaultValue = "" })) { entry ->
             val next = entry.arguments?.getString("next").orEmpty()
@@ -203,7 +208,7 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
     // An item was added to the cart: its picture flies into the cart tab, the icon bounces, then the cart opens.
     FlyToCartOverlay(shop.flyEvent, cartTabIndex = 3, tabCount = shellTabs.size) { shop.flyEvent = null; shop.cartPulse++; goTab(3) }
     // The floating AI assistant sits above every normal screen (not on splash, welcome, sign-in, chat or checkout) and can be dragged anywhere.
-    AssistantOverlay(visible = route != null && route !in setOf(Routes.Splash, Routes.Onboarding, Routes.Bonus, Routes.Auth, Routes.PhoneAuth, Routes.PhoneSignIn, Routes.Chat, Routes.Checkout)) { a ->
+    AssistantOverlay(visible = route != null && route !in setOf(Routes.Splash, Routes.Onboarding, Routes.Bonus, Routes.Auth, Routes.PhoneAuth, Routes.PhoneSignIn, Routes.Chat, Routes.Checkout, Routes.Search)) { a ->
         when (a.type) {
             "product" -> a.id?.let { nav.navigate(Routes.product(it)) }
             "cart" -> { shop.requestedTab = 3; nav.popBackStack(Routes.Main, false) }

@@ -35,6 +35,7 @@
         <service android:name=".push.TalhaMessagingService" android:exported="false">
             <intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT" /></intent-filter>
         </service>
+        <receiver android:name=".push.CartReminderReceiver" android:exported="false" />
         <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="orders" />
         <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_talha" />
         <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/talha_gold" />

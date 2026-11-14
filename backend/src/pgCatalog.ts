@@ -65,7 +65,8 @@ export class PgCatalog implements CatalogStore {
     if (f.ids) add("p.id = ANY(?::uuid[])", f.ids);
     if (f.onSale) w.push("p.sale_price IS NOT NULL");
     if (f.categorySlug) { v.push(f.categorySlug); w.push(`(c.slug = $${v.length} OR c.parent_id = (SELECT id FROM categories WHERE slug = $${v.length}))`); }   // a main category also lists its sub-categories' products
-    if (f.q) { v.push(`%${likeEscape(f.q)}%`); const n = v.length; w.push(`(p.name ILIKE $${n} OR p.sku ILIKE $${n} OR p.description ILIKE $${n})`); }
+    // Every word typed must appear somewhere (name, code, description or category), so "black kurta" finds a black kurta.
+    if (f.q) for (const word of f.q.split(/\s+/).filter(Boolean).slice(0, 6)) { v.push(`%${likeEscape(word)}%`); const n = v.length; w.push(`(p.name ILIKE $${n} OR p.sku ILIKE $${n} OR p.description ILIKE $${n} OR c.name ILIKE $${n})`); }
     if (f.minPrice != null) add("COALESCE(p.sale_price, p.price) >= ?", f.minPrice);
     if (f.maxPrice != null) add("COALESCE(p.sale_price, p.price) <= ?", f.maxPrice);
     if (f.size) add("EXISTS (SELECT 1 FROM product_variants x WHERE x.product_id = p.id AND x.size = ?)", f.size);

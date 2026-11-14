@@ -72,7 +72,7 @@ fun ProductCard(
                 Icon(if (wished) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                     if (wished) "Remove from wishlist" else "Add to wishlist", tint = if (wished) TS.Danger else TS.Black)
             }
-            if (!p.inStock) Text("Out of stock", style = MaterialTheme.typography.labelSmall, color = TS.Ivory,
+            if (!p.inStock) Text(tr("Out of stock"), style = MaterialTheme.typography.labelSmall, color = TS.Ivory,
                 modifier = Modifier.align(Alignment.BottomStart).padding(8.dp).clip(CircleShape).background(TS.Black.copy(0.8f)).padding(horizontal = 8.dp, vertical = 3.dp))
         }
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {

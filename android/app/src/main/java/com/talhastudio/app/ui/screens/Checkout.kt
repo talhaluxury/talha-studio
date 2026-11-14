@@ -61,17 +61,17 @@ fun CheckoutScreen(shop: ShopViewModel, onBack: () -> Unit, onPlaced: (orderId: 
     val walletUse = ready?.let { minOf(walletBalance, (it.subtotal - it.discount)).coerceAtLeast(0) } ?: 0
     val canOrder = ready != null && ready.issues.isEmpty() && ready.items.isNotEmpty() && !busy
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Checkout") }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } }) }) { pad ->
+    Scaffold(topBar = { TopAppBar(title = { Text(tr("Checkout")) }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } }) }) { pad ->
         Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).imePadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val addrs = (saved.state as? Load.Ready)?.data.orEmpty()
             if (addrs.isNotEmpty()) {
-                Text("Saved addresses", style = MaterialTheme.typography.titleMedium)
+                Text(tr("Saved addresses"), style = MaterialTheme.typography.titleMedium)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     addrs.take(3).forEach { a -> AssistChip({ form = form.copy(name = a.recipient, phone = a.phone, line1 = a.line1, line2 = a.line2.orEmpty(), city = a.city, province = a.province.orEmpty(), postalCode = a.postalCode.orEmpty()); saveAddress = false },
                         { Text(a.label ?: a.city) }) }
                 }
             }
-            Text("Delivery details", style = MaterialTheme.typography.titleMedium)
+            Text(tr("Delivery details"), style = MaterialTheme.typography.titleMedium)
             Field("Full name", form.name, { form = form.copy(name = it) }, errors["name"])
             Field("Phone", form.phone, { form = form.copy(phone = it.take(16)) }, errors["phone"], KeyboardType.Phone)
             Field("Email (for your order confirmation)", form.email, { form = form.copy(email = it) }, errors["email"], KeyboardType.Email)
@@ -83,40 +83,40 @@ fun CheckoutScreen(shop: ShopViewModel, onBack: () -> Unit, onPlaced: (orderId: 
             }
             Field("Postal code (optional)", form.postalCode, { form = form.copy(postalCode = it.take(12)) }, type = KeyboardType.Number)
             Field("Note for the courier (optional)", form.notes, { form = form.copy(notes = it.take(300)) }, minLines = 2)
-            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) { Checkbox(saveAddress, { saveAddress = it }); Text("Save this address for next time") }
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) { Checkbox(saveAddress, { saveAddress = it }); Text(tr("Save this address for next time")) }
 
-            Text("Payment", style = MaterialTheme.typography.titleMedium)
+            Text(tr("Payment"), style = MaterialTheme.typography.titleMedium)
             methods.forEach { m ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) { RadioButton(method == m.id, { method = m.id }); Text(m.label) }
             }
             methods.firstOrNull { it.id == method && it.id != "cod" }?.let { m ->
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Send the total amount to:", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
+                    Text(tr("Send the total amount to:"), style = MaterialTheme.typography.labelSmall, color = TS.Gray)
                     Text(m.details, style = MaterialTheme.typography.bodyLarge)
-                    Text("Then type the transaction ID from your payment below. The store confirms it on WhatsApp.", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
+                    Text(tr("Then type the transaction ID from your payment below. The store confirms it on WhatsApp."), style = MaterialTheme.typography.labelSmall, color = TS.Gray)
                 }
                 Field("Transaction ID", payRef, { payRef = it.take(40) }, errors["payRef"])
             }
 
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Order summary", style = MaterialTheme.typography.titleMedium)
+                Text(tr("Order summary"), style = MaterialTheme.typography.titleMedium)
                 shop.cart.forEach { l -> Row { Text("${l.qty} x ${l.name}", Modifier.weight(1f), maxLines = 1); Text(pkr(l.unitPrice * l.qty)) } }
                 HorizontalDivider()
                 when (q) {
                     is QuoteState.Ready -> {
-                        Row { Text("Subtotal", Modifier.weight(1f)); Text(pkr(q.quote.subtotal)) }
+                        Row { Text(tr("Subtotal"), Modifier.weight(1f)); Text(pkr(q.quote.subtotal)) }
                         if (q.quote.discount > 0) Row { Text("Discount (${q.quote.couponCode})", Modifier.weight(1f)); Text("- " + pkr(q.quote.discount), color = TS.Success) }
-                        if (walletUse > 0) Row(verticalAlignment = Alignment.CenterVertically) { CoinIcon(18.dp); Spacer(Modifier.width(6.dp)); Text("Wallet bonus", Modifier.weight(1f)); Text("- " + pkr(walletUse), color = TS.Success) }
-                        Row { Text("Shipping", Modifier.weight(1f)); Text(if (q.quote.shipping == 0) "Free" else pkr(q.quote.shipping)) }
-                        Row { Text("Total", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium); Text(pkr(q.quote.total - walletUse), style = MaterialTheme.typography.titleMedium) }
+                        if (walletUse > 0) Row(verticalAlignment = Alignment.CenterVertically) { CoinIcon(18.dp); Spacer(Modifier.width(6.dp)); Text(tr("Wallet bonus"), Modifier.weight(1f)); Text("- " + pkr(walletUse), color = TS.Success) }
+                        Row { Text(tr("Shipping"), Modifier.weight(1f)); Text(if (q.quote.shipping == 0) "Free" else pkr(q.quote.shipping)) }
+                        Row { Text(tr("Total"), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium); Text(pkr(q.quote.total - walletUse), style = MaterialTheme.typography.titleMedium) }
                         q.quote.issues.forEach { Text(it.message, color = TS.Danger, style = MaterialTheme.typography.labelSmall) }
                     }
                     is QuoteState.Failed -> Text(q.message, color = TS.Danger)
-                    else -> Text("Confirming prices...", color = TS.Gray)
+                    else -> Text(tr("Confirming prices..."), color = TS.Gray)
                 }
                 Text(if (method == "cod") "Payment: Cash on Delivery. Pay the courier when your order arrives." else "Payment: ${payLabel(method)}. Your order is confirmed after the store verifies the payment.", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
-                Text("Returns accepted within 7 days of delivery for unused items.", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
-                Text("We will confirm your order on WhatsApp on the phone number above.", style = MaterialTheme.typography.labelSmall, color = TS.Gray)
+                Text(tr("Returns accepted within 7 days of delivery for unused items."), style = MaterialTheme.typography.labelSmall, color = TS.Gray)
+                Text(tr("We will confirm your order on WhatsApp on the phone number above."), style = MaterialTheme.typography.labelSmall, color = TS.Gray)
             }
             failure?.let { Text(it, color = TS.Danger, style = MaterialTheme.typography.bodyMedium) }
             TsButton(if (busy) "Placing order..." else "Place Order" + (ready?.let { " · " + pkr(it.total - walletUse) } ?: ""), enabled = canOrder, style = TsButtonStyle.Black, onClick = {

@@ -35,7 +35,7 @@ export class MemoryCatalog implements CatalogStore {
     if (q.ids) r = r.filter((p) => q.ids!.includes(p.id));
     if (q.onSale) r = r.filter((p) => p.salePrice != null);
     if (q.categorySlug) { const top = [...this.cats.values()].find((c) => c.slug === q.categorySlug); r = r.filter((p) => p.categorySlug === q.categorySlug || (!!top && this.cats.get(p.categoryId)?.parentId === top.id)); }
-    if (q.q) { const n = q.q.toLowerCase(); r = r.filter((p) => p.name.toLowerCase().includes(n) || p.sku.toLowerCase().includes(n) || p.description.toLowerCase().includes(n)); }
+    if (q.q) for (const n of q.q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6)) r = r.filter((p) => p.name.toLowerCase().includes(n) || p.sku.toLowerCase().includes(n) || p.description.toLowerCase().includes(n) || p.categoryName.toLowerCase().includes(n));
     if (q.minPrice != null) r = r.filter((p) => this.eff(p) >= q.minPrice!);
     if (q.maxPrice != null) r = r.filter((p) => this.eff(p) <= q.maxPrice!);
     if (q.size) r = r.filter((p) => p.variants.some((v) => v.size === q.size));

@@ -38,6 +38,8 @@ export async function renderDashboard(view) {
       h("div", { class: "tabs", role: "group", "aria-label": "Period" }, [7, 30, 90].map((d) =>
         h("button", { class: "tab", "aria-pressed": String(d === days), onclick: () => { days = d; load(); } }, `Last ${d} days`))),
       h("div", { class: "stats" }, stat(money(a.sales), `Sales (${a.days} days, excl. cancelled)`), stat(a.orders, `Orders (${a.days} days)`), stat(a.pending, "Pending orders", true), stat(a.customers, "Customers")),
+      h("div", { class: "stats" }, stat(money(a.series?.length ? a.series[a.series.length - 1].sales : 0), "Sales today"), stat(money(a.orders ? Math.round(a.sales / a.orders) : 0), "Average order"),
+        stat(a.byStatus?.cancelled ?? 0, `Cancelled (${a.days} days)`), stat((a.byStatus?.refund_requested ?? 0) + (a.byStatus?.refunded ?? 0), "Returns and refunds")),
       h("div", { class: "card" }, h("h2", {}, "Sales"), barChart(a.series)),
       h("div", { class: "cols" },
         h("div", {}, h("h2", { class: "sr" }, "Recent orders"), h("div", { class: "pagehead" }, h("h2", {}, "Recent orders"), h("a", { href: "#/orders" }, "View all")),

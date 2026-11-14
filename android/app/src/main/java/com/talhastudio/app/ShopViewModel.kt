@@ -99,9 +99,10 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun remove(variantId: String) { cart.removeAll { it.variantId == variantId }; cartChanged() }
 
-    fun clearCart() { cart.clear(); local.saveCart(cart); couponCode = null; quoteJob?.cancel(); quote = QuoteState.Idle }
+    fun clearCart() { cart.clear(); local.saveCart(cart); remind(); couponCode = null; quoteJob?.cancel(); quote = QuoteState.Idle }
 
-    private fun cartChanged() { local.saveCart(cart); refreshQuote() }
+    private fun cartChanged() { local.saveCart(cart); remind(); refreshQuote() }
+    private fun remind() { com.talhastudio.app.push.CartReminder.sync(getApplication(), cart.isNotEmpty()) }
 
     /** Re-prices the cart on the server (debounced). Safe to call whenever the cart screen opens. */
     fun refreshQuote() {

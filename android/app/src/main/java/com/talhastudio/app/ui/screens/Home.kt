@@ -6,6 +6,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.border
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
@@ -17,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DonutLarge
 import androidx.compose.material.icons.outlined.MovieCreation
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,7 +52,7 @@ import com.talhastudio.app.ui.theme.DisplayFont
 import com.talhastudio.app.ui.theme.TS
 
 @Composable
-fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (category: String?) -> Unit, onNotifications: () -> Unit, onUpdates: () -> Unit, onSupport: () -> Unit, onOpenPage: (String) -> Unit, onSignIn: () -> Unit = {}, onWallet: () -> Unit = {}, onOpenBrand: (String) -> Unit = {}, onAllBrands: () -> Unit = {}) {
+fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (category: String?) -> Unit, onNotifications: () -> Unit, onUpdates: () -> Unit, onSupport: () -> Unit, onOpenPage: (String) -> Unit, onSignIn: () -> Unit = {}, onWallet: () -> Unit = {}, onOpenBrand: (String) -> Unit = {}, onAllBrands: () -> Unit = {}, onSearch: (Boolean) -> Unit = {}) {
     LaunchedEffect(Session.user?.id) { shop.refreshUnread(); shop.refreshUpdates() }
     LaunchedEffect(Unit) { shop.refreshSale() }
     // Wallet: the coin in the header shows the balance. Right after the welcome bonus arrives a popup celebrates it, then coins fly into that icon.
@@ -60,6 +64,9 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
     var celebrate by remember(uid) { mutableIntStateOf(0) }
     var flying by remember { mutableStateOf(false) }
     var pulse by remember { mutableIntStateOf(0) }
+    val pulseAnim = remember { androidx.compose.animation.core.Animatable(1f) }
+    LaunchedEffect(pulse) { if (pulse > 0) { pulseAnim.animateTo(1.4f, androidx.compose.animation.core.tween(160)); pulseAnim.animateTo(1f, androidx.compose.animation.core.spring(0.35f, 300f)) } }
+    val pulseScale = pulseAnim.value
     var coinCenter by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     var hostOrigin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     var hostSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
@@ -85,9 +92,6 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                     Image(painterResource(R.drawable.talha_logo), "Talha Studio", Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)))
                     Spacer(Modifier.width(10.dp))
                     Text("TALHA STUDIO", fontFamily = DisplayFont, letterSpacing = 2.sp, maxLines = 1, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    // Lucky wheel: shown only while the owner has it switched on. Signed-out customers are asked to sign in first.
-                    if (uid != null) WalletCoinButton(shownBal, pulse, onWallet, Modifier.onGloballyPositioned { c -> val o = c.positionInRoot(); coinCenter = androidx.compose.ui.geometry.Offset(o.x + c.size.width / 2f, o.y + c.size.height / 2f) })
-                    if ((homeState as? Load.Ready)?.data?.spin == true) SpinWheelButton { if (Session.signedIn) showSpin = true else onSignIn() }
                     // Updates: daily status pictures + chat with the store (asks for a mobile-number sign-in the first time).
                     IconButton(onUpdates) {
                         BadgedBox(badge = {
@@ -101,10 +105,24 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                         }
                     }
                 }
-                GlassCard(Modifier.fillMaxWidth().height(48.dp).clickable { onBrowse(null) }, corner = 14.dp, tint = TS.Surface) {
-                    Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Search, null, tint = TS.Gray); Spacer(Modifier.width(10.dp))
-                        Text("Search products...", color = TS.Gray, style = MaterialTheme.typography.bodyMedium)
+                // Quick-action strip: wallet balance and lucky wheel (wheel only while the owner has it switched on).
+                val spinOn = (homeState as? Load.Ready)?.data?.spin == true
+                if (uid != null || spinOn) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (uid != null) ActionPill(Modifier.weight(1f), "Wallet", "Rs. ${shownBal ?: 0}", onWallet,
+                        icon = { CoinIcon(34.dp, Modifier.onGloballyPositioned { c -> val o = c.positionInRoot(); coinCenter = androidx.compose.ui.geometry.Offset(o.x + c.size.width / 2f, o.y + c.size.height / 2f) }.scale(pulseScale)) })
+                    if (spinOn) ActionPill(Modifier.weight(1f), "Lucky wheel", "Spin & win", { if (Session.signedIn) showSpin = true else onSignIn() },
+                        icon = { SpinWheelIcon(34.dp) })
+                }
+                GlassCard(Modifier.fillMaxWidth().height(48.dp), corner = 14.dp, tint = TS.Surface) {
+                    Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                        // Tapping the bar opens the search screen (live results + related products); the camera searches by photo.
+                        Row(Modifier.weight(1f).fillMaxHeight().clickable { onSearch(false) }.padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Search, null, tint = TS.Gray); Spacer(Modifier.width(10.dp))
+                            Text(tr("Search products..."), color = TS.Gray, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Box(Modifier.fillMaxHeight().width(52.dp).clickable { onSearch(true) }, contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.PhotoCamera, "Search with a photo", tint = TS.Gold)
+                        }
                     }
                 }
             }
@@ -177,8 +195,8 @@ fun SectionHeader(title: String, action: String? = null, onAction: () -> Unit = 
     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.width(3.dp).height(22.dp).clip(RoundedCornerShape(2.dp)).background(Brush.verticalGradient(listOf(Color(0xFFE9CF98), TS.Gold))))
         Spacer(Modifier.width(10.dp))
-        Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-        if (action != null) TextButton(onAction) { Text(action, color = TS.Gold) }
+        Text(tr(title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+        if (action != null) TextButton(onAction) { Text(tr(action), color = TS.Gold) }
     }
 }
 
@@ -227,7 +245,7 @@ private fun BrandBanner(onShop: () -> Unit) {
             Text("ELEGANCE", fontFamily = DisplayFont, color = TS.Ivory, style = MaterialTheme.typography.headlineMedium, letterSpacing = 4.sp)
             Text("IN EVERY THREAD", fontFamily = DisplayFont, color = TS.Gold, style = MaterialTheme.typography.titleLarge, letterSpacing = 3.sp)
             Spacer(Modifier.height(18.dp))
-            Button(onClick = onShop, colors = ButtonDefaults.buttonColors(TS.Gold, TS.Black), shape = RoundedCornerShape(12.dp)) { Text("Shop Now") }
+            Button(onClick = onShop, colors = ButtonDefaults.buttonColors(TS.Gold, TS.Black), shape = RoundedCornerShape(12.dp)) { Text(tr("Shop Now")) }
         }
     }
 }
@@ -258,9 +276,28 @@ private fun BannerCarousel(banners: List<com.talhastudio.app.data.Banner>, onOpe
 private fun Footer(onSupport: () -> Unit, onOpenPage: (String) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).clip(RoundedCornerShape(20.dp)).background(TS.Black).padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("TALHA STUDIO", fontFamily = DisplayFont, color = TS.Ivory, letterSpacing = 4.sp, style = MaterialTheme.typography.titleLarge)
-        Text("Customer service", color = TS.Gold, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
+        Text(tr("Customer service"), color = TS.Gold, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
         listOf("Help & Support" to null, "Shipping" to "shipping", "Returns" to "returns", "Privacy Policy" to "privacy", "Terms of Service" to "terms", "About Us" to "about").forEach { (label, slug) ->
             Text(label, color = TS.Ivory.copy(0.85f), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.fillMaxWidth().clickable { if (slug == null) onSupport() else onOpenPage(slug) }.padding(vertical = 8.dp))
         }
+    }
+}
+
+/** One tile of the home quick-action strip: picture, small label and a bold value. */
+@Composable
+private fun ActionPill(modifier: Modifier, label: String, value: String, onClick: () -> Unit, icon: @Composable () -> Unit) {
+    Row(
+        modifier.height(60.dp).clip(RoundedCornerShape(18.dp))
+            .background(Brush.horizontalGradient(listOf(TS.Surface, TS.Gold.copy(alpha = 0.16f))))
+            .border(1.dp, TS.Gold.copy(alpha = 0.45f), RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick).padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) { icon() }
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = TS.Gray, maxLines = 1)
+            Text(value, style = MaterialTheme.typography.titleSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), color = TS.Gold, maxLines = 1)
+        }
+        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = TS.Gold.copy(alpha = 0.8f))
     }
 }

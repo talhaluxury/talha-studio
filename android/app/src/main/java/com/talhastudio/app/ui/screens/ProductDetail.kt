@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ProductDetailScreen(shop: ShopViewModel, id: String, onBack: () -> Unit, onOpenProduct: (String) -> Unit, onOpenBrand: (String) -> Unit = {}) {
+fun ProductDetailScreen(shop: ShopViewModel, id: String, onBack: () -> Unit, onOpenProduct: (String) -> Unit, onOpenBrand: (String) -> Unit = {}, onSignIn: () -> Unit = {}) {
     val load = rememberLoad(id) { Repo.product(id) }
     val snack = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -65,7 +65,7 @@ fun ProductDetailScreen(shop: ShopViewModel, id: String, onBack: () -> Unit, onO
             when (val s = load.state) {
                 is Load.Loading -> Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { SkeletonBox(Modifier.fillMaxWidth().aspectRatio(0.85f)); SkeletonBox(Modifier.fillMaxWidth().height(28.dp)); SkeletonBox(Modifier.fillMaxWidth(0.5f).height(22.dp)) }
                 is Load.Error -> if (s.message.contains("not found", true)) EmptyState("Product not found", "It may have been removed.", "Go back", onBack) else ErrorState(s.message, s.offline, load.retry)
-                is Load.Ready -> Details(shop, s.data, snack, onOpenProduct, onOpenBrand) { msg -> scope.launch { snack.showSnackbar(msg) } }
+                is Load.Ready -> Details(shop, s.data, snack, onOpenProduct, onOpenBrand, onSignIn) { msg -> scope.launch { snack.showSnackbar(msg) } }
             }
             // Sale countdown for products that are on sale: small, left side, just above the bottom bar.
             if (sale != null && saleLeft > 0 && (load.state as? Load.Ready)?.data?.salePrice != null)
@@ -76,7 +76,7 @@ fun ProductDetailScreen(shop: ShopViewModel, id: String, onBack: () -> Unit, onO
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, onOpenProduct: (String) -> Unit, onOpenBrand: (String) -> Unit, say: (String) -> Unit) {
+private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, onOpenProduct: (String) -> Unit, onOpenBrand: (String) -> Unit, onSignIn: () -> Unit, say: (String) -> Unit) {
     var size by remember(p.id) { mutableStateOf(p.sizes.singleOrNull()) }
     var color by remember(p.id) { mutableStateOf(p.colors.singleOrNull()) }
     var qty by remember(p.id) { mutableIntStateOf(1) }
@@ -116,7 +116,7 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
                 Modifier.align(Alignment.BottomStart).padding(12.dp).clip(RoundedCornerShape(50)).background(TS.Black.copy(0.7f)).padding(horizontal = 10.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 Icon(Icons.Outlined.ZoomIn, null, tint = TS.Gold, modifier = Modifier.size(16.dp))
-                Text("Tap to zoom", style = MaterialTheme.typography.labelSmall, color = TS.Ivory)
+                Text(tr("Tap to zoom"), style = MaterialTheme.typography.labelSmall, color = TS.Ivory)
             }
             if (pages > 1) Text("${pager.currentPage + 1}/$pages", style = MaterialTheme.typography.labelSmall, color = TS.Ivory,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp).clip(RoundedCornerShape(50)).background(TS.Black.copy(0.7f)).padding(horizontal = 10.dp, vertical = 4.dp))
@@ -140,32 +140,35 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PriceText(p)
                 p.discountPercent?.let { SaleBadge(it) }
+                val left = p.variants.sumOf { it.stock }
+                if (left in 1..5) Text("Only $left left", color = TS.Danger, style = MaterialTheme.typography.labelLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
             }
             p.fabric?.let { Text("Fabric: $it", style = MaterialTheme.typography.bodyMedium, color = TS.Gray) }
 
-            if (p.colors.isNotEmpty()) { Text("Color", style = MaterialTheme.typography.titleMedium)
+            if (p.colors.isNotEmpty()) { Text(tr("Color"), style = MaterialTheme.typography.titleMedium)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { p.colors.forEach { c ->
                     val any = p.variants.any { it.color == c && it.stock > 0 }
                     FilterChip(color == c, { color = c; qty = 1 }, { Text(c) }, enabled = any, colors = chipColors()) } } }
-            if (p.sizes.isNotEmpty()) { Text("Size", style = MaterialTheme.typography.titleMedium)
+            if (p.sizes.isNotEmpty()) { Text(tr("Size"), style = MaterialTheme.typography.titleMedium)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { p.sizes.forEach { s ->
                     val any = p.variants.any { it.size == s && (color == null || it.color == color) && it.stock > 0 }
                     FilterChip(size == s, { size = s; qty = 1 }, { Text(s) }, enabled = any, colors = chipColors()) } } }
 
             when {
-                !p.inStock -> Text("Out of stock", color = TS.Danger, style = MaterialTheme.typography.labelLarge)
+                !p.inStock -> Text(tr("Out of stock"), color = TS.Danger, style = MaterialTheme.typography.labelLarge)
                 needsChoice -> Text("Select " + listOfNotNull("a color".takeIf { p.colors.isNotEmpty() && color == null }, "a size".takeIf { p.sizes.isNotEmpty() && size == null }).joinToString(" and "), color = TS.Gray, style = MaterialTheme.typography.bodyMedium)
-                variant == null || variant.stock == 0 -> Text("This combination is out of stock", color = TS.Danger, style = MaterialTheme.typography.labelLarge)
+                variant == null || variant.stock == 0 -> Text(tr("This combination is out of stock"), color = TS.Danger, style = MaterialTheme.typography.labelLarge)
                 variant.stock <= 5 -> Text("Only ${variant.stock} left", color = TS.Danger, style = MaterialTheme.typography.labelLarge)
-                else -> Text("In stock", color = TS.Success, style = MaterialTheme.typography.labelLarge)
+                else -> Text(tr("In stock"), color = TS.Success, style = MaterialTheme.typography.labelLarge)
             }
             if (variant != null && variant.stock > 0) Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Quantity", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Text(tr("Quantity"), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                 IconButton({ if (qty > 1) qty-- }, enabled = qty > 1) { Icon(Icons.Outlined.Remove, "Decrease quantity") }
                 Text("$qty", Modifier.widthIn(min = 28.dp), style = MaterialTheme.typography.titleMedium)
                 IconButton({ if (qty < maxQty) qty++ }, enabled = qty < maxQty) { Icon(Icons.Outlined.Add, "Increase quantity") }
             }
-            if (p.description.isNotBlank()) { Text("Description", style = MaterialTheme.typography.titleMedium); Text(p.description, style = MaterialTheme.typography.bodyLarge) }
+            if (p.description.isNotBlank()) { Text(tr("Description"), style = MaterialTheme.typography.titleMedium); Text(p.description, style = MaterialTheme.typography.bodyLarge) }
+            ReviewsSection(p.id, onSignIn, say)
         }
         if (p.related.isNotEmpty()) { SectionHeader("You may also like"); Spacer(Modifier.height(12.dp)); ProductRow(shop, p.related, onOpenProduct) }
     }
@@ -173,7 +176,7 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
     Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
         Column(Modifier.navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)) {
             Box(Modifier.onGloballyPositioned { c -> val o = c.positionInRoot(); buttonCenter = Offset(o.x + c.size.width / 2f, o.y + c.size.height / 2f) }) {
-                TsButton("Add to Cart", style = TsButtonStyle.Black, enabled = p.inStock, onClick = {
+                if (!p.inStock) StockAlertButton(p.id, onSignIn, say) else TsButton("Add to Cart", style = TsButtonStyle.Black, enabled = true, onClick = {
                     when {
                         needsChoice -> say("Please choose " + listOfNotNull("a color".takeIf { p.colors.isNotEmpty() && color == null }, "a size".takeIf { p.sizes.isNotEmpty() && size == null }).joinToString(" and ") + ".")
                         variant == null || variant.stock == 0 -> say("That combination is out of stock.")

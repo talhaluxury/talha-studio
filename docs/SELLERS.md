@@ -15,7 +15,7 @@ Edits after approval are safe: the seller edits a draft; customers keep seeing t
 
 ## Setup (one time)
 1. **Database:** run migration `backend/db/migrations/018_brands.sql` (`npm run migrate`).
-2. Redeploy the API (Render), redeploy `admin/` (new **Brands** menu entry; service worker cache `ts-admin-v28`; the review preview has a light/dark toggle), and rebuild the Android app (and the admin APK if you ship the bundled one).
+2. Redeploy the API (Render), redeploy `admin/` (new **Brands** menu entry; service worker cache `ts-admin-v29`; the review preview has a light/dark toggle), and rebuild the Android app (and the admin APK if you ship the bundled one).
 3. Deep links: `talhastudio://brand/<slug>`, `talhastudio://seller`.
 
 Sellers sign in inside the app with the normal app login, so no extra Google client ID or seller website is needed.
