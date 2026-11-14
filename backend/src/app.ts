@@ -122,10 +122,10 @@ export async function buildApp(cfg: Config, deps: Deps) {
     meRoutes(v1, { store, auth, onDelete: async (id) => { for (const k of await deps.chat.deleteForCustomer(id)) await storage.delete(k).catch(() => {}); } });
     adminRoutes(v1, { store, auth });
     catalogRoutes(v1, { catalog, storage, cfg, settings: deps.settings, banners: deps.banners, coupons: deps.coupons, videos, sections, reels, brands });
-    brandRoutes(v1, { brands, catalog, storage });
+    brandRoutes(v1, { brands, catalog, storage, settings: deps.settings });
     walletRoutes(v1, { wallet, settings: deps.settings, store, auth });
     sellerRoutes(v1, { brands, catalog, orders, storage, images, auth, cfg, alerts });
-    adminBrandRoutes(v1, { brands, catalog, storage, store, auth, alerts });
+    adminBrandRoutes(v1, { brands, catalog, storage, store, auth, alerts, settings: deps.settings });
     reelRoutes(v1, { reels, storage, store, auth });
     sectionRoutes(v1, { sections, settings: deps.settings, store, auth });
     spinRoutes(v1, { spin, coupons: deps.coupons, settings: deps.settings, auth });

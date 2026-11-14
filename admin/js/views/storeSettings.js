@@ -62,18 +62,21 @@ export async function renderStoreSettings(view) {
   put(clear(view), h("div", { class: "pagehead" }, h("div", {}, h("h1", {}, "Store settings"), h("p", { class: "muted" }, "Owner only. Changes reach customers immediately."))), await walletCard(), form);
 }
 
-/* Welcome bonus + referral: the owner can switch each offer off at any time or change the amount. Money already given stays in the customers' wallets. */
+/* Welcome bonus + referral: one tap switches an offer ON or OFF at any time (saved at once). Money already given stays in the customers' wallets. */
 async function walletCard() {
   let w; try { w = await api("/admin/wallet-offers"); } catch { return null; }
-  const mk = (o) => ({ on: h("input", { type: "checkbox", checked: o.active }), amt: h("input", { type: "number", min: 0, max: 100000, step: 50, value: o.amount, style: "max-width:120px" }) });
-  const sign = mk(w.signupBonus), ref = mk(w.referral);
-  const row = (title, hint, c) => h("div", { class: "field" }, h("label", { class: "row" }, c.on, h("b", {}, title)), h("div", { class: "row" }, h("span", { class: "muted" }, "Rs."), c.amt), h("p", { class: "hint" }, hint));
+  const save = async () => { w = await api("/admin/wallet-offers", { method: "PUT", body: w }); };
+  const offer = (key, title, hint) => {
+    const state = h("b", {}); const btn = h("button", { type: "button" });
+    const amt = h("input", { type: "number", min: 0, max: 100000, step: 50, value: w[key].amount, style: "max-width:120px", "aria-label": title + " amount" });
+    const paint = () => { const on = w[key].active; state.textContent = `${title}: ${on ? "ON" : "OFF"}`; state.style.color = on ? "#2e8b57" : "#c0392b"; btn.textContent = on ? "Turn OFF" : "Turn ON"; btn.className = on ? "btn" : "btn gold"; };
+    btn.onclick = async () => { btn.disabled = true; const was = w[key].active; try { w[key].active = !was; await save(); paint(); toast(`${title} is now ${w[key].active ? "ON" : "OFF"}`); } catch (ex) { w[key].active = was; toast(ex.message, "error"); } finally { btn.disabled = false; } };
+    const amtBtn = h("button", { class: "btn ghost sm", type: "button", onclick: async () => { try { w[key].amount = Math.max(0, Math.round(+amt.value || 0)); await save(); toast("Amount saved"); } catch (ex) { toast(ex.message, "error"); } } }, "Save amount");
+    paint();
+    return h("div", { class: "field" }, h("div", { class: "row between" }, state, btn), h("div", { class: "row" }, h("span", { class: "muted" }, "Rs."), amt, amtBtn), h("p", { class: "hint" }, hint));
+  };
   return h("div", { class: "card" }, h("h2", {}, "Wallet offers"),
-    h("p", { class: "muted" }, "New customers get a wallet when they sign up with Google. The wallet money is taken off their next order automatically (never off delivery)."),
-    row("Welcome bonus", "Given once to every brand-new account. Untick to stop it for new sign-ups.", sign),
-    row("Referral bonus (each side)", "A friend signs up with a customer's referral code: both get this amount.", ref),
-    h("button", { class: "btn gold", type: "button", onclick: async () => {
-      try { await api("/admin/wallet-offers", { method: "PUT", body: { signupBonus: { active: sign.on.checked, amount: Math.max(0, Math.round(+sign.amt.value || 0)) }, referral: { active: ref.on.checked, amount: Math.max(0, Math.round(+ref.amt.value || 0)) } } }); toast("Wallet offers saved"); }
-      catch (ex) { toast(ex.message, "error"); }
-    } }, "Save offers"));
+    h("p", { class: "muted" }, "Customers get a wallet when they sign up with Google. The wallet money is taken off their order automatically (never off delivery). Turn an offer OFF whenever you do not want to give it: it stops at once for new sign-ups."),
+    offer("signupBonus", "Welcome bonus", "Given once to every customer who has not ordered yet."),
+    offer("referral", "Referral bonus (each side)", "A friend signs up with a customer's referral code: both get this amount."));
 }

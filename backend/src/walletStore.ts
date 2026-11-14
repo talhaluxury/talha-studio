@@ -16,21 +16,26 @@ export interface WalletStore {
   /** Adds money. Welcome / referral credits are given once only: returns false if that credit already exists. */
   credit(userId: string, amount: number, kind: WalletKind, note: string, refId?: string | null): Promise<boolean>;
   referralStats(userId: string): Promise<{ friends: number; earned: number }>;
+  hasOrders(userId: string): Promise<boolean>;
 }
 
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export const newReferralCode = () => { const b = randomBytes(7); let s = "TS"; for (let i = 0; i < 6; i++) s += CODE_CHARS[b[i]! % CODE_CHARS.length]; return s; };
+export const MAX_REFERRALS_PER_USER = 25;
 export const cleanCode = (c: string) => c.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
 
 /** Called once, right after a brand-new customer account is created. Never throws: the bonus must not break sign-up. */
-export async function grantWelcome(wallet: WalletStore, settings: SettingsStore, userId: string, referralCode?: string | null) {
+export async function grantWelcome(wallet: WalletStore, settings: SettingsStore, userId: string, referralCode?: string | null, isNew = true) {
   try {
     const w = (await settings.load()).wallet;
+    // An account made before the wallet existed gets the welcome bonus once too, as long as it has never ordered (a customer who already bought is not "new").
+    if (!isNew && (await wallet.hasOrders(userId))) return;
     if (w.signupBonus.active && w.signupBonus.amount > 0) await wallet.credit(userId, w.signupBonus.amount, "signup", "Welcome bonus");
     const code = referralCode ? cleanCode(referralCode) : "";
-    if (code && w.referral.active && w.referral.amount > 0) {
+    if (isNew && code && w.referral.active && w.referral.amount > 0) {
       const refId = await wallet.userIdByReferralCode(code);
-      if (refId && refId !== userId) {
+      // anti-abuse: one code can only reward so many sign-ups
+      if (refId && refId !== userId && (await wallet.referralStats(refId)).friends < MAX_REFERRALS_PER_USER) {
         await wallet.setReferrer(userId, refId);
         await wallet.credit(userId, w.referral.amount, "referral_joined", "Referral bonus: you joined with a friend's code", refId);
         await wallet.credit(refId, w.referral.amount, "referral_reward", "Referral bonus: a friend joined with your code", userId);
@@ -52,6 +57,7 @@ export class MemoryWallet implements WalletStore {
     if (["signup", "referral_joined", "referral_reward"].includes(kind) && l.some((t) => t.kind === kind && t.refId === refId)) return false;
     l.push({ id: randomUUID(), amount, kind, note, orderId: null, createdAt: new Date(), refId }); return true;
   }
+  async hasOrders(_u: string) { return false; }
   async referralStats(u: string) { const r = this.list(u).filter((t) => t.kind === "referral_reward"); return { friends: r.length, earned: r.reduce((a, t) => a + t.amount, 0) }; }
 }
 
@@ -80,6 +86,7 @@ export class PgWallet implements WalletStore {
     const r = await this.pool.query("INSERT INTO wallet_transactions (user_id, amount, kind, note, ref_id) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING", [u, amount, kind, note, refId]);
     return (r.rowCount ?? 0) > 0;
   }
+  async hasOrders(u: string) { return ((await this.pool.query("SELECT 1 FROM orders WHERE user_id = $1 LIMIT 1", [u])).rowCount ?? 0) > 0; }
   async referralStats(u: string) {
     const r = await this.pool.query("SELECT count(*)::int AS n, COALESCE(sum(amount),0)::int AS s FROM wallet_transactions WHERE user_id = $1 AND kind = 'referral_reward'", [u]);
     return { friends: r.rows[0].n as number, earned: r.rows[0].s as number };

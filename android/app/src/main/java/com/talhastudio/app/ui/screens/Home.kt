@@ -45,9 +45,10 @@ import com.talhastudio.app.ui.theme.DisplayFont
 import com.talhastudio.app.ui.theme.TS
 
 @Composable
-fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (category: String?) -> Unit, onNotifications: () -> Unit, onUpdates: () -> Unit, onSupport: () -> Unit, onOpenPage: (String) -> Unit, onSignIn: () -> Unit = {}, onOpenBrand: (String) -> Unit = {}, onAllBrands: () -> Unit = {}) {
+fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (category: String?) -> Unit, onNotifications: () -> Unit, onUpdates: () -> Unit, onSupport: () -> Unit, onOpenPage: (String) -> Unit, onSignIn: () -> Unit = {}, onWallet: () -> Unit = {}, onOpenBrand: (String) -> Unit = {}, onAllBrands: () -> Unit = {}) {
     LaunchedEffect(Session.user?.id) { shop.refreshUnread(); shop.refreshUpdates() }
     LaunchedEffect(Unit) { shop.refreshSale() }
+    WelcomeBonusCelebration(onWallet)
     var showSpin by remember { mutableStateOf(false) }
     val home = rememberLoad("home") { Repo.home() }
     val brands = rememberLoad("brands") { runCatching { Repo.brands() }.getOrDefault(emptyList()) }       // a failing brands row must never break the home screen
@@ -91,6 +92,7 @@ fun HomeScreen(shop: ShopViewModel, onOpenProduct: (String) -> Unit, onBrowse: (
                     modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(TS.Gold).padding(horizontal = 14.dp, vertical = 10.dp))
             }
         }
+        item(key = "wallet") { HomeWalletCard(onWallet, onSignIn) }
         item(key = "banners") { // Admin-managed banners; before any exist (or while loading) the Talha Studio brand banner is shown
             val banners = (homeState as? Load.Ready)?.data?.banners.orEmpty()
             if (banners.isEmpty()) BrandBanner { onBrowse(null) }

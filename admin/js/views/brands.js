@@ -27,6 +27,14 @@ export async function renderBrands(view, id) {
   const drawTabs = () => { clear(tabs).append(...FILTERS.map(([k, t]) => h("button", { class: "tab", type: "button", "aria-pressed": String(status === k), onclick: () => { status = k; drawTabs(); load(); } }, t))); };
   put(clear(view), h("div", { class: "pagehead" }, h("div", {}, h("h1", {}, "Brands"), h("p", { class: "muted" }, "Seller accounts and their brand pages. Approve an application first, then review the page they send."))), tabs, body);
   drawTabs(); await load();
+  // One-tap ON/OFF for the Brands row on the app's home screen
+  const sec = await api("/admin/brands-section").catch(() => null);
+  if (sec) {
+    let on = sec.show; const label = h("b", {}); const btn = h("button", { type: "button" });
+    const paint = () => { label.textContent = `Brands section on the app home: ${on ? "ON" : "OFF"}`; label.style.color = on ? "#2e8b57" : "#c0392b"; btn.textContent = on ? "Turn OFF" : "Turn ON"; btn.className = on ? "btn" : "btn gold"; };
+    btn.onclick = async () => { btn.disabled = true; try { const r = await api("/admin/brands-section", { method: "PUT", body: { show: !on } }); on = r.show; paint(); toast(`Brands section is now ${on ? "ON" : "OFF"}`); } catch (ex) { toast(ex.message, "error"); } finally { btn.disabled = false; } };
+    paint(); view.insertBefore(h("div", { class: "card" }, h("div", { class: "row between" }, label, btn), h("p", { class: "hint" }, "OFF hides the whole Brands row (and the all-brands list) from the customer app. Brand pages and sellers are not deleted; turn it ON to bring it back.")), tabs);
+  }
   async function load() {
     const { items } = await api(`/admin/brands${status ? `?status=${status}` : ""}`);
     clear(body).append(items.length ? h("div", { class: "table-wrap" }, h("table", {}, h("thead", {}, h("tr", {}, ["Brand", "Owner", "City", "Account", "Page", "Products", "Applied"].map((t) => h("th", { scope: "col" }, t)))),

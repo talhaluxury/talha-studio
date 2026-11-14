@@ -1,7 +1,10 @@
 package com.talhastudio.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -15,6 +18,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.ZoomIn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +31,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.talhastudio.app.FlyEvent
 import com.talhastudio.app.ShopViewModel
 import com.talhastudio.app.data.Product
@@ -44,12 +49,14 @@ fun ProductDetailScreen(shop: ShopViewModel, id: String, onBack: () -> Unit, onO
     LaunchedEffect(id) { shop.markViewed(id); shop.refreshSale() }
     val sale = shop.sale
     val saleLeft by rememberSaleRemaining(sale)
+    val ctx = androidx.compose.ui.platform.LocalContext.current
 
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
             TopAppBar(title = {}, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
                 actions = { val w = shop.isWished(id)
+                    (load.state as? Load.Ready)?.data?.let { prod -> IconButton({ shareProduct(ctx, prod) }) { Icon(Icons.Outlined.Share, "Share this product", tint = MaterialTheme.colorScheme.onBackground) } }
                     IconButton({ shop.toggleWishlist(id) }) { Icon(if (w) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder, if (w) "Remove from wishlist" else "Add to wishlist", tint = if (w) TS.Danger else MaterialTheme.colorScheme.onBackground) } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent))
         },
@@ -77,9 +84,21 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
     val maxQty = ((variant?.stock ?: 0)).coerceAtMost(10)
     val pages = p.images.size.coerceAtLeast(1) + (if (p.videoUrl != null) 1 else 0)      // photos first, the video is the last swipe
     val pager = rememberPagerState { pages }
+    val scope = rememberCoroutineScope()
     var buttonCenter by remember { mutableStateOf(Offset.Zero) }
     var viewer by remember { mutableStateOf<Int?>(null) }                       // photo being zoomed full screen
     val photoUrls = remember(p.id) { p.images.mapNotNull { it.url } }
+    // Photos slide by themselves every 4 seconds; it pauses while the customer is swiping, zooming, or watching the video.
+    val dragging by pager.interactionSource.collectIsDraggedAsState()
+    LaunchedEffect(p.id, pages, viewer, dragging) {
+        if (pages < 2 || viewer != null || dragging) return@LaunchedEffect
+        while (true) {
+            kotlinx.coroutines.delay(4000)
+            val onVideo = p.videoUrl != null && pager.currentPage == p.images.size.coerceAtLeast(1)
+            if (onVideo) continue
+            pager.animateScrollToPage((pager.currentPage + 1) % pages)
+        }
+    }
     viewer?.let { ImageViewerDialog(photoUrls, it, p.name) { viewer = null } }
 
     val needsChoice = (p.sizes.isNotEmpty() && size == null) || (p.colors.isNotEmpty() && color == null)
@@ -102,7 +121,16 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
             if (pages > 1) Text("${pager.currentPage + 1}/$pages", style = MaterialTheme.typography.labelSmall, color = TS.Ivory,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp).clip(RoundedCornerShape(50)).background(TS.Black.copy(0.7f)).padding(horizontal = 10.dp, vertical = 4.dp))
         }
+        // Thumbnail strip: tap one to jump to that photo; the selected one has a gold frame.
+        if (p.images.size > 1) androidx.compose.foundation.lazy.LazyRow(Modifier.padding(top = 12.dp), contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            itemsIndexed(p.images) { i, img ->
+                val on = pager.currentPage == i
+                ImageTile(img.thumbUrl ?: img.url, p.name, Modifier.width(62.dp).aspectRatio(0.72f).clip(RoundedCornerShape(8.dp))
+                    .border(if (on) 2.dp else 1.dp, if (on) TS.Gold else Color(0x33FFFFFF), RoundedCornerShape(8.dp)).clickable { scope.launch { pager.animateScrollToPage(i) } })
+            }
+        }
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text((p.categoryName.uppercase() + (p.discountPercent?.let { "  $it% OFF" } ?: "")).trim(), style = MaterialTheme.typography.labelLarge, color = TS.Gold, letterSpacing = 3.sp)
             Text(p.name, style = MaterialTheme.typography.headlineMedium)
             p.brand?.let { b -> Row(Modifier.clip(RoundedCornerShape(50)).clickable { onOpenBrand(b.slug) }.background(TS.Neutral.copy(alpha = 0.6f)).padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Sold by ", style = MaterialTheme.typography.labelLarge, color = TS.Gray)
@@ -162,3 +190,20 @@ private fun Details(shop: ShopViewModel, p: Product, snack: SnackbarHostState, o
 
 @Composable
 private fun chipColors() = FilterChipDefaults.filterChipColors(selectedContainerColor = TS.Black, selectedLabelColor = TS.Ivory)
+
+/** Shares the whole product (name, price, sizes/colours, description and a link whose preview shows the photo) through any app. */
+private fun shareProduct(ctx: android.content.Context, p: Product) {
+    val base = com.talhastudio.app.BuildConfig.API_BASE_URL.trimEnd('/').removeSuffix("/v1")
+    val price = if (p.salePrice != null) "${pkr(p.salePrice)} (was ${pkr(p.price)})" else pkr(p.price)
+    val text = buildString {
+        append(p.name).append("\n").append("Price: ").append(price).append("\n")
+        p.fabric?.let { append("Fabric: ").append(it).append("\n") }
+        if (p.sizes.isNotEmpty()) append("Sizes: ").append(p.sizes.joinToString(", ")).append("\n")
+        if (p.colors.isNotEmpty()) append("Colours: ").append(p.colors.joinToString(", ")).append("\n")
+        if (p.description.isNotBlank()) append("\n").append(p.description.trim().let { if (it.length > 900) it.take(900).trimEnd() + "..." else it }).append("\n")
+        append("\nSee it on Talha Studio: ").append(base).append("/p/").append(p.id)
+    }
+    ctx.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = "text/plain"; putExtra(android.content.Intent.EXTRA_SUBJECT, p.name); putExtra(android.content.Intent.EXTRA_TEXT, text)
+    }, "Share this product"))
+}

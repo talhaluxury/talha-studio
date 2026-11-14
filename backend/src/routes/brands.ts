@@ -6,6 +6,7 @@ import { conflict, notFound } from "../errors.js";
 import type { makeAuth } from "../plugins/auth.js";
 import type { SellerAlerts } from "../sellerNotify.js";
 import type { Storage } from "../storage.js";
+import type { SettingsStore } from "../settingsStore.js";
 import type { Store } from "../store.js";
 import { toApiProduct } from "./catalog.js";
 import { toApiContent, toSellerProduct } from "./seller.js";
@@ -20,10 +21,10 @@ const toCard = (b: BrandRec, c: PageContent, s: Storage) => ({
 });
 
 /** Customers: the brands row and a brand's own page. Only the approved (live) version is ever shown, and only while the account is active. */
-export function brandRoutes(app: FastifyInstance, d: { brands: BrandStore; catalog: CatalogStore; storage: Storage }) {
+export function brandRoutes(app: FastifyInstance, d: { brands: BrandStore; catalog: CatalogStore; storage: Storage; settings?: SettingsStore }) {
   const { brands, catalog, storage } = d;
 
-  app.get("/brands", async () => ({ items: (await brands.listPublic()).map((b) => toCard(b, b.live!, storage)) }));
+  app.get("/brands", async () => (d.settings && !(await d.settings.load()).showBrands ? { items: [] } : { items: (await brands.listPublic()).map((b) => toCard(b, b.live!, storage)) }));   // owner switched the section off: the app shows no brands row
 
   app.get<{ Params: { slug: string } }>("/brands/:slug", async (req) => {
     const slug = z.string().regex(/^[a-z0-9-]{1,60}$/).safeParse(req.params.slug);
@@ -55,12 +56,19 @@ export function brandRoutes(app: FastifyInstance, d: { brands: BrandStore; catal
 
 /** Admin panel: review seller applications, brand pages and products. Reading is for staff, deciding is for admin/owner. */
 export function adminBrandRoutes(app: FastifyInstance, d: {
-  brands: BrandStore; catalog: CatalogStore; storage: Storage; store: Store; auth: ReturnType<typeof makeAuth>; alerts: SellerAlerts;
+  brands: BrandStore; catalog: CatalogStore; storage: Storage; store: Store; auth: ReturnType<typeof makeAuth>; alerts: SellerAlerts; settings?: SettingsStore;
 }) {
   const { brands, catalog, storage, store, auth, alerts } = d;
   const read = { preHandler: [auth.admin] };
   const write = { preHandler: [auth.admin, auth.requireRole("admin", "owner")] };
   const act = (req: any, action: string, id: string, meta?: unknown) => store.logActivity({ adminId: req.user.id, action, entity: "brand", entityId: id, meta, ip: req.ip });
+  // One-tap switch for the Brands section of the app home.
+  app.get("/admin/brands-section", read, async () => ({ show: d.settings ? (await d.settings.load()).showBrands : true }));
+  app.put("/admin/brands-section", write, async (req) => {
+    const b = z.object({ show: z.boolean() }).parse(req.body);
+    if (d.settings) { const s = await d.settings.load(); s.showBrands = b.show; await d.settings.save(s); }
+    await act(req, b.show ? "brands.section.on" : "brands.section.off", "section"); return { show: b.show };
+  });
   const purge = async (keys: string[], req: { log: { warn: (o: object, m: string) => void } }) => {
     for (const k of keys) await storage.delete(k).catch((err) => req.log.warn({ key: k, err: String(err) }, "storage delete failed"));
   };

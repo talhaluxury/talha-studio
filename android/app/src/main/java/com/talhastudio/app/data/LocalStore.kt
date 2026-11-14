@@ -14,6 +14,9 @@ class LocalStore(ctx: Context) {
     fun bonusSeen() = sp.getBoolean("bonus_seen", false)
     fun setBonusSeen() = sp.edit().putBoolean("bonus_seen", true).apply()
 
+    fun bonusCelebrated(uid: String) = sp.getBoolean("bonus_cel_$uid", false)
+    fun setBonusCelebrated(uid: String) = sp.edit().putBoolean("bonus_cel_$uid", true).apply()
+
     fun askedNotifications() = sp.getBoolean("asked_notif", false)
     fun setAskedNotifications() = sp.edit().putBoolean("asked_notif", true).apply()
     /** Last home feed, so the shop shows instantly on open while fresh data loads. */

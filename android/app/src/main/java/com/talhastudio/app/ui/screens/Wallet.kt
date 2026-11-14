@@ -4,6 +4,9 @@ import android.content.Intent
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -43,7 +46,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Shown once, after the welcome slides, to people who are not signed in: "sign up and get Rs. X".
- * It skips itself when the owner has switched both offers off. Google sign-in only (a new account gets the bonus on the server).
+ * It skips itself when the owner has switched both offers off. Google sign-in only. The bonus is added on the server.
  */
 @Composable
 fun BonusScreen(onDone: () -> Unit) {
@@ -51,9 +54,24 @@ fun BonusScreen(onDone: () -> Unit) {
     val o = (offers.state as? Load.Ready)?.data
     val canGoogle = BuildConfig.GOOGLE_WEB_CLIENT_ID.isNotBlank()
     LaunchedEffect(o) { if (o != null && ((o.signupBonus <= 0 && o.referralBonus <= 0) || !canGoogle)) onDone() }
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF1B1408), Color(0xFF0A0A0A), Color(0xFF0A0A0A))))) {
-        if (o == null || (o.signupBonus <= 0 && o.referralBonus <= 0)) { Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = TS.Gold) }; return@Box }
+    // Own colours on purpose: this screen is a bright, colourful moment, so every colour is set here and nothing depends on the app theme.
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF1D0B45), Color(0xFF4B1D8F), Color(0xFFB02A7E), Color(0xFFFF7A45))))) {
+        Sparkles()
+        if (o == null || (o.signupBonus <= 0 && o.referralBonus <= 0)) { Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = Color.White) }; return@Box }
         BonusContent(o, onDone)
+    }
+}
+
+/** Slowly drifting sparkles behind the content. */
+@Composable
+private fun Sparkles() {
+    val t by rememberInfiniteTransition(label = "sp").animateFloat(0f, 1f, infiniteRepeatable(tween(9000, easing = LinearEasing)), label = "t")
+    val dots = remember { List(26) { Triple((it * 37 % 100) / 100f, (it * 53 % 100) / 100f, 2f + (it % 4) * 1.6f) } }
+    androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+        dots.forEachIndexed { i, (x, y, r) ->
+            val yy = ((y - t * (0.15f + (i % 3) * 0.08f)) % 1f + 1f) % 1f
+            drawCircle(Color.White.copy(alpha = 0.18f + (i % 4) * 0.09f), r.dp.toPx(), androidx.compose.ui.geometry.Offset(x * size.width, yy * size.height))
+        }
     }
 }
 
@@ -62,27 +80,29 @@ private fun BonusContent(o: Offers, onDone: () -> Unit) {
     val ctx = LocalContext.current; val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }; var error by remember { mutableStateOf<String?>(null) }
     var code by remember { mutableStateOf("") }; var showCode by remember { mutableStateOf(false) }
-    val pulse by rememberInfiniteTransition(label = "coin").animateFloat(1f, 1.07f, infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "s")
+    val pulse by rememberInfiniteTransition(label = "coin").animateFloat(1f, 1.08f, infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "s")
     val amount = if (o.signupBonus > 0) o.signupBonus else o.referralBonus
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding().imePadding().padding(horizontal = 28.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Spacer(Modifier.height(20.dp))
+    val white = Color.White; val soft = Color(0xFFFFE9F3)
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding().imePadding().padding(horizontal = 24.dp, vertical = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Spacer(Modifier.height(8.dp))
         Box(contentAlignment = Alignment.Center) {
-            Box(Modifier.size(210.dp).scale(pulse).background(Brush.radialGradient(listOf(Color(0x55E0B65A), Color.Transparent)), CircleShape))
-            CoinIcon(132.dp, Modifier.scale(pulse))
+            Box(Modifier.size(230.dp).scale(pulse).background(Brush.radialGradient(listOf(Color(0x66FFD36B), Color.Transparent)), CircleShape))
+            CoinIcon(128.dp, Modifier.scale(pulse))
         }
-        Text(if (o.signupBonus > 0) "Your welcome gift is waiting" else "Join with a friend's code", style = MaterialTheme.typography.headlineMedium, fontFamily = DisplayFont, textAlign = TextAlign.Center)
-        Text("Rs. ${"%,d".format(amount)}", fontSize = 46.sp, fontWeight = FontWeight.Black, color = TS.Gold, fontFamily = DisplayFont)
-        Text(if (o.signupBonus > 0) "Sign up with Google and this amount lands in your wallet straight away. It is taken off your first order, so your favourite outfit costs less."
-             else "Sign up with a friend's referral code and the bonus lands in your wallet straight away.", color = TS.Gray, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyLarge)
-        if (o.referralBonus > 0) Surface(shape = RoundedCornerShape(16.dp), color = Color(0x1AB99A62), border = BorderStroke(1.dp, Color(0x55B99A62))) {
-            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(Icons.Outlined.CardGiftcard, null, tint = TS.Gold)
-                Text("Invite a friend: when they join, you both get Rs. ${"%,d".format(o.referralBonus)} more.", style = MaterialTheme.typography.bodyMedium)
-            }
+        Text(if (o.signupBonus > 0) "Sign up & get" else "Join with a friend's code & get", color = soft, fontSize = 20.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+        Text("Rs. ${"%,d".format(amount)}", color = white, fontSize = 56.sp, fontWeight = FontWeight.Black, fontFamily = DisplayFont, lineHeight = 60.sp)
+        Text(if (o.signupBonus > 0) "free in your wallet" else "free in your wallet", color = Color(0xFFFFD36B), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(if (o.signupBonus > 0) "Create your account with Google in one tap. The bonus is added instantly and comes off your first order." else "Create your account with Google in one tap. The bonus is added instantly.",
+            color = soft, textAlign = TextAlign.Center, fontSize = 15.sp, lineHeight = 22.sp)
+        Spacer(Modifier.height(2.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Perk("Instant", "in your wallet", Modifier.weight(1f))
+            Perk("1st order", "price drops", Modifier.weight(1f))
+            if (o.referralBonus > 0) Perk("Rs. ${"%,d".format(o.referralBonus)}", "per friend", Modifier.weight(1f))
         }
         Spacer(Modifier.height(4.dp))
-        TsIconButton(if (busy) "Please wait..." else "Continue with Google", icon = { GoogleLogo(22.dp) }, enabled = !busy, style = TsButtonStyle.Black, onClick = {
+        Button(onClick = {
             scope.launch {
                 busy = true; error = null
                 try {
@@ -92,13 +112,29 @@ private fun BonusContent(o: Offers, onDone: () -> Unit) {
                     onDone()
                 } catch (e: ApiException) { error = e.message } finally { busy = false }
             }
-        })
-        error?.let { Text(it, color = TS.Danger, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium) }
-        if (o.referralBonus > 0) {
-            if (!showCode) TextButton({ showCode = true }) { Text("Have a referral code?", color = TS.Gold) }
-            else OutlinedTextField(code, { code = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(12) }, Modifier.fillMaxWidth(), label = { Text("Referral code") }, singleLine = true)
+        }, enabled = !busy, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(28.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF1F1F1F), disabledContainerColor = Color(0xCCFFFFFF), disabledContentColor = Color(0xFF555555))) {
+            if (busy) CircularProgressIndicator(Modifier.size(22.dp), color = Color(0xFF4B1D8F), strokeWidth = 2.5.dp) else GoogleLogo(22.dp)
+            Spacer(Modifier.width(12.dp)); Text(if (busy) "Please wait..." else "Continue with Google", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         }
-        TextButton(onDone, enabled = !busy) { Text("Maybe later", color = TS.Gray) }
+        error?.let { Text(it, color = Color(0xFFFFE066), textAlign = TextAlign.Center, fontSize = 14.sp, fontWeight = FontWeight.Medium) }
+        if (o.referralBonus > 0) {
+            if (!showCode) TextButton({ showCode = true }) { Text("Have a referral code?", color = white, fontWeight = FontWeight.SemiBold, fontSize = 15.sp) }
+            else OutlinedTextField(code, { code = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(12) }, Modifier.fillMaxWidth(), singleLine = true,
+                label = { Text("Referral code") }, shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = white, unfocusedTextColor = white, focusedBorderColor = white, unfocusedBorderColor = Color(0x99FFFFFF),
+                    focusedLabelColor = white, unfocusedLabelColor = soft, cursorColor = white))
+        }
+        TextButton(onDone, enabled = !busy) { Text("Maybe later", color = soft, fontSize = 15.sp) }
+    }
+}
+
+@Composable
+private fun Perk(title: String, sub: String, modifier: Modifier = Modifier) {
+    Column(modifier.clip(RoundedCornerShape(18.dp)).background(Color(0x26FFFFFF)).border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(18.dp)).padding(vertical = 14.dp, horizontal = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp, textAlign = TextAlign.Center)
+        Text(sub, color = Color(0xFFFFE9F3), fontSize = 12.sp, textAlign = TextAlign.Center)
     }
 }
 
@@ -169,6 +205,87 @@ fun WalletScreen(onBack: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+}
+
+/** Home screen card. Signed in: coin + live balance that counts up. Guest: "sign up and get Rs. X" (only while the offer is on). */
+@Composable
+fun HomeWalletCard(onWallet: () -> Unit, onSignIn: () -> Unit, modifier: Modifier = Modifier) {
+    val uid = Session.user?.id
+    val wallet = rememberLoad("home-wallet-$uid") { if (uid == null) null else runCatching { Repo.wallet() }.getOrNull() }
+    val offers = rememberLoad("home-offers-$uid") { if (uid != null) null else runCatching { Repo.offers() }.getOrNull() }
+    val w = (wallet.state as? Load.Ready)?.data; val o = (offers.state as? Load.Ready)?.data
+    if (uid != null && w == null) return
+    if (uid == null && (o == null || o.signupBonus <= 0)) return
+    val balance by animateIntAsState(if (uid != null) w!!.balance else o!!.signupBonus, tween(1400, easing = FastOutSlowInEasing), label = "bal")
+    val t = rememberInfiniteTransition(label = "card")
+    val sweep by t.animateFloat(-0.4f, 1.4f, infiniteRepeatable(tween(3200, easing = LinearEasing)), label = "sweep")
+    val flip by t.animateFloat(0f, 360f, infiniteRepeatable(tween(5200, easing = FastOutSlowInEasing)), label = "flip")
+    Box(modifier.padding(horizontal = 20.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp)).clickable { if (uid != null) onWallet() else onSignIn() }
+        .background(Brush.linearGradient(listOf(Color(0xFF2A1260), Color(0xFF7A2A9E), Color(0xFFE0457B))))
+        .border(1.dp, Color(0x55FFFFFF), RoundedCornerShape(22.dp))) {
+        // light streak that glides across the card
+        Box(Modifier.matchParentSize().drawWithContent {
+            drawContent()
+            val x = size.width * sweep
+            drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color(0x33FFFFFF), Color.Transparent), startX = x - 120f, endX = x + 120f))
+        })
+        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            CoinIcon(54.dp, Modifier.graphicsLayer { rotationY = flip; cameraDistance = 14f * density })
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(if (uid != null) "My Wallet" else "Welcome gift", color = Color(0xFFFFE9F3), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text("Rs. ${"%,d".format(balance)}", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black, fontFamily = DisplayFont)
+                Text(if (uid != null) (if (w!!.balance > 0) "Comes off your next order" else "Invite friends & earn") else "Sign up with Google to claim", color = Color(0xFFFFD36B), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Icon(androidx.compose.material.icons.Icons.AutoMirrored.Outlined.ArrowBack, null, tint = Color.White, modifier = Modifier.graphicsLayer { rotationZ = 180f })
+        }
+    }
+}
+
+/** After login: if this account received its welcome / referral bonus and has not been told yet, celebrate once. */
+@Composable
+fun WelcomeBonusCelebration(onWallet: () -> Unit) {
+    val uid = Session.user?.id ?: return
+    val ctx = LocalContext.current
+    val local = remember { LocalStore(ctx.applicationContext) }
+    var amount by remember(uid) { mutableStateOf(0) }
+    LaunchedEffect(uid) {
+        if (local.bonusCelebrated(uid)) return@LaunchedEffect
+        val w = runCatching { Repo.wallet() }.getOrNull() ?: return@LaunchedEffect
+        val got = w.items.filter { it.kind == "signup" || it.kind == "referral_joined" }.sumOf { it.amount }
+        local.setBonusCelebrated(uid); if (got > 0) amount = got
+    }
+    if (amount > 0) androidx.compose.ui.window.Dialog(onDismissRequest = { amount = 0 }) { BonusCelebrationCard(amount, onClose = { amount = 0 }, onWallet = { amount = 0; onWallet() }) }
+}
+
+@Composable
+private fun BonusCelebrationCard(amount: Int, onClose: () -> Unit, onWallet: () -> Unit) {
+    val scale = remember { Animatable(0f) }; val shown = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { launch { scale.animateTo(1f, spring(0.45f, 120f)) }; launch { shown.animateTo(amount.toFloat(), tween(1500, 250, FastOutSlowInEasing)) } }
+    val fall by rememberInfiniteTransition(label = "conf").animateFloat(0f, 1f, infiniteRepeatable(tween(3800, easing = LinearEasing)), label = "f")
+    val palette = remember { listOf(Color(0xFFFFD36B), Color(0xFFFF7A45), Color(0xFFFFFFFF), Color(0xFF7DF9C2), Color(0xFFFF6FB5)) }
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brush.verticalGradient(listOf(Color(0xFF2A1260), Color(0xFF8A2A9E), Color(0xFFE0457B))))) {
+        androidx.compose.foundation.Canvas(Modifier.matchParentSize()) {
+            repeat(34) { i ->
+                val x = ((i * 47) % 100) / 100f * size.width; val y = (((i * 29) % 100) / 100f + fall * (0.6f + (i % 4) * 0.25f)) % 1f * size.height
+                drawCircle(palette[i % palette.size].copy(alpha = 0.9f), (3 + i % 3).dp.toPx(), androidx.compose.ui.geometry.Offset(x, y))
+            }
+        }
+        Column(Modifier.padding(26.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(contentAlignment = Alignment.Center) {
+                Box(Modifier.size(170.dp).scale(scale.value).background(Brush.radialGradient(listOf(Color(0x77FFD36B), Color.Transparent)), CircleShape))
+                CoinIcon(104.dp, Modifier.scale(scale.value).graphicsLayer { rotationY = (1f - scale.value) * 540f; cameraDistance = 14f * density })
+            }
+            Text("Congratulations!", color = Color(0xFFFFE9F3), fontSize = 18.sp, fontWeight = FontWeight.Medium)
+            Text("Rs. ${"%,d".format(shown.value.toInt())}", color = Color.White, fontSize = 48.sp, fontWeight = FontWeight.Black, fontFamily = DisplayFont)
+            Text("added to your wallet", color = Color(0xFFFFD36B), fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            Text("It comes off your first order automatically. Invite friends and earn even more.", color = Color(0xFFFFE9F3), textAlign = TextAlign.Center, fontSize = 14.sp, lineHeight = 20.sp)
+            Spacer(Modifier.height(6.dp))
+            Button(onClick = onClose, Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(26.dp), colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF2A1260))) {
+                Text("Start shopping", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+            TextButton(onWallet) { Text("View my wallet", color = Color.White, fontWeight = FontWeight.SemiBold) }
         }
     }
 }

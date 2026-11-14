@@ -15,6 +15,7 @@ export interface StoreSettings {
   pages: Record<PageSlug, string>;                          // policy / about page bodies
   paymentAccounts: { jazzcash: string; easypaisa: string; bank: string };   // where customers send money; a method is offered only when its text is not empty
   wallet: { signupBonus: { active: boolean; amount: number }; referral: { active: boolean; amount: number } };   // welcome bonus + referral offers (owner can switch them off)
+  showBrands: boolean;                                         // the Brands row on the app home (and the all-brands list); false = hidden
   homeLayouts: Record<string, "slider" | "grid">;          // per home section (slug): side-scrolling slider (default) or a grid that scrolls down with the page
   aiReplies: boolean;                                       // owner switch: AI answers customers on WhatsApp and in the app
 }
@@ -30,6 +31,7 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   pages: DEFAULT_PAGES,
   aiReplies: true,
   homeLayouts: {},
+  showBrands: true,
   wallet: { signupBonus: { active: true, amount: 500 }, referral: { active: true, amount: 200 } },
   paymentAccounts: { jazzcash: "", easypaisa: "", bank: "" },
   templates: {
@@ -50,6 +52,7 @@ const merge = (v: Partial<StoreSettings> | null, ship: StoreSettings["shipping"]
   spin: { ...DEFAULT_SETTINGS.spin, ...(v?.spin ?? {}) },
   pages: { ...DEFAULT_SETTINGS.pages, ...(v?.pages ?? {}) },
   homeLayouts: { ...(v?.homeLayouts ?? {}) },
+  showBrands: v?.showBrands !== false,
   wallet: { signupBonus: { ...DEFAULT_SETTINGS.wallet.signupBonus, ...(v?.wallet?.signupBonus ?? {}) }, referral: { ...DEFAULT_SETTINGS.wallet.referral, ...(v?.wallet?.referral ?? {}) } },
   store: { ...DEFAULT_SETTINGS.store, ...(v?.store ?? {}) },
   paymentAccounts: { ...DEFAULT_SETTINGS.paymentAccounts, ...(v?.paymentAccounts ?? {}) },

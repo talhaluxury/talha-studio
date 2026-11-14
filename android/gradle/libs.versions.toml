@@ -26,6 +26,7 @@ androidx-compose-material-icons = { module = "androidx.compose.material:material
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navCompose" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+androidx-security-crypto = { module = "androidx.security:security-crypto", version = "1.1.0-alpha06" }
 androidx-credentials = { module = "androidx.credentials:credentials", version.ref = "credentials" }
 androidx-credentials-play = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentials" }
 googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleid" }

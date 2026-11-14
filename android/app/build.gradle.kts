@@ -94,6 +94,7 @@ dependencies {
     implementation(libs.androidx.work)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.androidx.security.crypto)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play)
     implementation(libs.googleid)

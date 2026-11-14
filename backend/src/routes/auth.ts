@@ -84,7 +84,7 @@ export function authRoutes(app: FastifyInstance, d: { store: Store; secret: stri
     try { g = await google.verify(idToken); } catch { throw unauthorized("Google sign-in failed"); }
     if (!g.emailVerified) throw unauthorized("Google email is not verified");
     const mail = g.email.toLowerCase();
-    let user = await store.findUserByGoogleSub(g.sub);
+    let user = await store.findUserByGoogleSub(g.sub); let isNew = false;
     if (!user) {
       const existing = await store.findUserByEmail(mail);
       if (existing) {
@@ -92,9 +92,10 @@ export function authRoutes(app: FastifyInstance, d: { store: Store; secret: stri
         user = await store.updateUser(existing.id, { googleSub: g.sub });
       } else {
         user = await store.createUser({ email: mail, passwordHash: null, googleSub: g.sub, fullName: g.name || mail.split("@")[0]!, phone: null, role: "customer" });
-        if (wallet && settings) await grantWelcome(wallet, settings, user.id, referralCode);   // brand-new account: welcome bonus (+ referral if a friend's code was entered)
+        isNew = true;
       }
     }
+    if (wallet && settings && user.role === "customer") await grantWelcome(wallet, settings, user.id, referralCode, isNew);   // welcome bonus (+ referral for brand-new accounts); credited once only
     if (!user.isActive || user.deletedAt) throw unauthorized("Account unavailable");
     return issueCustomerTokens(user);
   });

@@ -206,7 +206,7 @@ fun TalhaNavHost(startOnMain: Boolean = false) {
     // An item was added to the cart: its picture flies into the cart tab, the icon bounces, then the cart opens.
     FlyToCartOverlay(shop.flyEvent, cartTabIndex = 3, tabCount = shellTabs.size) { shop.flyEvent = null; shop.cartPulse++; goTab(3) }
     // The floating AI assistant sits above every normal screen (not on splash, welcome, sign-in, chat or checkout) and can be dragged anywhere.
-    AssistantOverlay(visible = route != null && route !in setOf(Routes.Splash, Routes.Onboarding, Routes.Auth, Routes.PhoneAuth, Routes.PhoneSignIn, Routes.Chat, Routes.Checkout)) { a ->
+    AssistantOverlay(visible = route != null && route !in setOf(Routes.Splash, Routes.Onboarding, Routes.Bonus, Routes.Auth, Routes.PhoneAuth, Routes.PhoneSignIn, Routes.Chat, Routes.Checkout)) { a ->
         when (a.type) {
             "product" -> a.id?.let { nav.navigate(Routes.product(it)) }
             "cart" -> { shop.requestedTab = 3; nav.popBackStack(Routes.Main, false) }

@@ -134,7 +134,16 @@ object Session {
 
     fun init(ctx: android.content.Context) {
         if (sp != null) return
-        sp = ctx.getSharedPreferences("talha_session", android.content.Context.MODE_PRIVATE)
+        // Login tokens are encrypted with a key kept in the phone's hardware-backed keystore. (If the keystore is broken on some phone the app still works with the private file.)
+        val plain = ctx.getSharedPreferences("talha_session", android.content.Context.MODE_PRIVATE)
+        sp = runCatching {
+            val key = androidx.security.crypto.MasterKey.Builder(ctx).setKeyScheme(androidx.security.crypto.MasterKey.KeyScheme.AES256_GCM).build()
+            androidx.security.crypto.EncryptedSharedPreferences.create(ctx, "talha_session_enc", key,
+                androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
+        }.getOrNull()?.also { enc ->
+            if (plain.contains("r") && !enc.contains("r")) { enc.edit().apply { plain.all.forEach { (k, v) -> if (v is String) putString(k, v) } }.apply() }   // move an existing login over, then wipe the readable copy
+            plain.edit().clear().apply()
+        } ?: plain
         access = sp!!.getString("a", null); refresh = sp!!.getString("r", null)
         user = sp!!.getString("u", null)?.let { runCatching { parseUser(JSONObject(it)) }.getOrNull() }
         if (refresh == null) user = null
